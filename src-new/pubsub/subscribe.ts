@@ -1,14 +1,15 @@
 import { createEnvelope, isEnvelope } from '../envelope';
-import { loggerProvider } from '../providers';
 import {
     AnyEnvelope,
     DataEvent,
     EnvelopeSubscribeSource,
+    PostMessageLike,
     Subscribe,
-    SubscribeCallback
+    SubscribeCallback,
 } from '../types';
 import { isEventListenerLike, isPostMessageLike } from '../utils/detect';
 import { ACK_TYPE } from './defs';
+import { loggerProvider } from '../providers';
 
 export function subscribe<T extends AnyEnvelope, E extends void | DataEvent>(
     source: EnvelopeSubscribeSource<T, E>,
@@ -39,12 +40,10 @@ export function createSubscribe<T extends AnyEnvelope, E extends void | DataEven
 }
 
 function createPostMessageWrapper<T extends AnyEnvelope, E extends DataEvent>(
-    source: unknown,
+    source: unknown | PostMessageLike<T>,
     callback: SubscribeCallback<T, E>,
 ) {
     return (event: E) => {
-        console.log(`>> Received event:`, event);
-
         const envelope = event.data as T;
 
         if (!isEnvelope(envelope)) return;

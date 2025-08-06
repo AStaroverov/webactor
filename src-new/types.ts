@@ -77,7 +77,7 @@ export type EventListenerLike<E extends void | DataEvent> = {
     removeEventListener: (type: string, callback: (event: E) => unknown) => void;
 };
 
-export type MessagePortLike<T extends Message = Message, E extends DataEvent = DataEvent> = PostMessageLike<T> & EventListenerLike<E>;
+export type MessagePortLike<T extends Message, E extends DataEvent> = PostMessageLike<T> & EventListenerLike<E>;
 
 export type EnvelopeDispatchTarget<T extends Message> =
     | Pick<Mailbox<T>, 'dispatch'>
