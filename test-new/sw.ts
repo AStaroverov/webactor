@@ -1,0 +1,8 @@
+import { initSupervisor } from '../src-new/serviceWorker/init';
+
+initSupervisor();
+
+const id = Math.random().toString(36).substring(2, 15);
+setInterval(() => {
+    console.log('Service Worker is running', id);
+}, 5000);
