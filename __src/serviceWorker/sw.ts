@@ -12,9 +12,9 @@ export const serviceWorker$: Observable<null | ServiceWorker> = timer(0, 100).pi
     switchMap((sw): Observable<null | ServiceWorker> => {
         return sw
             ? fromPromise(theadLock).pipe(
-                  mergeMap(() => dispatch(sw as MessagePortLike<Message, MessageEvent>, createRegEnvelope())),
-                  map(() => sw),
-              )
+                mergeMap(() => dispatch(sw as MessagePortLike<Message, MessageEvent>, createRegEnvelope())),
+                map(() => sw),
+            )
             : of(null);
     }),
     shareReplay(1),

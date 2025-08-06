@@ -1,6 +1,9 @@
-import { createActor } from '../src-new/createActor';
-import { createEnvelope } from '../src-new/envelope';
+import { createActor } from '../__src/createActor';
+import { createEnvelope } from '../__src/envelope';
+import { setConsolePrefix } from './console';
 import { firstEnvelopeType } from './env';
+
+setConsolePrefix('[Tab]')
 
 const registerServiceWorker = async () => {
     if ('serviceWorker' in navigator) {
@@ -29,14 +32,19 @@ const registerServiceWorker = async () => {
 
 registerServiceWorker();
 
+
 const act1 = createActor('example1', (context) => {
     context.subscribe(firstEnvelopeType).subscribe((envelope) => {
+        debugger
         console.log(`Received envelope of type ${envelope.type} with payload:`, envelope.payload);
     });
 }).launch();
 
 const act2 = createActor('example2', (context) => {
-    setTimeout(() => {
+    setInterval(() => {
         context.dispatch(createEnvelope(firstEnvelopeType, { data: 'Hello from act2' })).subscribe();
     }, 1000);
 }).launch();
+
+
+

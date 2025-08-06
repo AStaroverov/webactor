@@ -1,3 +1,5 @@
+import { first, map, mergeMap, Observable, of, throwError, timeout } from 'rxjs';
+import { isEnvelope } from '../envelope';
 import {
     AnyEnvelope,
     DataEvent,
@@ -7,12 +9,10 @@ import {
     MessagePortLike,
     Nil,
 } from '../types';
-import { Err, ErrCode } from '../utils/Error';
-import { subscribe } from './subscribe';
-import { ACK_TYPE } from './defs';
-import { first, map, mergeMap, Observable, of, throwError, timeout } from 'rxjs';
-import { isEnvelope } from '../envelope';
 import { isMessagePortLike } from '../utils/detect';
+import { Err, ErrCode } from '../utils/Error';
+import { ACK_TYPE } from './defs';
+import { subscribe } from './subscribe';
 
 const dispatchOptionsDefault: DispatchOptions = {
     ackTimeout: 10_000,
@@ -54,10 +54,12 @@ function createPortDispatch<T extends MessagePortLike<Message, DataEvent>>(port:
 
         return new Observable((subscriber) => {
             const unsub = subscribe(port, (message) => {
+                console.log(`>>[dispatchWithAck] Res`, message);
                 if (isEnvelope(message) && message.type === ACK_TYPE && message.uniqueId === envelope.uniqueId) {
                     subscriber.next(undefined);
                 }
             });
+            console.log(`>>[dispatchWithAck] Send`, envelope);
             port.postMessage(envelope, envelope.transferable);
 
             return unsub;

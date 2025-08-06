@@ -24,7 +24,6 @@ export function createActor<In extends Envelope<any, any>, Out extends Envelope<
     const actorDispatch: Dispatch$<Out> = (envelope: Out) => {
         return of(true).pipe(
             mergeMap(() => {
-                console.log('>>', envelope);
                 return dispatch(serviceWorker$, envelope);
             }),
         ).pipe(actorDispatchTimeout);

@@ -1,7 +1,7 @@
 import { Observable } from 'rxjs';
 import { subscribe } from '../pubsub/subscribe';
-import { AnyEnvelope, DataEvent, MessagePortLike } from '../types';
-import { ensureMessagePortLike, ensureServiceWorkerGlobalScope } from './ensure';
+import { AnyEnvelope, DataEvent, EnvelopeSubscribeSource, MessagePortLike } from '../types';
+import { ensureEventListenerLike, ensureMessagePortLike, ensureServiceWorkerGlobalScope } from './ensure';
 
 type WithEvent<T extends AnyEnvelope, E> = T & { event: E };
 
@@ -15,20 +15,18 @@ export function fromServiceWorkerGlobalScope<T extends AnyEnvelope>(): Observabl
 > {
     const context = globalThis as unknown;
     ensureServiceWorkerGlobalScope(context);
-    ensureMessagePortLike(context.serviceWorker);
-    return fromMessagePortLike<T, ExtendableMessageEvent>(
-        context.serviceWorker as MessagePortLike<T, ExtendableMessageEvent>,
-    );
+    ensureEventListenerLike(context);
+    return fromMessagePortLike<T, ExtendableMessageEvent>(context);
 }
 
-export function fromMessagePortLike<T extends AnyEnvelope, E extends DataEvent, R = T & { event: E }>(
-    port: MessagePortLike<T, E>,
-): Observable<R> {
+export function fromMessagePortLike<T extends AnyEnvelope, E extends DataEvent>(
+    port: EnvelopeSubscribeSource<T, E>,
+): Observable<WithEvent<T, E>> {
     return new Observable((subscriber) => {
-        return subscribe(port, (envelope, event) => {
-            // @ts-ignore
-            envelope.event = event.source;
-            subscriber.next(envelope as R);
+        return subscribe(port, (_envelope, event) => {
+            const envelope = _envelope as WithEvent<T, E>;
+            envelope.event = event;
+            subscriber.next(envelope);
         });
     });
 }

@@ -1,4 +1,7 @@
-import { initSupervisor } from '../src-new/serviceWorker/init';
+import { initSupervisor } from '../__src/serviceWorker/init';
+import { setConsolePrefix } from './console';
+
+setConsolePrefix('[SW]')
 
 initSupervisor();
 
