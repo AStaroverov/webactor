@@ -1,21 +1,11 @@
-import { EnvelopeTransmitter, EnvelopeTransmitterWithMapper } from '../types';
+import { EnvelopeTransmitter } from '../types';
 import { getPortName } from './MessagePort';
 
 export const identity = <T = any>(v: T) => v;
-export const noop = (): any => {};
+export const noop = (): any => { };
 
 export function createShortRandomString() {
     return Math.round(Math.random() * Date.now()).toString(32);
-}
-
-export function getEnvelopeTransmitter<T>(transmitter: T | EnvelopeTransmitterWithMapper<T>): T {
-    return typeof transmitter === 'object' && 'transmitter' in transmitter!
-        ? transmitter.transmitter
-        : (transmitter as T);
-}
-
-export function getTransmitterMapper<T>(transmitter: T | EnvelopeTransmitterWithMapper<T>) {
-    return (typeof transmitter === 'object' && 'transmitter' in transmitter! ? transmitter.map : undefined) ?? identity;
 }
 
 export function getTransmitterName<T extends EnvelopeTransmitter>(source: T) {

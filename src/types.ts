@@ -78,8 +78,3 @@ export type ExtractEnvelope<T> = T extends EnvelopeDispatchTarget<infer E>
     : T extends EnvelopeSubscribeSource<infer E>
     ? E
     : never;
-
-export type EnvelopeTransmitterWithMapper<T> = {
-    transmitter: T;
-    map?: (envelope: AnyEnvelope) => undefined | AnyEnvelope;
-};
