@@ -3,7 +3,7 @@ import { subscribe } from '../pubsub/subscribe';
 import { AnyEnvelope, DataEvent, MessagePortLike } from '../types';
 import { ensureMessagePortLike, ensureServiceWorkerGlobalScope } from './ensure';
 
-type WithEvent<T extends AnyEnvelope, E> = T & { event: E };
+export type WithEvent<T extends AnyEnvelope, E> = T & { event: E };
 
 export function fromServiceWorker<T extends AnyEnvelope>(sw: ServiceWorker): Observable<WithEvent<T, MessageEvent>> {
     ensureMessagePortLike(sw);

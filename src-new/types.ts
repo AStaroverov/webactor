@@ -12,10 +12,10 @@ export type Mailbox<T> = {
     subscribe: (callback: SubscribeCallback<T, void>) => VoidFunction;
 };
 
-export type Envelope<T extends string, P> = {
+export type Envelope<T extends string, P, Tr extends undefined | Transferable[] = undefined> = {
     type: T;
     payload: P;
-    transferable?: Transferable[];
+    transferable?: Tr;
     uniqueId: string;
     threadId: ThreadId;
 };
@@ -77,7 +77,8 @@ export type EventListenerLike<E extends void | DataEvent> = {
     removeEventListener: (type: string, callback: (event: E) => unknown) => void;
 };
 
-export type MessagePortLike<T extends Message, E extends DataEvent> = PostMessageLike<T> & EventListenerLike<E>;
+export type MessagePortLike<T extends Message = Message, E extends DataEvent = DataEvent>
+    = PostMessageLike<T> & EventListenerLike<E>;
 
 export type EnvelopeDispatchTarget<T extends Message> =
     | Pick<Mailbox<T>, 'dispatch'>

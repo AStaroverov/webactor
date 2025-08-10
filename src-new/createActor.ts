@@ -1,6 +1,6 @@
 import { EMPTY, filter, merge, mergeMap, of, switchMap, tap, throwError, timeout } from 'rxjs';
 import { dispatch } from './pubsub/dispatch';
-import { serviceWorker$ } from './serviceWorker/sw';
+import { serviceWorker$ } from './serviceWorker/supervisor$';
 import { isRegisteredInOtherThreadId$, isRegisteredInThreadId$ } from './subscriptionRegistry/registry';
 import { Actor, ActorContext, AnyEnvelope, Dispatch$, Envelope, Subscribe$ } from './types';
 import { Err, ErrCode } from './utils/Error';

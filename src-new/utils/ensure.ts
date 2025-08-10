@@ -1,6 +1,7 @@
+import { MessagePortLike } from '../types';
 import { isMessagePortLike, isServiceWorkerGlobalScope } from './detect';
 
-export function ensureMessagePortLike(port: unknown): asserts port is MessagePort {
+export function ensureMessagePortLike(port: unknown): asserts port is MessagePortLike {
     if (!isMessagePortLike(port)) {
         throw new Error('Is not message port like');
     }

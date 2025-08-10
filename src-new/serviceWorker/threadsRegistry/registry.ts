@@ -1,24 +1,23 @@
-import { ThreadId } from '../../types';
 import { first, map, Observable, of, Subject } from 'rxjs';
-import { ClientId } from '../defs';
+import { ThreadId } from '../../types';
 import { subscribeOnUnlock } from '../../utils/Locks';
 
-export const mapThreadIdToClientId = new Map<ThreadId, ClientId>();
-export const regThreadId$ = new Subject<{ threadId: ThreadId; clientId: ClientId }>();
+export const mapThreadIdToClientId = new Map<ThreadId, MessagePort>();
+export const regThreadId$ = new Subject<{ threadId: ThreadId; port: MessagePort }>();
 
-regThreadId$.subscribe(({ threadId, clientId }) => {
-    mapThreadIdToClientId.set(threadId, clientId);
+regThreadId$.subscribe(({ threadId, port }) => {
+    mapThreadIdToClientId.set(threadId, port);
     subscribeOnUnlock(threadId, () => {
         mapThreadIdToClientId.delete(threadId);
     });
 });
 
-export const regThreadId = (threadId: ThreadId, clientId: ClientId) => regThreadId$.next({ threadId, clientId });
+export const regThreadId = (threadId: ThreadId, port: MessagePort) => regThreadId$.next({ threadId, port });
 
-export const getClientId$ = (threadId: ThreadId): Observable<ClientId> =>
+export const getClientId$ = (threadId: ThreadId): Observable<MessagePort> =>
     mapThreadIdToClientId.has(threadId)
         ? of(mapThreadIdToClientId.get(threadId)!)
         : regThreadId$.pipe(
-              first((props) => threadId === props.threadId),
-              map((v) => v.clientId),
-          );
+            first((props) => threadId === props.threadId),
+            map((v) => v.port),
+        );
