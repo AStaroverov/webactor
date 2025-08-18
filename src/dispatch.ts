@@ -1,10 +1,11 @@
-import type { EnvelopeDispatchTarget, ExtractEnvelope } from './types';
-import { AnyEnvelope } from './types';
-import { loggerProvider } from './providers';
-import { onPortResolve } from './utils/MessagePort';
 import { isSystemEnvelope } from './isSystemEnvelope';
+import { loggerProvider } from './providers';
+import type { EnvelopeTarget, ExtractEnvelope } from './types';
+import { AnyEnvelope } from './types';
+import { onPortResolve } from './utils/MessagePort';
+import { isPostMessageLike } from './worker/detect';
 
-function createPortDispatch(port: MessagePort) {
+function createPortDispatch<T extends MessagePort>(port: T) {
     return function dispatchWithQueue(envelope: AnyEnvelope) {
         onPortResolve(port, (state) => {
             if (!state) return;
@@ -17,19 +18,19 @@ function createPortDispatch(port: MessagePort) {
     };
 }
 
-export function createDispatch<T extends EnvelopeDispatchTarget>(target: T) {
-    if (typeof target === 'object' && 'postMessage' in target) {
+export function createDispatch<T extends EnvelopeTarget>(target: T) {
+    if (target instanceof MessagePort) {
         return createPortDispatch(target);
     }
 
-    if (typeof target === 'object' && 'dispatch' in target) {
-        return target.dispatch.bind(target);
+    if (isPostMessageLike(target)) {
+        return target.postMessage.bind(target);
     }
 
     throw new Error('Invalid dispatch target');
 }
 
-export function createDeferredDispatch<T extends EnvelopeDispatchTarget>(target: T, promise: Promise<unknown>) {
+export function createDeferredDispatch<T extends EnvelopeTarget>(target: T, promise: Promise<unknown>) {
     const dispatch = createDispatch(target);
     return function dispatchWithQueue(envelope: AnyEnvelope) {
         if (isSystemEnvelope(envelope)) {
@@ -40,6 +41,6 @@ export function createDeferredDispatch<T extends EnvelopeDispatchTarget>(target:
     };
 }
 
-export function dispatch<T extends EnvelopeDispatchTarget, E extends ExtractEnvelope<T>>(target: T, envelope: E) {
+export function dispatch<T extends EnvelopeTarget, E extends ExtractEnvelope<T>>(target: T, envelope: E) {
     createDispatch(target)(envelope);
 }

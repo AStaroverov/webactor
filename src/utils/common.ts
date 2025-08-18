@@ -8,9 +8,9 @@ export function createShortRandomString() {
     return Math.round(Math.random() * Date.now()).toString(32);
 }
 
-export function getTransmitterName<T extends EnvelopeTransmitter>(source: T) {
-    if ('name' in source) return source.name;
-    if (typeof source === 'object' && 'postMessage' in source) return getPortName(source);
+export function getTransmitterName<T extends EnvelopeTransmitter>(source: T): string {
+    if ('name' in source && typeof source.name === 'string') return source.name;
+    if (source instanceof MessagePort) return getPortName(source);
 
     throw new Error('Can`t detect transmitter name');
 }

@@ -1,19 +1,22 @@
-import { createDispatch } from './dispatch';
 import { shallowCopyEnvelope } from './envelope';
-import { loggerProvider } from './providers';
 import { extendRoute, reduceRoute, routeEndsWith } from './route';
-import { subscribe } from './subscribe';
-import type { AnyEnvelope, Envelope, EnvelopeTransmitter } from './types';
+import type { AnyEnvelope, EnvelopeTransmitter } from './types';
 import { getTransmitterName } from './utils/common';
+
+const NAME = 'TransmitterRetranslatorError';
+class TransmitterRetranslatorError extends Error {
+    constructor(message: string, options?: ErrorOptions) {
+        super(message, options);
+        this.name = NAME;
+    }
+}
 
 export function connectEnvelopeTransmitter<T1 extends EnvelopeTransmitter, T2 extends EnvelopeTransmitter>(
     transmitter1: T1,
     transmitter2: T2,
 ): Function {
-    const name1 = getTransmitterName(transmitter1);
-    const name2 = getTransmitterName(transmitter2);
-    const unsub1 = subscribe(transmitter1, createRedispatch(name1, name2, transmitter2), true);
-    const unsub2 = subscribe(transmitter2, createRedispatch(name2, name1, transmitter1), true);
+    const unsub1 = resubscribe(transmitter1, transmitter2);
+    const unsub2 = resubscribe(transmitter2, transmitter1);
 
     return () => {
         unsub1();
@@ -21,13 +24,41 @@ export function connectEnvelopeTransmitter<T1 extends EnvelopeTransmitter, T2 ex
     };
 }
 
-function createRedispatch(
+function resubscribe(
+    source: EnvelopeTransmitter,
+    target: EnvelopeTransmitter,
+) {
+    const sourceName = getTransmitterName(source);
+    const targetName = getTransmitterName(target);
+    const onMessage = createReposter(sourceName, targetName, target);
+    const onError = (event: MessageEvent<Error>) => {
+        const proxyEvent = event.data.name === NAME
+            ? event
+            : new MessageEvent('messageerror', { data: new TransmitterRetranslatorError(
+                `Retranslated error from ${sourceName} to ${targetName}`,
+                { cause: event.data },
+            )});
+
+        target.dispatchEvent(proxyEvent);
+    }
+    
+    source.start?.();
+    source.addEventListener('message', onMessage);
+    source.addEventListener('messageerror', onError);
+
+    return () => {
+        source.removeEventListener('message', onMessage);
+        source.removeEventListener('messageerror', onError);
+    };
+}
+
+function createReposter(
     sourceName: string,
     targetName: string,
     target: EnvelopeTransmitter,
 ) {
-    const dispatch = createDispatch(target);
-    return function redispatch(envelope: Envelope<any, any>) {
+    return function repost(event: MessageEvent<AnyEnvelope>) {
+        const envelope = event.data;
         if (envelope === undefined) return;
 
         const isCorrectRoute = hasCorrectRoute(envelope, targetName);
@@ -40,9 +71,12 @@ function createRedispatch(
         copy.routeAnnounced = reduceAnnouncedPart(copy, targetName);
 
         try {
-            dispatch(copy);
+            target.postMessage(copy);
         } catch (err) {
-            loggerProvider.error(err);
+            target.dispatchEvent(new MessageEvent('messageerror', { data: new TransmitterRetranslatorError(
+                `Error while retranslating envelope from ${sourceName} to ${targetName}`,
+                { cause: err },
+            )}));
         }
     };
 }

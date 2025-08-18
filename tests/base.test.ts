@@ -1,5 +1,5 @@
-import './locks';
 import { describe, expect, it, jest } from '@jest/globals';
+import { createMailbox } from '../examples/common/actors/createActor';
 import {
     AnyEnvelope,
     connectActorToActor,
@@ -8,7 +8,7 @@ import {
     Envelope,
     UnknownEnvelope,
 } from '../src';
-import { createMailbox } from '../examples/common/actors/createActor';
+import './locks';
 
 export const NUMBER_TYPE = 'NUMBER_TYPE' as const;
 export type TNumberEnvelope = Envelope<typeof NUMBER_TYPE, number>;
@@ -35,20 +35,20 @@ describe(`Base`, () => {
         const firstEnv = createEnvelope(NUMBER_TYPE, 1);
         const secondEnv = createEnvelope(NUMBER_TYPE, 2);
         const receivedMessages: Array<AnyEnvelope> = [];
-        const ac1 = createActor<UnknownEnvelope, TNumberEnvelope>(`A1`, ({ dispatch, subscribe }) => {
-            dispatch(firstEnv);
+        const ac1 = createActor<UnknownEnvelope, TNumberEnvelope>(`A1`, ({ postMessage, addEventListener }) => {
+            postMessage(firstEnv);
         });
 
-        const ac2 = createActor<TNumberEnvelope, TNumberEnvelope>(`A2`, ({ dispatch, subscribe }) => {
-            dispatch(secondEnv);
-            subscribe((envelope) => {
-                envelope.type === NUMBER_TYPE && receivedMessages.push(envelope);
+        const ac2 = createActor<TNumberEnvelope, TNumberEnvelope>(`A2`, ({ postMessage, addEventListener }) => {
+            postMessage(secondEnv);
+            addEventListener('message', (event) => {
+                receivedMessages.push(event.data);
             });
         });
 
-        const ac3 = createActor<TNumberEnvelope, UnknownEnvelope>(`A3`, ({ dispatch, subscribe }) => {
-            subscribe((envelope) => {
-                envelope.type === NUMBER_TYPE && receivedMessages.push(envelope);
+        const ac3 = createActor<TNumberEnvelope, UnknownEnvelope>(`A3`, ({ postMessage, addEventListener }) => {
+            addEventListener('message', (event) => {
+                event.data.type === NUMBER_TYPE && receivedMessages.push(event.data);
             });
         });
 
@@ -66,15 +66,15 @@ describe(`Base`, () => {
     it(`correct disconnect actors`, () => {
         const firstEnv = createEnvelope(NUMBER_TYPE, 1);
         const receivedMessages: Array<AnyEnvelope> = [];
-        const ac1 = createActor<TStartEnvelope, TNumberEnvelope>(`A1`, ({ dispatch, subscribe }) => {
-            subscribe((envelope) => {
-                envelope.type === TRIGGER_TYPE && dispatch(firstEnv);
+        const ac1 = createActor<TStartEnvelope, TNumberEnvelope>(`A1`, ({ postMessage, addEventListener }) => {
+            addEventListener('message', (event) => {
+                event.data.type === TRIGGER_TYPE && postMessage(firstEnv);
             });
         });
 
-        const ac2 = createActor<UnknownEnvelope, TNumberEnvelope>(`A2`, ({ dispatch, subscribe }) => {
-            subscribe((envelope) => {
-                envelope.type === NUMBER_TYPE && receivedMessages.push(envelope);
+        const ac2 = createActor<UnknownEnvelope, TNumberEnvelope>(`A2`, ({ postMessage, addEventListener }) => {
+            addEventListener('message', (event) => {
+                event.data.type === NUMBER_TYPE && receivedMessages.push(event.data);
             });
         });
 
@@ -82,11 +82,11 @@ describe(`Base`, () => {
 
         ac1.launch();
         ac2.launch();
-        ac1.dispatch(createEnvelope(TRIGGER_TYPE, undefined));
+        ac1.postMessage(createEnvelope(TRIGGER_TYPE, undefined));
 
         disconnect();
 
-        ac1.dispatch(createEnvelope(TRIGGER_TYPE, undefined));
+        ac1.postMessage(createEnvelope(TRIGGER_TYPE, undefined));
 
         expect(receivedMessages.length).toEqual(1);
     });

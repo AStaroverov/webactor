@@ -1,5 +1,5 @@
-import './locks';
 import { describe, expect, it, jest } from '@jest/globals';
+import { createMailbox } from '../examples/common/actors/createActor';
 import {
     connectActorToMessagePort,
     connectActorToWorker,
@@ -9,10 +9,15 @@ import {
     onConnectMessagePort,
     subscribe,
 } from '../src';
-import { createMailbox } from '../examples/common/actors/createActor';
-import { WorkerGlobalScopeMock, WorkerMock } from './mocks';
-import { CONNECT_THREAD_TYPE, DISCONNECT_THREAD_TYPE } from '../src/worker/defs';
 import { sleep } from '../src/utils';
+import { CONNECT_THREAD_TYPE, DISCONNECT_THREAD_TYPE } from '../src/worker/defs';
+import './locks';
+import { WorkerGlobalScopeMock, WorkerMock } from './mocks';
+
+declare global {
+    interface DedicatedWorkerGlobalScope extends WorkerGlobalScope { }
+    interface SharedWorkerGlobalScope extends WorkerGlobalScope { }
+}
 
 describe(`Worker`, () => {
     const createActor = createActorFactory({ getMailbox: createMailbox });
@@ -20,7 +25,7 @@ describe(`Worker`, () => {
     it(`connectActorToMessagePort`, async () => {
         const channel = new MessageChannel();
         const actor = createActor('Actor', (context) => {
-            context.dispatch(createEnvelope(`test`, `test`));
+            context.postMessage(createEnvelope(`test`, `test`));
         });
         const onMessage = jest.fn();
 
@@ -39,7 +44,7 @@ describe(`Worker`, () => {
 
     it(`connectActorToWorker`, async () => {
         const actor = createActor('Actor', (context) => {
-            context.dispatch(createEnvelope(`test`, `test`));
+            context.postMessage(createEnvelope(`test`, `test`));
         });
         const worker = new WorkerMock();
         const disconnect = connectActorToWorker(actor, worker as any);

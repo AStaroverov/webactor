@@ -1,12 +1,11 @@
-import { Actor, ActorContext, AnyEnvelope, Dispatch, Envelope, Mailbox } from './types';
-import { createSubscribe } from './subscribe';
+import { Actor, ActorContext, AnyEnvelope, Mailbox } from './types';
 
 type ActorConstructor<In extends AnyEnvelope, Out extends AnyEnvelope> = (
     context: ActorContext<In, Out>,
 ) => unknown | Function;
 
-export function createActorFactory(props: { getMailbox: <T extends Envelope<any, any>>() => Mailbox<T> }) {
-    return function createActor<In extends Envelope<any, any>, Out extends Envelope<any, any>>(
+export function createActorFactory(props: { getMailbox: <T extends AnyEnvelope>() => Mailbox<T> }) {
+    return function createActor<In extends AnyEnvelope, Out extends AnyEnvelope>(
         name: string,
         constructor: ActorConstructor<In, Out>,
     ): Actor<In, Out> {
@@ -23,8 +22,10 @@ export function createActorFactory(props: { getMailbox: <T extends Envelope<any,
         const launch = () => {
             dispose = constructor({
                 name,
-                dispatch: mailboxOut.dispatch.bind(mailboxOut) as Dispatch<Out>,
-                subscribe: createSubscribe(mailboxIn),
+
+                postMessage: mailboxOut.postMessage.bind(mailboxOut),
+                addEventListener: mailboxIn.addEventListener.bind(mailboxIn) as ActorContext<In, Out>['addEventListener'],
+                removeEventListener: mailboxIn.removeEventListener.bind(mailboxIn) as ActorContext<In, Out>['removeEventListener'],
             });
             return actor;
         };
@@ -40,8 +41,9 @@ export function createActorFactory(props: { getMailbox: <T extends Envelope<any,
             launch,
             destroy,
 
-            dispatch: mailboxIn.dispatch.bind(mailboxIn) as Dispatch<In>,
-            subscribe: createSubscribe(mailboxOut),
+            postMessage: mailboxIn.postMessage.bind(mailboxIn),
+            addEventListener: mailboxOut.addEventListener.bind(mailboxOut) as Actor<In, Out>['addEventListener'],
+            removeEventListener: mailboxOut.removeEventListener.bind(mailboxOut) as Actor<In, Out>['removeEventListener'],
         };
 
         return actor;

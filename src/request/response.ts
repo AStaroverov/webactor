@@ -1,12 +1,11 @@
-import type { AnyEnvelope, Dispatch } from '../types';
-import { SystemEnvelope } from '../types';
+import type { AnyEnvelope, PostMessageLike, SystemEnvelope } from '../types';
 import { createRequestName } from './request';
 
 function getResponseName(request: AnyEnvelope): string {
     return createRequestName(request.type).replace('Request', 'Response');
 }
 
-export function createResponseFactory<_T extends AnyEnvelope>(dispatch: Dispatch<_T>) {
+export function createResponseFactory<_T extends AnyEnvelope>(dispatch: PostMessageLike<_T>) {
     return function createResponse<T extends _T>(requester: AnyEnvelope) {
         const routePassed = getResponseName(requester);
         const routeAnnounced = requester.routePassed;
@@ -15,7 +14,7 @@ export function createResponseFactory<_T extends AnyEnvelope>(dispatch: Dispatch
             envelope.routePassed = routePassed;
             envelope.routeAnnounced = routeAnnounced;
 
-            return dispatch(envelope);
+            return dispatch(envelope as T);
         }
 
         response.responseName = routePassed;

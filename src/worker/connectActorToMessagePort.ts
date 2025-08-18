@@ -1,11 +1,11 @@
 import { connectEnvelopeTransmitter } from '../connectEnvelopeTransmitter';
-import type { Actor } from '../types';
+import type { Actor, EnvelopeMessagePort } from '../types';
 
 export function connectActorToMessagePort<A extends Actor, P extends MessagePort>(
     actor: A,
     port: P,
 ): Function {
-    return connectEnvelopeTransmitter(actor, port);
+    return connectEnvelopeTransmitter(actor, port as EnvelopeMessagePort);
 }
 
 export function connectMessagePortToActor<A extends Actor, P extends MessagePort>(

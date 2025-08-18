@@ -1,6 +1,6 @@
 import { createDispatch } from '../dispatch';
 import { createEnvelope } from '../envelope';
-import { Actor } from '../types';
+import { Actor, EnvelopeMessagePort } from '../types';
 import { threadId } from '../utils/thread';
 import { connectActorToMessagePort } from './connectActorToMessagePort';
 import { CONNECT_THREAD_TYPE, DISCONNECT_THREAD_TYPE } from './defs';
@@ -11,7 +11,7 @@ export function connectActorToWorker<A extends Actor, W extends Worker | SharedW
     worker: W,
 ) {
     const workerPort = getWorkerMessagePort(worker);
-    const dispatchToWorker = createDispatch(workerPort);
+    const dispatchToWorker = createDispatch(workerPort as EnvelopeMessagePort);
     const disconnectTransmitters = connectActorToMessagePort(actor, workerPort);
 
     dispatchToWorker(createEnvelope(CONNECT_THREAD_TYPE, threadId));

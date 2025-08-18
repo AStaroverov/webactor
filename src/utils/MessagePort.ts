@@ -19,7 +19,7 @@ export function setPortName(port: MessagePort, name: string) {
     }
 }
 
-export function getPortName(port: MessagePort) {
+export function getPortName(port: MessagePort): string {
     if (!mapPortToName.has(port)) setPortName(port, createMessagePortName());
     return mapPortToName.get(port)!;
 }
@@ -48,7 +48,7 @@ export function closePort(port: MessagePort) {
     mapPortToState.set(port, false);
 
     port.postMessage(CLOSE);
-    port.close();
+    port.close?.();
 }
 
 export function onPortResolve(port: MessagePort, onResolve: (state: boolean) => void): void {
@@ -59,7 +59,7 @@ export function onPortResolve(port: MessagePort, onResolve: (state: boolean) => 
             if (event.data === CLOSE) defer.resolve(false);
         };
 
-        port.start();
+        port.start?.();
         port.addEventListener('message', portListener);
 
         queueMicrotask(() => port.postMessage(PING));
@@ -83,3 +83,4 @@ export function onPortResolve(port: MessagePort, onResolve: (state: boolean) => 
         onResolve(state);
     }
 }
+

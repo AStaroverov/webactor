@@ -1,11 +1,12 @@
-import { CONNECT_THREAD_TYPE, DISCONNECT_THREAD_TYPE, isDedicatedWorkerScope, isSharedWorkerScope } from './defs';
-import { noop } from '../utils/common';
-import { threadId } from '../utils/thread';
 import { isEnvelope } from '../envelope';
-import { ConnectEnvelope, DisconnectEnvelope } from './types';
-import { checkPortAsReadyOnMessage, setPortName } from '../utils/MessagePort';
-import { subscribeOnUnlock } from '../utils/Locks';
 import { loggerProvider } from '../providers';
+import { noop } from '../utils/common';
+import { subscribeOnUnlock } from '../utils/Locks';
+import { checkPortAsReadyOnMessage, setPortName } from '../utils/MessagePort';
+import { threadId } from '../utils/thread';
+import { CONNECT_THREAD_TYPE, DISCONNECT_THREAD_TYPE } from './defs';
+import { isDedicatedWorkerScope, isSharedWorkerScope } from './detect';
+import { ConnectEnvelope, DisconnectEnvelope } from './types';
 
 const dependencies = <const>{
     isDedicatedWorkerScope,

@@ -1,20 +1,50 @@
 import type { AnyEnvelope, Mailbox } from '../../../src';
 import { createActorFactory } from '../../../src';
 
+const a = new EventTarget();
+
 export const createMailbox = <T extends AnyEnvelope>(): Mailbox<T> => {
-    const callbacks = new Set<(envelope: T) => unknown>();
+    const mssgCallbacks = new Set<(event: MessageEvent<T>) => unknown>();
+    const errCallbacks = new Set<(event: MessageEvent<T>) => unknown>();
+
+    function addEventListener(type: 'message', callback: (event: MessageEvent<T>) => unknown): void
+    function addEventListener(type: 'messageerror', callback: (event: MessageEvent<Error>) => unknown): void;
+    function addEventListener(type: string, callback: (event: MessageEvent<any>) => unknown): void {
+        if (type === 'message') {
+            mssgCallbacks.add(callback);
+        } else if (type === 'messageerror') {
+            errCallbacks.add(callback);
+        } else {
+            throw new Error(`Unsupported event type: ${type}`);
+        }
+    }
+
+    function removeEventListener(type: 'message', callback: (event: MessageEvent<T>) => unknown): void
+    function removeEventListener(type: 'messageerror', callback: (event: MessageEvent<Error>) => unknown): void;
+    function removeEventListener(type: string, callback: (event: MessageEvent<any>) => unknown): void {
+        if (type === 'message') {
+            mssgCallbacks.delete(callback);
+        } else if (type === 'messageerror') {
+            errCallbacks.delete(callback);
+        } else {
+            throw new Error(`Unsupported event type: ${type}`);
+        }
+    }
 
     return {
-        dispatch(envelope: T) {
-            const current = Array.from(callbacks);
+        destroy() {
+            mssgCallbacks.clear();
+            errCallbacks.clear();
+        },
+        postMessage(mssg: T) {
+            const current = Array.from(mssgCallbacks);
+            const event = new MessageEvent('message', { data: mssg });
             for (let callback of current) {
-                callback(envelope);
+                callback(event);
             }
         },
-        subscribe(callback: (envelope: T) => unknown) {
-            callbacks.add(callback);
-            return () => callbacks.delete(callback);
-        },
+        addEventListener,
+        removeEventListener,
     };
 };
 export const createActor = createActorFactory({ getMailbox: () => createMailbox() });

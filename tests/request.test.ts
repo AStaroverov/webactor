@@ -1,5 +1,7 @@
 import './locks';
+
 import { describe, expect, it, jest } from '@jest/globals';
+import { createMailbox } from '../examples/common/actors/createActor';
 import {
     connectActorToActor,
     createActorFactory,
@@ -9,8 +11,6 @@ import {
     Envelope,
     UnknownEnvelope,
 } from '../src';
-import { createMailbox } from '../examples/common/actors/createActor';
-import { sleep } from '../src/utils';
 
 export const REQUEST_TYPE = 'REQUEST_TYPE' as const;
 export type TReqEnvelope = Envelope<typeof REQUEST_TYPE, undefined>;
@@ -26,23 +26,23 @@ describe(`Request`, () => {
         });
         const ac1 = createActor<UnknownEnvelope, TReqEnvelope>(`A1`, (context) => {
             const request = createRequest(context);
-            const close = request(createEnvelope(REQUEST_TYPE, undefined), onResponse);
+            request(createEnvelope(REQUEST_TYPE, undefined)).then(onResponse);
         });
 
         const ac2 = createActor<TReqEnvelope, TResEnvelope | Envelope<'spam', unknown>>(
             `A2`,
-            ({ dispatch, subscribe }) => {
-                const createResponse = createResponseFactory(dispatch);
+            ({ postMessage, addEventListener }) => {
+                const createResponse = createResponseFactory(postMessage);
 
-                dispatch(createEnvelope('spam', null));
+                postMessage(createEnvelope('spam', null));
 
-                subscribe((envelope) => {
-                    if (envelope.type === REQUEST_TYPE) {
-                        const response = createResponse(envelope);
+                addEventListener('message', (event) => {
+                    if (event.type === REQUEST_TYPE) {
+                        const response = createResponse(event.data);
 
-                        dispatch(createEnvelope('spam', null));
+                        postMessage(createEnvelope('spam', null));
                         response(createEnvelope(RESPONSE_TYPE, 1));
-                        dispatch(createEnvelope('spam', null));
+                        postMessage(createEnvelope('spam', null));
                         response(createEnvelope(RESPONSE_TYPE, 1));
                     }
                 });
@@ -57,44 +57,27 @@ describe(`Request`, () => {
         expect(onResponse.mock.calls).toHaveLength(2);
     });
 
-    it(`request + timeout`, async () => {
-        const onResponse = jest.fn();
-        const onTimeout = jest.fn();
-        const ac1 = createActor<UnknownEnvelope, TReqEnvelope>(`A1`, (context) => {
-            const request = createRequest(context);
-            const close = request(createEnvelope(REQUEST_TYPE, undefined), onResponse, {
-                timeout: { first: 100, callback: onTimeout },
-            });
-        });
-        ac1.launch();
-
-        await sleep(200);
-
-        expect(onResponse.mock.calls).toHaveLength(0);
-        expect(onTimeout.mock.calls).toHaveLength(1);
-    });
-
     it(`request + multi response`, () => {
         const onResponse = jest.fn();
         const ac1 = createActor<UnknownEnvelope, TReqEnvelope>(`A1`, (context) => {
             const request = createRequest(context);
-            const close = request(createEnvelope(REQUEST_TYPE, undefined), onResponse);
+            request(createEnvelope(REQUEST_TYPE, undefined)).then(onResponse);
         });
 
         const ac2 = createActor<TReqEnvelope, TResEnvelope | Envelope<'spam', unknown>>(
             `A2`,
-            ({ dispatch, subscribe }) => {
-                const createResponse = createResponseFactory(dispatch);
+            ({ postMessage, addEventListener }) => {
+                const createResponse = createResponseFactory(postMessage);
 
-                dispatch(createEnvelope('spam', null));
+                postMessage(createEnvelope('spam', null));
 
-                subscribe((envelope) => {
-                    if (envelope.type === REQUEST_TYPE) {
-                        const response = createResponse(envelope);
+                addEventListener('message', (event) => {
+                    if (event.type === REQUEST_TYPE) {
+                        const response = createResponse(event.data);
 
-                        dispatch(createEnvelope('spam', null));
+                        postMessage(createEnvelope('spam', null));
                         response(createEnvelope(RESPONSE_TYPE, 1));
-                        dispatch(createEnvelope('spam', null));
+                        postMessage(createEnvelope('spam', null));
                         response(createEnvelope(RESPONSE_TYPE, 1));
                     }
                 });
@@ -102,18 +85,18 @@ describe(`Request`, () => {
         );
         const ac3 = createActor<TReqEnvelope, TResEnvelope | Envelope<'spam', unknown>>(
             `A3`,
-            ({ dispatch, subscribe }) => {
-                const createResponse = createResponseFactory(dispatch);
+            ({ postMessage, addEventListener }) => {
+                const createResponse = createResponseFactory(postMessage);
 
-                dispatch(createEnvelope('spam', null));
+                postMessage(createEnvelope('spam', null));
 
-                subscribe((envelope) => {
-                    if (envelope.type === REQUEST_TYPE) {
-                        const response = createResponse(envelope);
+                addEventListener('message', (event) => {
+                    if (event.type === REQUEST_TYPE) {
+                        const response = createResponse(event.data);
 
-                        dispatch(createEnvelope('spam', null));
+                        postMessage(createEnvelope('spam', null));
                         response(createEnvelope(RESPONSE_TYPE, 2));
-                        dispatch(createEnvelope('spam', null));
+                        postMessage(createEnvelope('spam', null));
                         response(createEnvelope(RESPONSE_TYPE, 2));
                     }
                 });
