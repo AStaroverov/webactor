@@ -1,22 +1,22 @@
-import { EnvelopeTransmitter, ExtractEnvelopeIn, ExtractEnvelopeOut, Subscribe, ValueOf } from '../types';
-import type { ChannelDispose, SupportChanelContext } from './types';
-import { createResponseFactory } from '../request/response';
-import { CHANNEL_CLOSE_TYPE, CHANNEL_HANDSHAKE_TYPE, CHANNEL_READY_TYPE, ChannelCloseReason } from './defs';
 import { createDeferredDispatch } from '../dispatch';
-import { createSubscribe } from '../subscribe';
-import { createShortRandomString, noop } from '../utils/common';
-import { lock, subscribeOnUnlock } from '../utils/Locks';
-import { timeoutProvider } from '../providers';
 import { createEnvelope } from '../envelope';
-import { Defer } from '../utils/Defer';
+import { timeoutProvider } from '../providers';
+import { createResponseFactory } from '../request/response';
+import { createSubscribe } from '../subscribe';
+import { EnvelopeTransmitter, ExtractEnvelope, Subscribe, ValueOf } from '../types';
 import { sleep } from '../utils';
+import { createShortRandomString, noop } from '../utils/common';
+import { Defer } from '../utils/Defer';
+import { lock, subscribeOnUnlock } from '../utils/Locks';
+import { CHANNEL_CLOSE_TYPE, CHANNEL_HANDSHAKE_TYPE, CHANNEL_READY_TYPE, ChannelCloseReason } from './defs';
+import type { ChannelDispose, SupportChanelContext } from './types';
 
-export function supportChannelFactory<T extends EnvelopeTransmitter>(transmitter: T) {
+export function supportChannelFactory<E extends EnvelopeTransmitter>(transmitter: T) {
     const subscribe = createSubscribe(transmitter);
 
-    return function supportChannel<In extends ExtractEnvelopeIn<T>, Out extends ExtractEnvelopeOut<T>>(
-        target: ExtractEnvelopeIn<T>,
-        onOpen: (context: SupportChanelContext<In, Out>) => void | ChannelDispose,
+    return function supportChannel<T extends ExtractEnvelope<E>>(
+        target: ExtractEnvelope<T>,
+        onOpen: (context: SupportChanelContext<T>) => void | ChannelDispose,
     ) {
         if (target.routePassed === undefined) throw new Error('This envelope cannot be used to support a channel');
 
@@ -25,12 +25,12 @@ export function supportChannelFactory<T extends EnvelopeTransmitter>(transmitter
         const handshakeEnvelope = createEnvelope(CHANNEL_HANDSHAKE_TYPE, channelId);
         const unlockResponseSide = lock(channelId);
         const createResponse = createResponseFactory(createDeferredDispatch(transmitter, channelReady.promise));
-        const dispatchToChannel = createResponse<Out>(target);
+        const dispatchToChannel = createResponse<T>(target);
 
-        const subscribeToChannel: Subscribe<In> = (callback, withSystemEnvelopes) => {
+        const subscribeToChannel: Subscribe<T> = (callback, withSystemEnvelopes) => {
             return subscribe((envelope) => {
                 if (envelope.routeAnnounced?.startsWith(dispatchToChannel.responseName)) {
-                    callback(envelope as In);
+                    callback(envelope as T);
                 }
             }, withSystemEnvelopes);
         };
@@ -66,14 +66,14 @@ export function supportChannelFactory<T extends EnvelopeTransmitter>(transmitter
 
             if (reason === ChannelCloseReason.ManualBySupporter) {
                 Promise.race([channelReady.promise, sleep(1000)]).then(() => {
-                    dispatchToChannel(createEnvelope(CHANNEL_CLOSE_TYPE, undefined) as Out);
+                    dispatchToChannel(createEnvelope(CHANNEL_CLOSE_TYPE, undefined) as T);
                 });
             }
 
             timeoutProvider.setTimeout(unlockResponseSide, 1000);
         };
 
-        dispatchToChannel(createEnvelope(CHANNEL_READY_TYPE, undefined) as Out);
+        dispatchToChannel(createEnvelope(CHANNEL_READY_TYPE, undefined) as T);
 
         return () => {
             closeChannel(ChannelCloseReason.ManualBySupporter);

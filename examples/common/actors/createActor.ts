@@ -36,6 +36,14 @@ export const createMailbox = <T extends AnyEnvelope>(): Mailbox<T> => {
             mssgCallbacks.clear();
             errCallbacks.clear();
         },
+        dispatchEvent(event: Event | MessageEvent<T> | MessageEvent<Error>) {
+            const type = event.type;
+            const callbacks = type === 'message' ? mssgCallbacks : errCallbacks;
+
+            for (let callback of callbacks) {
+                callback(event as Parameters<typeof callback>[0]);
+            }
+        },
         postMessage(mssg: T) {
             const current = Array.from(mssgCallbacks);
             const event = new MessageEvent('message', { data: mssg });

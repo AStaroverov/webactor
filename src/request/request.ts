@@ -10,13 +10,14 @@ export function createRequestName(type: string) {
     return `Request(${type}[${createShortRandomString()}])`;
 }
 
-export function request<Out extends AnyEnvelope, In extends AnyEnvelope>(
-    target: EnvelopeTransmitter<In, Out>,
-    envelope: Out
-): Promise<In> {
-    const defer = new Defer<In>();
+export function request<T extends AnyEnvelope>(
+    target: EnvelopeTransmitter<T>,
+    envelope: T,
+    abortSignal?: AbortSignal
+): Promise<T> {
+    const defer = new Defer<T>(abortSignal);
     const seedRoute = envelope.routePassed ?? createRequestName(envelope.type);
-    const isResponse = (envelope: AnyEnvelope): envelope is In => {
+    const isResponse = (envelope: AnyEnvelope): envelope is T => {
         return envelope.routeAnnounced === undefined ? false : envelope.routeAnnounced.startsWith(seedRoute);
     };        
 

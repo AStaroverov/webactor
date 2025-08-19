@@ -15,7 +15,7 @@ const dependencies = <const>{
 
 export function onConnectMessagePort(
     context: DedicatedWorkerGlobalScope | SharedWorkerGlobalScope,
-    onConnect: (name: string, port: MessagePort) => void | Function,
+    onConnect: (port: MessagePort) => void | Function,
     { isDedicatedWorkerScope, isSharedWorkerScope } = dependencies,
 ): Function {
     if (isDedicatedWorkerScope(context)) {
@@ -39,7 +39,7 @@ export function onConnectMessagePort(
     return noop;
 }
 
-function createListener(port: MessagePort, callback: (name: string, port: MessagePort) => void | Function) {
+function createListener(port: MessagePort, callback: (port: MessagePort) => void | Function) {
     const mapPortNameCount = new Map<string, number>();
     const mapPortNameToUnsubscribe = new Map<string, Function>();
 
@@ -65,7 +65,7 @@ function createListener(port: MessagePort, callback: (name: string, port: Messag
                     },
                 ];
                 const disconnect = () => disposes.forEach((dispose) => dispose());
-                const callbackDispose = callback(connectedName, port);
+                const callbackDispose = callback(port);
 
                 if (callbackDispose !== undefined) {
                     disposes.push(callbackDispose);

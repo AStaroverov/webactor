@@ -1,16 +1,16 @@
 import { Actor, ActorContext, AnyEnvelope, Mailbox } from './types';
 
-type ActorConstructor<In extends AnyEnvelope, Out extends AnyEnvelope> = (
-    context: ActorContext<In, Out>,
+type ActorConstructor<T extends AnyEnvelope> = (
+    context: ActorContext<T>,
 ) => unknown | Function;
 
-export function createActorFactory(props: { getMailbox: <T extends AnyEnvelope>() => Mailbox<T> }) {
-    return function createActor<In extends AnyEnvelope, Out extends AnyEnvelope>(
+export function createActorFactory<T extends AnyEnvelope>(props: { getMailbox: () => Mailbox<T> }) {
+    return function createActor(
         name: string,
-        constructor: ActorConstructor<In, Out>,
-    ): Actor<In, Out> {
-        const mailboxIn = props.getMailbox<In>();
-        const mailboxOut = props.getMailbox<Out>();
+        constructor: ActorConstructor<T>,
+    ): Actor<T> {
+        const mailboxIn = props.getMailbox();
+        const mailboxOut = props.getMailbox();
 
         // @ts-ignore
         if (mailboxIn === mailboxOut) {
@@ -22,10 +22,10 @@ export function createActorFactory(props: { getMailbox: <T extends AnyEnvelope>(
         const launch = () => {
             dispose = constructor({
                 name,
-
                 postMessage: mailboxOut.postMessage.bind(mailboxOut),
-                addEventListener: mailboxIn.addEventListener.bind(mailboxIn) as ActorContext<In, Out>['addEventListener'],
-                removeEventListener: mailboxIn.removeEventListener.bind(mailboxIn) as ActorContext<In, Out>['removeEventListener'],
+                dispatchEvent: mailboxOut.dispatchEvent.bind(mailboxOut),
+                addEventListener: mailboxIn.addEventListener.bind(mailboxIn),
+                removeEventListener: mailboxIn.removeEventListener.bind(mailboxIn),
             });
             return actor;
         };
@@ -40,10 +40,10 @@ export function createActorFactory(props: { getMailbox: <T extends AnyEnvelope>(
             name,
             launch,
             destroy,
-
             postMessage: mailboxIn.postMessage.bind(mailboxIn),
-            addEventListener: mailboxOut.addEventListener.bind(mailboxOut) as Actor<In, Out>['addEventListener'],
-            removeEventListener: mailboxOut.removeEventListener.bind(mailboxOut) as Actor<In, Out>['removeEventListener'],
+            dispatchEvent: mailboxIn.dispatchEvent.bind(mailboxIn),
+            addEventListener: mailboxOut.addEventListener.bind(mailboxOut),
+            removeEventListener: mailboxOut.removeEventListener.bind(mailboxOut),
         };
 
         return actor;

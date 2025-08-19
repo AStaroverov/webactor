@@ -1,25 +1,24 @@
 import { createDeferredDispatch } from '../dispatch';
 import { createEnvelope, shallowCopyEnvelope } from '../envelope';
 import { timeoutProvider } from '../providers';
-import { createRequest } from '../request/request';
+import { request } from '../request/request';
 import { createResponseFactory } from '../request/response';
 import { createSubscribe } from '../subscribe';
-import { EnvelopeTransmitter, ExtractEnvelopeIn, ExtractEnvelopeOut, Subscribe, ValueOf } from '../types';
+import { EnvelopeTransmitter, ExtractEnvelope, Subscribe, ValueOf } from '../types';
 import { sleep } from '../utils';
 import { createShortRandomString } from '../utils/common';
 import { Defer } from '../utils/Defer';
 import { lock, subscribeOnUnlock } from '../utils/Locks';
 import { proxyMessagePortWithListenerFilter } from '../utils/MessagePortLike';
 import { CHANNEL_CLOSE_TYPE, CHANNEL_HANDSHAKE_TYPE, CHANNEL_READY_TYPE, ChannelCloseReason } from './defs';
-import { ChannelDispose, OpenChanelContext } from './types';
+import { ChannelDispose, OpenChanelContext as OpenChannelContext } from './types';
 
-export function openChannelFactory<T extends EnvelopeTransmitter>(transmitter: T) {
-    const request = createRequest(transmitter);
+export function openChannelFactory<E extends EnvelopeTransmitter>(transmitter: E) {
     const subscribe = createSubscribe(transmitter);
 
-    return function openChannel<In extends ExtractEnvelopeIn<T>, Out extends ExtractEnvelopeOut<T>>(
-        envelope: ExtractEnvelopeOut<T>,
-        onOpen: (context: OpenChanelContext<In, Out>) => void | ChannelDispose,
+    return function openChannel<T extends ExtractEnvelope<E>>(
+        envelope: ExtractEnvelope<E>,
+        onOpen: (context: OpenChannelContext<T>) => void | ChannelDispose,
         options?: {
             timeout?: {
                 first: number;
@@ -54,80 +53,80 @@ export function openChannelFactory<T extends EnvelopeTransmitter>(transmitter: T
             };
         }
 
-        const closeResponseSubscription = request(
+        const interrupt = new AbortController();
+        request(
+            transmitter,
             copy,
-            (responseEnvelope) => {
-                if (responseEnvelope.type !== CHANNEL_HANDSHAKE_TYPE) return;
+            interrupt.signal
+        ).then((responseEnvelope) => {
+            if (responseEnvelope.type !== CHANNEL_HANDSHAKE_TYPE) return;
 
-                const channelId = responseEnvelope.payload;
-                const routePassed = responseEnvelope.routePassed;
+            const channelId = responseEnvelope.payload;
+            const routePassed = responseEnvelope.routePassed;
 
-                if (routePassed === undefined) {
-                    throw new Error('This envelope cannot be used to open a channel');
+            if (routePassed === undefined) {
+                throw new Error('This envelope cannot be used to open a channel');
+            }
+            
+            if (mapDispose.has(channelId)) return;
+
+            const channelReady = new Defer();
+            const createResponse = createResponseFactory(createDeferredDispatch(transmitter, channelReady.promise));
+            const closeChannel = createCloseChannel(channelId);
+            const dispatchToChannel = createResponse(responseEnvelope);
+
+            const transmitterWithFilter = proxyMessagePortWithListenerFilter<T>(
+                // @ts-expect-error - @TODO: MessagePortLike is not compatible with EnvelopeTransmitter
+                transmitter,
+                (event) => {
+                    return event.data.routePassed === routePassed;
                 }
-
-                if (mapDispose.has(channelId)) return;
-
-                const channelReady = new Defer();
-                const createResponse = createResponseFactory(createDeferredDispatch(transmitter, channelReady.promise));
-                const closeChannel = createCloseChannel(channelId);
-                const dispatchToChannel = createResponse(responseEnvelope);
-
-                const transmitterWithFilter = proxyMessagePortWithListenerFilter<In>(
-                    // @ts-expect-error - @TODO: MessagePortLike is not compatible with EnvelopeTransmitter
-                    transmitter,
-                    (event) => {
-                        return event.data.routePassed === routePassed;
+            );
+            const subscribeToChannel: Subscribe<T> = (callback, withSystemEnvelopes) => {
+                return subscribe((envelope) => {
+                    if (envelope.routePassed === routePassed) {
+                        callback(envelope as T);
                     }
-                );
-                const subscribeToChannel: Subscribe<In> = (callback, withSystemEnvelopes) => {
-                    return subscribe((envelope) => {
-                        if (envelope.routePassed === routePassed) {
-                            callback(envelope as In);
-                        }
-                    }, withSystemEnvelopes);
-                };
+                }, withSystemEnvelopes);
+            };
 
-                const unsubscribeOnReady = subscribeToChannel((envelope) => {
-                    if (envelope.type === CHANNEL_READY_TYPE) {
-                        channelReady.resolve(undefined);
-                        unsubscribeOnReady();
-                    }
-                }, true);
-                const unsubscribeOnCloseChannel = subscribeToChannel((envelope) => {
-                    return envelope.type === CHANNEL_CLOSE_TYPE && closeChannel(ChannelCloseReason.ManualBySupporter);
-                }, true);
-                const unsubscribeOnChannelTerminate = subscribeOnUnlock(channelId, () => {
-                    // close message can be in browser queue, so we need to wait a little
-                    timeoutProvider.setTimeout(() => closeChannel(ChannelCloseReason.LoseChannel), 1000);
-                });
-                const dispose = onOpen({
-                    close: () => closeChannel(ChannelCloseReason.ManualByOpener),
-                    postMessage: dispatchToChannel,
-                    addEventListener: transmitterWithFilter.addEventListener.bind(transmitterWithFilter),
-                    removeEventListener: transmitterWithFilter.removeEventListener.bind(transmitterWithFilter),
-                });
-
-                mapDispose.set(channelId, (reason: ValueOf<typeof ChannelCloseReason>) => {
-                    unsubscribeOnChannelTerminate();
-                    unsubscribeOnCloseChannel();
+            const unsubscribeOnReady = subscribeToChannel((envelope) => {
+                if (envelope.type === CHANNEL_READY_TYPE) {
+                    channelReady.resolve(undefined);
                     unsubscribeOnReady();
-                    dispose?.(reason);
+                }
+            }, true);
+            const unsubscribeOnCloseChannel = subscribeToChannel((envelope) => {
+                return envelope.type === CHANNEL_CLOSE_TYPE && closeChannel(ChannelCloseReason.ManualBySupporter);
+            }, true);
+            const unsubscribeOnChannelTerminate = subscribeOnUnlock(channelId, () => {
+                // close message can be in browser queue, so we need to wait a little
+                timeoutProvider.setTimeout(() => closeChannel(ChannelCloseReason.LoseChannel), 1000);
+            });
+            const dispose = onOpen({
+                close: () => closeChannel(ChannelCloseReason.ManualByOpener),
+                postMessage: dispatchToChannel,
+                addEventListener: transmitterWithFilter.addEventListener.bind(transmitterWithFilter),
+                removeEventListener: transmitterWithFilter.removeEventListener.bind(transmitterWithFilter),
+            });
 
-                    if (reason === ChannelCloseReason.ManualByOpener) {
-                        Promise.race([channelReady.promise, sleep(1000)]).then(() => {
-                            dispatchToChannel(createEnvelope(CHANNEL_CLOSE_TYPE, undefined));
-                        });
-                    }
-                });
+            mapDispose.set(channelId, (reason: ValueOf<typeof ChannelCloseReason>) => {
+                unsubscribeOnChannelTerminate();
+                unsubscribeOnCloseChannel();
+                unsubscribeOnReady();
+                dispose?.(reason);
 
-                dispatchToChannel(createEnvelope(CHANNEL_READY_TYPE, undefined));
-            },
-            options,
-        );
+                if (reason === ChannelCloseReason.ManualByOpener) {
+                    Promise.race([channelReady.promise, sleep(1000)]).then(() => {
+                        dispatchToChannel(createEnvelope(CHANNEL_CLOSE_TYPE, undefined));
+                    });
+                }
+            });
+
+            dispatchToChannel(createEnvelope(CHANNEL_READY_TYPE, undefined));
+        });
 
         return function closeOpenedChannels() {
-            closeResponseSubscription();
             closeAllChannels();
             timeoutProvider.setTimeout(unlockRequestSide, 1000);
         };

@@ -76,26 +76,17 @@ export type EventSubscribe<T extends AnyEnvelope> = <F extends false | true | vo
     withSystemEnvelopes?: F,
 ) => Function;
 
-export type EnvelopeTransmitter<In extends AnyEnvelope = AnyEnvelope, Out extends AnyEnvelope = AnyEnvelope> = EnvelopeSource<In> & EnvelopeTarget<Out>;
+export type EnvelopeTransmitter<T extends AnyEnvelope = AnyEnvelope> = EnvelopeSource<T> & EnvelopeTarget<T>;
 
-export type Actor<In extends AnyEnvelope = AnyEnvelope, Out extends AnyEnvelope = AnyEnvelope> =
-    EnvelopeTransmitter<In, Out> & {
+export type Actor<T extends AnyEnvelope = AnyEnvelope> =
+    EnvelopeTransmitter<T> & {
         name: string;
-        launch: () => Actor<In, Out>;
+        launch: () => Actor<T>;
         destroy: () => void;
     };
 
-export type ActorContext<
-    In extends AnyEnvelope = AnyEnvelope,
-    Out extends AnyEnvelope = AnyEnvelope,
-> = EnvelopeTransmitter<In, Out> & {
+export type ActorContext<T extends AnyEnvelope = AnyEnvelope> = EnvelopeTransmitter<T> & {
         name: string;
     };
 
-export type ExtractEnvelopeIn<T> = T extends EnvelopeTransmitter<infer In, any> ? In : never;
-export type ExtractEnvelopeOut<T> = T extends EnvelopeTransmitter<any, infer Out> ? Out : never;
-export type ExtractEnvelope<T> = T extends EnvelopeTarget<infer E>
-    ? E
-    : T extends EnvelopeSource<infer E>
-    ? E
-    : never;
+export type ExtractEnvelope<T> = T extends EnvelopeTransmitter<infer T> ? T : never;
