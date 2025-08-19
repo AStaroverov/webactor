@@ -1,5 +1,4 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { createMailbox } from '../examples/common/actors/createActor';
 import {
     AnyEnvelope,
     connectActorToActor,
@@ -8,6 +7,7 @@ import {
     Envelope,
     UnknownEnvelope,
 } from '../src';
+import { createMailbox } from '../src/createActor';
 import './locks';
 
 export const NUMBER_TYPE = 'NUMBER_TYPE' as const;

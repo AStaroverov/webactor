@@ -1,7 +1,7 @@
 import { isDedicatedWorkerScope, isSharedWorkerScope, isWindowScope } from '../worker/detect';
 import { createShortRandomString } from './common';
 
-export const threadName = isSharedWorkerScope(globalThis)
+const threadName = isSharedWorkerScope(globalThis)
     ? `${self.name}(sharedWorker)`
     : isDedicatedWorkerScope(globalThis)
         ? `${self.name}(dedicatedWorker)`

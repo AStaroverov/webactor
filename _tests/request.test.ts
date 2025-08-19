@@ -1,7 +1,6 @@
 import './locks';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import { createMailbox } from '../examples/common/actors/createActor';
 import {
     connectActorToActor,
     createActorFactory,
@@ -11,6 +10,7 @@ import {
     Envelope,
     UnknownEnvelope,
 } from '../src';
+import { createMailbox } from '../src/createActor';
 
 export const REQUEST_TYPE = 'REQUEST_TYPE' as const;
 export type TReqEnvelope = Envelope<typeof REQUEST_TYPE, undefined>;

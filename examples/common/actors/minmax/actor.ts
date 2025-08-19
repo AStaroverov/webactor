@@ -1,4 +1,4 @@
-import { createActor } from '../createActor';
+import { createActor } from '../../../../src/createActor';
 import { createEnvelope } from '../../../../src/envelope';
 import { MINMAX_ACTION_TYPE, MINMAX_RESULT_TYPE, TMinMaxActionEnvelope, TMinMaxResultEnvelope } from './defs';
 

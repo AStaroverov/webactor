@@ -1,8 +1,15 @@
-import { ChannelCloseEnvelope, ChannelHandshakeEnvelope, ChannelReadyEnvelope } from './channel/defs';
 
 export type ValueOf<T> = T[keyof T];
 
-export type Message = string | object;
+export const EventType = {
+    Error: 'error',
+    Message: 'message',
+    MessageError: 'messageerror'
+} as const;
+
+export type EventTypes = ValueOf<typeof EventType>;
+
+export type Message = string | object | MessagePort;
 
 export interface DispatchLike<T extends Event> {
     (event: T): unknown;
@@ -25,8 +32,9 @@ export interface EventPostLike<T extends Message> {
 }
 
 export interface ListenerLike<T extends Message, E extends Error = Error> {
-    (type: 'message', callback: (event: MessageEvent<T>) => unknown): void
-    (type: 'messageerror', callback: (event: MessageEvent<E>) => unknown): void
+    (type: typeof EventType.Error, callback: (event: MessageEvent<E>) => unknown): void
+    (type: typeof EventType.Message, callback: (event: MessageEvent<T>) => unknown): void
+    (type: typeof EventType.MessageError, callback: (event: MessageEvent<E>) => unknown): void
 }
 
 export interface EventListenerLike<T extends Message, E extends Error = Error> {
@@ -38,55 +46,55 @@ export interface EventListenerLike<T extends Message, E extends Error = Error> {
 export interface EventTargetLike<T extends Message, E extends Error = Error> extends EventDispatchLike<T>, EventListenerLike<T, E> {};
 export interface MessagePortLike<T extends Message, E extends Error = Error> extends EventPostLike<T>, EventTargetLike<T, E> {};
 
-export interface EnvelopeTarget<T extends AnyEnvelope = AnyEnvelope> extends EventPostLike<T>, EventDispatchLike<T> {};
-export interface EnvelopeSource<T extends AnyEnvelope = AnyEnvelope> extends EventListenerLike<T> {};
-export interface EnvelopeMessagePort<T extends AnyEnvelope = AnyEnvelope> extends MessagePortLike<T> { };
+// export interface EnvelopeTarget<T extends AnyEnvelope = AnyEnvelope> extends EventPostLike<T>, EventDispatchLike<T> {};
+// export interface EnvelopeSource<T extends AnyEnvelope = AnyEnvelope> extends EventListenerLike<T> {};
+// export interface EnvelopeMessagePort<T extends AnyEnvelope = AnyEnvelope> extends MessagePortLike<T> { };
 
-export interface Mailbox<T extends AnyEnvelope = AnyEnvelope> extends EnvelopeMessagePort<T> {
+export interface Mailbox<T extends Message = Message> extends MessagePortLike<T> {
     destroy?: () => void;
 };
 
-export type Envelope<T extends string, P> = {
-    type: T;
-    payload: P;
-    transferable: undefined | Transferable | Transferable[] | StructuredSerializeOptions;
+// export type Envelope<T extends string, P> = {
+//     type: T;
+//     payload: P;
+//     transferable: undefined | Transferable | Transferable[] | StructuredSerializeOptions;
 
-    uniqueId: string;
-    threadId: string;
-    // channelId: string;
+//     uniqueId: string;
+//     threadId: string;
+//     // channelId: string;
     
-    routePassed: undefined | string;
-    routeAnnounced: undefined | string;
-};
+//     routePassed: undefined | string;
+//     routeAnnounced: undefined | string;
+// };
 
-export type AnyEnvelope = Envelope<any, any>;
-export type UnknownEnvelope = Envelope<string, unknown>;
-export type SystemEnvelope = ChannelHandshakeEnvelope | ChannelReadyEnvelope | ChannelCloseEnvelope;
+// export type AnyEnvelope = Envelope<any, any>;
+// export type UnknownEnvelope = Envelope<string, unknown>;
+// export type SystemEnvelope = ChannelHandshakeEnvelope | ChannelReadyEnvelope | ChannelCloseEnvelope;
 
-export type Dispatch<T extends AnyEnvelope> = (envelope: T | SystemEnvelope) => unknown;
-export type Subscribe<T extends AnyEnvelope> = <F extends false | true | void = false>(
-    callback: SubscribeCallback<F extends true ? T | SystemEnvelope : T>,
-    withSystemEnvelopes?: F,
-) => Function;
-export type SubscribeCallback<T extends AnyEnvelope> = (envelope: T) => unknown;
+// export type Dispatch<T extends AnyEnvelope> = (envelope: T | SystemEnvelope) => unknown;
+// export type Subscribe<T extends AnyEnvelope> = <F extends false | true | void = false>(
+//     callback: SubscribeCallback<F extends true ? T | SystemEnvelope : T>,
+//     withSystemEnvelopes?: F,
+// ) => Function;
+// export type SubscribeCallback<T extends AnyEnvelope> = (envelope: T) => unknown;
 
-export type EventSubscribe<T extends AnyEnvelope> = <F extends false | true | void = false>(
-    type: 'message' | 'messageerror',
-    callback: SubscribeCallback<F extends true ? T | SystemEnvelope : T>,
-    withSystemEnvelopes?: F,
-) => Function;
+// export type EventSubscribe<T extends AnyEnvelope> = <F extends false | true | void = false>(
+//     type: 'message' | 'messageerror',
+//     callback: SubscribeCallback<F extends true ? T | SystemEnvelope : T>,
+//     withSystemEnvelopes?: F,
+// ) => Function;
 
-export type EnvelopeTransmitter<T extends AnyEnvelope = AnyEnvelope> = EnvelopeSource<T> & EnvelopeTarget<T>;
+// export type EnvelopeTransmitter<T extends AnyEnvelope = AnyEnvelope> = EnvelopeSource<T> & EnvelopeTarget<T>;
 
-export type Actor<T extends AnyEnvelope = AnyEnvelope> =
-    EnvelopeTransmitter<T> & {
+export type Actor<T extends Message = Message> =
+    MessagePortLike<T> & {
         name: string;
         launch: () => Actor<T>;
         destroy: () => void;
     };
 
-export type ActorContext<T extends AnyEnvelope = AnyEnvelope> = EnvelopeTransmitter<T> & {
+export type ActorContext<T extends Message = Message> = MessagePortLike<T> & {
         name: string;
     };
 
-export type ExtractEnvelope<T> = T extends EnvelopeTransmitter<infer T> ? T : never;
+export type ExtractMessage<T> = T extends MessagePortLike<infer T> ? T : never;

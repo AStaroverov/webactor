@@ -1,82 +1,64 @@
-import { createDeferredDispatch } from '../dispatch';
-import { createEnvelope } from '../envelope';
-import { timeoutProvider } from '../providers';
-import { createResponseFactory } from '../request/response';
-import { createSubscribe } from '../subscribe';
-import { EnvelopeTransmitter, ExtractEnvelope, Subscribe, ValueOf } from '../types';
-import { sleep } from '../utils';
-import { createShortRandomString, noop } from '../utils/common';
+import { response } from '../request/response';
+import { EventType, EventTypes, Message, MessagePortLike } from '../types';
+import { noop } from '../utils/common';
 import { Defer } from '../utils/Defer';
-import { lock, subscribeOnUnlock } from '../utils/Locks';
-import { CHANNEL_CLOSE_TYPE, CHANNEL_HANDSHAKE_TYPE, CHANNEL_READY_TYPE, ChannelCloseReason } from './defs';
-import type { ChannelDispose, SupportChanelContext } from './types';
+import { lock, onUnlock } from '../utils/Locks';
+import { HANDSHAKE } from './defs';
+import type { ChannelTransmitter } from './types';
 
-export function supportChannelFactory<E extends EnvelopeTransmitter>(transmitter: T) {
-    const subscribe = createSubscribe(transmitter);
+export async function supportChannel<T extends Message>(
+    target: MessagePortLike<Message>,
+    event: MessageEvent<Message>,
+): Promise<ChannelTransmitter> {
+    const abort = new AbortController();
+    const messageChannel = new MessageChannel();
+    response(target, event, messageChannel.port1);
 
-    return function supportChannel<T extends ExtractEnvelope<E>>(
-        target: ExtractEnvelope<T>,
-        onOpen: (context: SupportChanelContext<T>) => void | ChannelDispose,
-    ) {
-        if (target.routePassed === undefined) throw new Error('This envelope cannot be used to support a channel');
+    const unlockChannel = await lock('supportChannel'+event.origin);
+    
+    const defer = new Defer(abort.signal);
+    const errorHandlers = new Set<(event: MessageEvent<Error>) => unknown>();
+    const addEventListener = (type: EventTypes, handler: (event: MessageEvent) => unknown) => {
+        if (type === EventType.Error) {
+            errorHandlers.add(handler);
+        }
+        // @ts-expect-error
+        port.addEventListener(type, handler);
+    }
+    const removeEventListener = (type: EventTypes, handler: (event: MessageEvent) => unknown) => {
+        if (type === EventType.Error) {
+            errorHandlers.delete(handler);
+        }
+        // @ts-expect-error
+        port.removeEventListener(type, handler);
+    }
+    const handshake = () => {
+        messageChannel.port2.postMessage(HANDSHAKE);
+        defer.resolve(channelTransmitter);
+    }
+    const close = () => {
+        abort.abort();
+        unlockChannel();
+        messageChannel.port1.close();
+        messageChannel.port2.close();
+        messageChannel.port2.removeEventListener('message', handshake);
+    }
 
-        const channelReady = new Defer();
-        const channelId = createShortRandomString();
-        const handshakeEnvelope = createEnvelope(CHANNEL_HANDSHAKE_TYPE, channelId);
-        const unlockResponseSide = lock(channelId);
-        const createResponse = createResponseFactory(createDeferredDispatch(transmitter, channelReady.promise));
-        const dispatchToChannel = createResponse<T>(target);
+    messageChannel.port2.addEventListener('message', handshake, { once: true });
+    
+    onUnlock('openChannel'+event.origin, abort.signal).then(() => {
+        const error = new MessageEvent(EventType.Error, { data: new Error('Lose Channel') });
+        errorHandlers.forEach(handler => handler(error));
+        close();
+    }).catch(noop);
+    
+    const channelTransmitter = {
+        postMessage: messageChannel.port2.postMessage.bind(messageChannel.port2),
+        dispatchEvent: messageChannel.port2.dispatchEvent.bind(messageChannel.port2),
+        addEventListener,
+        removeEventListener,
+        close
+    }
 
-        const subscribeToChannel: Subscribe<T> = (callback, withSystemEnvelopes) => {
-            return subscribe((envelope) => {
-                if (envelope.routeAnnounced?.startsWith(dispatchToChannel.responseName)) {
-                    callback(envelope as T);
-                }
-            }, withSystemEnvelopes);
-        };
-
-        let closeChannel: (reason: ValueOf<typeof ChannelCloseReason>) => void;
-
-        const unsubscribeOnReady = subscribeToChannel((envelope) => {
-            if (envelope.type === CHANNEL_READY_TYPE) {
-                channelReady.resolve(undefined);
-                unsubscribeOnReady();
-            }
-        }, true);
-        const unsubscribeOnCloseChannel = subscribeToChannel(
-            (envelope) => envelope.type === CHANNEL_CLOSE_TYPE && closeChannel(ChannelCloseReason.ManualByOpener),
-            true,
-        );
-        const unsubscribeOnChannelTerminate = subscribeOnUnlock(target.uniqueId, () => {
-            // close message can be in browser queue, so we need to wait a little
-            timeoutProvider.setTimeout(() => closeChannel(ChannelCloseReason.LoseChannel), 1000);
-        });
-
-        dispatchToChannel(handshakeEnvelope);
-
-        const dispose = onOpen({ dispatch: dispatchToChannel, subscribe: subscribeToChannel });
-
-        closeChannel = (reason: ValueOf<typeof ChannelCloseReason>) => {
-            closeChannel = noop;
-
-            unsubscribeOnChannelTerminate();
-            unsubscribeOnCloseChannel();
-            unsubscribeOnReady();
-            dispose?.(reason);
-
-            if (reason === ChannelCloseReason.ManualBySupporter) {
-                Promise.race([channelReady.promise, sleep(1000)]).then(() => {
-                    dispatchToChannel(createEnvelope(CHANNEL_CLOSE_TYPE, undefined) as T);
-                });
-            }
-
-            timeoutProvider.setTimeout(unlockResponseSide, 1000);
-        };
-
-        dispatchToChannel(createEnvelope(CHANNEL_READY_TYPE, undefined) as T);
-
-        return () => {
-            closeChannel(ChannelCloseReason.ManualBySupporter);
-        };
-    };
-}
+    return defer.promise;
+};

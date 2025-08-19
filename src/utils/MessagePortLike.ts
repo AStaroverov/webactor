@@ -1,9 +1,8 @@
-import { Message, MessagePortLike } from "../types";
+import { EventListenerLike, Message, MessagePortLike } from "../types";
 
-export function proxyMessagePortWithListenerFilter<T extends Message>(port: MessagePortLike<T>, filter: (message: MessageEvent) => boolean): MessagePortLike<T> {
+export function getFilteredListeners<T extends Message>(port: MessagePortLike<T>, filter: (message: MessageEvent) => boolean): EventListenerLike<T> {
     const map = new WeakMap<Function, Function>();
     return {
-        ...port,
         addEventListener: (type: 'message' | 'messageerror', listener: (event: MessageEvent) => void) => {
             const wrappedListener = (event: MessageEvent) => {
                 if (filter(event.data)) {
@@ -11,6 +10,7 @@ export function proxyMessagePortWithListenerFilter<T extends Message>(port: Mess
                 }
             };
             map.set(listener, wrappedListener);
+            port.start?.();
             // @ts-ignore
             port.addEventListener(type, wrappedListener);
         },

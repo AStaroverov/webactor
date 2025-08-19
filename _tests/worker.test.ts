@@ -1,5 +1,4 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { createMailbox } from '../examples/common/actors/createActor';
 import {
     connectActorToMessagePort,
     connectActorToWorker,
@@ -9,6 +8,7 @@ import {
     onConnectMessagePort,
     subscribe,
 } from '../src';
+import { createMailbox } from '../src/createActor';
 import { sleep } from '../src/utils';
 import { CONNECT_THREAD_TYPE, DISCONNECT_THREAD_TYPE } from '../src/worker/defs';
 import './locks';

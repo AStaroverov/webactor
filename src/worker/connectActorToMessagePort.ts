@@ -1,16 +1,15 @@
 import { connectEnvelopeTransmitter } from '../connectEnvelopeTransmitter';
-import type { Actor, EnvelopeMessagePort } from '../types';
+import { type Actor, type Message, type MessagePortLike } from '../types';
 
-export function connectActorToMessagePort<A extends Actor, P extends MessagePort>(
+export function connectActorToMessagePort<A extends Actor, P extends MessagePortLike<Message>>(
     actor: A,
     port: P,
-): Function {
-    return connectEnvelopeTransmitter(actor, port as EnvelopeMessagePort);
+): VoidFunction {
+    return connectEnvelopeTransmitter(actor, port as MessagePortLike<Message>);
 }
-
-export function connectMessagePortToActor<A extends Actor, P extends MessagePort>(
+export function connectMessagePortToActor<A extends Actor, P extends MessagePortLike<Message>>(
     port: P,
     actor: A,
-): Function {
+) {
     return connectActorToMessagePort(actor, port);
 }

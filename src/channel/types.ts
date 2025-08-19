@@ -1,9 +1,13 @@
-import { AnyEnvelope, EventListenerLike, EventPostLike, ValueOf } from '../types';
-import { ChannelCloseReason } from './defs';
+import { EnvelopeTransmitter } from '../types';
 
-export type OpenChanelContext<T extends AnyEnvelope> = EventListenerLike<T> &
-    EventPostLike<T> & { close: VoidFunction };
-export type SupportChanelContext<T extends AnyEnvelope> = EventListenerLike<T> &
-    EventPostLike<T>;
-
-export type ChannelDispose = (reason: ValueOf<typeof ChannelCloseReason>) => void;
+/**
+ * ChannelTransmitter представляет двунаправленный канал связи между двумя акторами.
+ * Расширяет EnvelopeTransmitter методом close() для раннего закрытия канала.
+ * 
+ * Используется в Promise-based API каналов:
+ * - openChannel(): Promise<ChannelTransmitter>
+ * - supportChannel(): Promise<ChannelTransmitter>
+ */
+export type ChannelTransmitter = EnvelopeTransmitter & {
+    close(): void;
+};

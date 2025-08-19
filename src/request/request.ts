@@ -1,48 +1,46 @@
-import { isEnvelope, shallowCopyEnvelope } from '../envelope';
+import { intervalProvider } from '../providers';
 import type {
-    AnyEnvelope,
-    EnvelopeTransmitter
+    Message,
+    MessagePortLike
 } from '../types';
-import { createShortRandomString } from '../utils/common';
+import { createEventId } from '../utils/common';
 import { Defer } from '../utils/Defer';
 
-export function createRequestName(type: string) {
-    return `Request(${type}[${createShortRandomString()}])`;
-}
-
-export function request<T extends AnyEnvelope>(
-    target: EnvelopeTransmitter<T>,
-    envelope: T,
-    abortSignal?: AbortSignal
-): Promise<T> {
-    const defer = new Defer<T>(abortSignal);
-    const seedRoute = envelope.routePassed ?? createRequestName(envelope.type);
-    const isResponse = (envelope: AnyEnvelope): envelope is T => {
-        return envelope.routeAnnounced === undefined ? false : envelope.routeAnnounced.startsWith(seedRoute);
-    };        
-
-    const onResponse = (event: MessageEvent<object>) => {
-        if (isEnvelope(event.data) && isResponse(event.data)) {
-            defer.resolve(event.data);
-        }
+export async function request<Out extends Message, In extends Message>(
+    target: MessagePortLike<In & Out>,
+    message: Out,
+    options?: {
+        id?: string
+        retryDelay?: number;
+        abortSignal?: AbortSignal
+    }
+): Promise<MessageEvent<In>> {
+    const id = options?.id ?? createEventId();
+    const event = new MessageEvent('message', { data: message, origin: id, lastEventId: id });
+    const defer = new Defer<MessageEvent<In>>(options?.abortSignal);
+    const retryIntervalId = intervalProvider.setInterval(
+        () => target.dispatchEvent(event),
+        options?.retryDelay ?? 500
+    );
+    const onResponse = (event: MessageEvent<In>) => {
+        defer.resolve(event);
     };
     const onError = (event: MessageEvent<Error>) => {
-        defer.reject(event.data);
+        const error = event.data as Error & { originalEvent?: MessageEvent<Error> };
+        error.originalEvent = event;
+        defer.reject(error);
     };
 
-    const unsubscribe = () => {
-        target.removeEventListener('message', onResponse);
-        target.removeEventListener('messageerror', onError);
-    };
+    target.addEventListener('error', onError);
     target.addEventListener('message', onResponse);
     target.addEventListener('messageerror', onError);
+    target.dispatchEvent(event);
     
-    const copy = shallowCopyEnvelope(envelope);
-    copy.routePassed = seedRoute;
-    target.postMessage(copy);
-
     defer.promise.finally(() => {
-        unsubscribe();
+        intervalProvider.clearInterval(retryIntervalId);
+        target.removeEventListener('error', onError);
+        target.removeEventListener('message', onResponse);
+        target.removeEventListener('messageerror', onError);
     });
 
     return defer.promise;

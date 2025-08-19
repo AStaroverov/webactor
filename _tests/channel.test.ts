@@ -2,7 +2,6 @@ import { describe, expect, it, jest } from '@jest/globals';
 import './locks';
 
 import { Mock } from 'jest-mock';
-import { createMailbox } from '../examples/common/actors/createActor';
 import type { Actor, AnyEnvelope, Envelope, OpenChanelContext, SupportChanelContext } from '../src';
 import {
     connectActorToActor,
@@ -11,6 +10,7 @@ import {
     openChannelFactory,
     supportChannelFactory,
 } from '../src';
+import { createMailbox } from '../src/createActor';
 
 export const OPEN_TYPE = 'OPEN_TYPE' as const;
 export type TOpenEnvelope = Envelope<typeof OPEN_TYPE, undefined>;

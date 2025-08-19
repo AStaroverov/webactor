@@ -1,10 +1,10 @@
-import { Actor, ActorContext, AnyEnvelope, Mailbox } from './types';
+import { Actor, ActorContext, Mailbox, Message } from './types';
 
-type ActorConstructor<T extends AnyEnvelope> = (
+type ActorConstructor<T extends Message> = (
     context: ActorContext<T>,
 ) => unknown | Function;
 
-export function createActorFactory<T extends AnyEnvelope>(props: { getMailbox: () => Mailbox<T> }) {
+export function createActorFactory<T extends Message>(props: { getMailbox: () => Mailbox<T> }) {
     return function createActor(
         name: string,
         constructor: ActorConstructor<T>,
