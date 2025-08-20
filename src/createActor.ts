@@ -1,5 +1,5 @@
-import type { EventTypes, Mailbox, Message } from '.';
-import { createActorFactory, EventType } from '.';
+import { createActorFactory } from './createActorFactory';
+import { EventType, EventTypes, Mailbox, Message } from './types';
 
 export const createMailbox = <T extends Message>(): Mailbox<T> => {
     const errorCallbacks = new Set<(event: MessageEvent<Error>) => unknown>();

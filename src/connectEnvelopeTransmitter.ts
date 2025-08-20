@@ -1,7 +1,7 @@
 import { EventType, Message, MessagePortLike } from './types';
 import { createEventId } from './utils/common';
 
-const NAME = 'TransmitterRetranslatorError';
+const NAME = 'RetranslatorError';
 class RetranslatorError extends Error {
     constructor(message: string, options?: ErrorOptions) {
         super(message, options);
@@ -28,7 +28,7 @@ function resubscribe(
 ) {
     const onMessage = createReposter(source, target);
     const onError = (event: MessageEvent<Error>) => {
-        console.error(`Error while retranslating message`, event, source, target);
+        console.error(`Error while retranslating message`, event);
         const proxyEvent = event.data.name === NAME
             ? event
             : new MessageEvent(event.type, { data: new RetranslatorError(
@@ -76,7 +76,7 @@ function createReposter(source: MessagePortLike<Message>, target: MessagePortLik
             target.dispatchEvent(copyEvent);
             event.origin && addMessageId(target, event.origin);
         } catch (err) {
-            console.error(`Error while dispatching message`, event, target);
+            console.error(`Error while dispatching message`, event, err);
             const error = new RetranslatorError(
                 `Error while dispatching message`,
                 { cause: err },

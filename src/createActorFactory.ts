@@ -17,9 +17,15 @@ export function createActorFactory<T extends Message>(props: { getMailbox: () =>
             throw new Error('getMailbox should return different instances');
         }
 
+        let launched = false;
+        let destroyed = false;
         let dispose: unknown | Function;
 
         const launch = () => {
+            if (launched) {
+                throw new Error(`Actor "${name}" is already launched`);
+            }
+            launched = true;
             dispose = constructor({
                 name,
                 postMessage: mailboxOut.postMessage.bind(mailboxOut),
@@ -31,6 +37,10 @@ export function createActorFactory<T extends Message>(props: { getMailbox: () =>
         };
 
         const destroy = () => {
+            if (destroyed) {
+                throw new Error(`Actor "${name}" is already destroyed`);
+            }
+            destroyed = true;
             mailboxIn.destroy?.();
             mailboxOut.destroy?.();
             typeof dispose === 'function' && dispose();
