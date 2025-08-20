@@ -7,18 +7,20 @@ if (!webLocksSupported && process.env.NODE_ENV !== 'test') {
 }
 
 export function lock(key: string): Promise<VoidFunction> {
-    return new Promise<VoidFunction>((exResolve) => {
-        const internalPromise = new Promise((inResolve) => {
-            void locksProvider.request(key, () => {
-                exResolve(inResolve as VoidFunction);
-                return internalPromise;
+    return new Promise<VoidFunction>((exResolve, exReject) => {
+        locksProvider.request(key, () => {
+            return new Promise((resolve) => {
+                exResolve(resolve as VoidFunction);
             });
-        });
+        }).catch(exReject);
     });
 }
 
 export function onUnlock(key: string, abortSignal?: AbortSignal): Promise<unknown> {
     return new Promise((resolve, reject) => {
-        locksProvider.request(key, { signal: abortSignal }, resolve).catch(reject);
+        void locksProvider.request(key, { signal: abortSignal }, () => {
+            resolve(undefined);
+            return Promise.resolve();
+        }).catch(reject);
     });
 };
