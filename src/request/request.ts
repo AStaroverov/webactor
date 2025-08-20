@@ -19,7 +19,7 @@ export async function request<In extends Message>(
         options?.abortSignal?.addEventListener('abort', () => {
             reject(reasonToError(options?.abortSignal?.reason, 'Request aborted'));
             onFinally();
-        });
+        }, { once: true });
 
         const id = options?.id ?? createEventId();
         const event = new MessageEvent('message', { data: message, origin: id, lastEventId: id });

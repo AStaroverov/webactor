@@ -1,6 +1,7 @@
+import './locks';
+
 import { locksProvider } from '../src/providers';
 import { lock, onUnlock } from '../src/utils/Locks';
-import './locks';
 
 describe('Lock/Unlock System', () => {
     describe('lock function', () => {

@@ -27,14 +27,14 @@ export function supportChannel<T extends Message>(
                 errorHandlers.add(handler);
             }
             // @ts-expect-error
-            port.addEventListener(type, handler);
+            messageChannel.port2.addEventListener(type, handler);
         }
         const removeEventListener = (type: EventTypes, handler: (event: MessageEvent) => unknown) => {
             if (type === EventType.Error) {
                 errorHandlers.delete(handler);
             }
             // @ts-expect-error
-            port.removeEventListener(type, handler);
+            messageChannel.port2.removeEventListener(type, handler);
         }
         const handshake = () => {
             messageChannel.port2.postMessage(HANDSHAKE);
@@ -48,10 +48,10 @@ export function supportChannel<T extends Message>(
         }
         const close = () => {
             abort.abort();
-            unlockChannel();
             messageChannel.port1.close();
             messageChannel.port2.close();
             messageChannel.port2.removeEventListener('message', handshake);
+            unlockChannel();
         }
 
         messageChannel.port2.addEventListener('message', handshake, { once: true });
