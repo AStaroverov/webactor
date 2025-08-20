@@ -9,17 +9,25 @@ import type { ChannelTransmitter } from './types';
 export function supportChannel<T extends Message>(
     target: MessagePortLike<Message>,
     event: MessageEvent<Message>,
+    options?: {
+        abortSignal?: AbortSignal;
+    },
 ): Promise<ChannelTransmitter> {
     return new Promise(async (resolve, reject) => {
-        const abort = new AbortController();
-        abort.signal.addEventListener('abort', () => {
-            reject(reasonToError(abort.signal.reason, 'Channel support aborted'));
-        });
+        const abortChannel = () => {
+            reject(reasonToError(options?.abortSignal?.reason, 'Support channel aborted'));
+        }
+        options?.abortSignal?.addEventListener('abort', abortChannel, { once: true });
 
         const messageChannel = new MessageChannel();
         response(target, event, messageChannel.port1);
 
         const unlockChannel = await lock('supportChannel'+event.origin);
+
+        if (options?.abortSignal?.aborted) {
+            unlockChannel();
+            return;
+        }
         
         const errorHandlers = new Set<(event: MessageEvent<Error>) => unknown>();
         const addEventListener = (type: EventTypes, handler: (event: MessageEvent) => unknown) => {
@@ -46,8 +54,10 @@ export function supportChannel<T extends Message>(
                 close
             });
         }
+        const abortController = new AbortController();
         const close = () => {
-            abort.abort();
+            options?.abortSignal?.removeEventListener('abort', abortChannel);
+            abortController.abort();
             messageChannel.port1.close();
             messageChannel.port2.close();
             messageChannel.port2.removeEventListener('message', handshake);
@@ -56,7 +66,7 @@ export function supportChannel<T extends Message>(
 
         messageChannel.port2.addEventListener('message', handshake, { once: true });
         
-        onUnlock('openChannel'+event.origin, abort.signal).then(() => {
+        onUnlock('openChannel'+event.origin, abortController.signal).then(() => {
             const error = new MessageEvent(EventType.Error, { data: new Error('Lose Channel') });
             errorHandlers.forEach(handler => handler(error));
             close();
