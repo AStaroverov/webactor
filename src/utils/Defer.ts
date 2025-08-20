@@ -15,7 +15,7 @@ export class Defer<T> {
                     : signal.reason instanceof Error
                         ? signal.reason
                         : new Error('Aborted')
-                );
+            );
         }, { once: true });
     }
 }

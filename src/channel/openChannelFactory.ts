@@ -18,8 +18,8 @@ export async function openChannel<T extends Message>(
     
     const channelId = createEventId();
     const unlockChannel = await lock('openChannel'+channelId);
-    const event = await request<T, MessagePort>(
-        target as MessagePortLike<T & MessagePort>,
+    const event = await request<T>(
+        target,
         message,
         { id: channelId, abortSignal: interrupt.signal }
     );

@@ -28,15 +28,7 @@ function resubscribe(
 ) {
     const onMessage = createReposter(source, target);
     const onError = (event: MessageEvent<Error>) => {
-        console.error(`Error while retranslating message`, event);
-        const proxyEvent = event.data.name === NAME
-            ? event
-            : new MessageEvent(event.type, { data: new RetranslatorError(
-                `Retranslation error`,
-                { cause: event.data },
-            )});
-
-        target.dispatchEvent(proxyEvent);
+        target.dispatchEvent(event);
     }
     
     source.start?.();
@@ -64,25 +56,15 @@ function createReposter(source: MessagePortLike<Message>, target: MessagePortLik
     };
 
     return function repost(event: MessageEvent<Message>) {
-        try {
-            const isResponse = event.type === 'message' && hasMessageId(source, event.origin);
-            const copyEvent = target instanceof MessagePort && !isResponse
-                ? new MessageEvent(event.type, {
-                    data: event.data,
-                    origin: event.origin,
-                    lastEventId: createEventId(),
-                })
-                : event;
-            target.dispatchEvent(copyEvent);
-            event.origin && addMessageId(target, event.origin);
-        } catch (err) {
-            console.error(`Error while dispatching message`, event, err);
-            const error = new RetranslatorError(
-                `Error while dispatching message`,
-                { cause: err },
-            );
-
-            target.dispatchEvent(new MessageEvent('messageerror', { data: error }));
-        }
+        const isResponse = event.type === 'message' && hasMessageId(source, event.origin);
+        const copyEvent = target instanceof MessagePort && !isResponse
+            ? new MessageEvent(event.type, {
+                data: event.data,
+                origin: event.origin,
+                lastEventId: createEventId(),
+            })
+            : event;
+        target.dispatchEvent(copyEvent);
+        event.origin && addMessageId(target, event.origin);
     };
 }
