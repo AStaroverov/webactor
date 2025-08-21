@@ -5,8 +5,21 @@ import { supportChannel } from '../src/channel/supportChannelFactory';
 import { connectActorToActor } from '../src/connectActorToActor';
 import { createActor } from '../src/createActor';
 import { ActorContext } from '../src/types';
+import { restoreMessageChannel, setupMessageChannelMock } from './message-channel-mock';
 
-describe('Channel System', () => {
+const testEnvironments = [
+    { name: 'Native MessageChannel', setup: () => {}, teardown: () => {} },
+    { 
+        name: 'Sync MessageChannel Mock', 
+        setup: setupMessageChannelMock, 
+        teardown: restoreMessageChannel 
+    }
+];
+
+describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) => {
+    beforeEach(setup);
+    afterEach(teardown);
+
     describe('basic channel functionality', () => {
         it('should establish channel connection between two actors', async () => {
             let requesterContext: ActorContext<any> | null = null;
@@ -371,10 +384,6 @@ describe('Channel System', () => {
             });
             
             channel34.addEventListener('message', (event) => {
-                if (event.data === 'CHANNEL_HANDSHAKE') {
-                    // разберись почему так происходит - системные эвенты не должны сюда протекать
-                    debugger;
-                }
                 messages34.push({ from: 'actor3-channel', data: event.data });
             });
             channel34Transmitter.addEventListener('message', (event) => {

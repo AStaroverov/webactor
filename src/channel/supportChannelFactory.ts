@@ -2,6 +2,7 @@ import { response } from '../request/response';
 import { EventType, EventTypes, Message, MessagePortLike } from '../types';
 import { noop } from '../utils/common';
 import { lock, onUnlock } from '../utils/Locks';
+import { HANDSHAKE } from './defs';
 import type { ChannelTransmitter } from './types';
 
 export function supportChannel<T extends Message>(
@@ -29,6 +30,7 @@ export function supportChannel<T extends Message>(
             messageChannel.port2.removeEventListener(type, handler);
         }
         const handshake = () => {
+            messageChannel.port2.postMessage(HANDSHAKE);
             resolve({
                 postMessage: messageChannel.port2.postMessage.bind(messageChannel.port2),
                 dispatchEvent: messageChannel.port2.dispatchEvent.bind(messageChannel.port2),
