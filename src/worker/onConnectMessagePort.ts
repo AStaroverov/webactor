@@ -1,5 +1,5 @@
 import { noop } from '../utils/common';
-import { isDedicatedWorkerScope, isSharedWorkerScope } from './detect';
+import { isDedicatedWorkerScope, isMessagePortLike, isSharedWorkerScope } from './detect';
 
 const dependencies = <const>{
     isDedicatedWorkerScope,
@@ -11,7 +11,7 @@ export function onConnectMessagePort(
     onConnect: (port: MessagePort) => unknown,
     { isDedicatedWorkerScope, isSharedWorkerScope } = dependencies,
 ): VoidFunction {
-    if (isDedicatedWorkerScope(context)) {
+    if (isDedicatedWorkerScope(context) || isMessagePortLike(context)) {
         const port = context as unknown as MessagePort;
         onConnect(port);
         return noop;

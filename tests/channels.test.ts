@@ -107,6 +107,7 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             
             const supporterActor = createActor('supporter', (context: ActorContext) => {
                 context.addEventListener('message', async (event) => {
+                    // @ts-ignore
                     if (event.data.type === 'request-channel') {
                         channelTransmitterPromise = supportChannel(context, event);
                     }

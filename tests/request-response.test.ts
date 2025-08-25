@@ -255,9 +255,9 @@ describe('Request/Response System', () => {
             
             // Send multiple requests concurrently
             const responses = await Promise.all([
-                request<any>(requesterContext!, { id: 1, data: 'request1' }),
-                request<any>(requesterContext!, { id: 2, data: 'request2' }),
-                request<any>(requesterContext!, { id: 3, data: 'request3' }),
+                request(requesterContext!, { id: 1, data: 'request1' }),
+                request(requesterContext!, { id: 2, data: 'request2' }),
+                request(requesterContext!, { id: 3, data: 'request3' }),
             ]);
 
             expect(responses).toHaveLength(3);
@@ -265,7 +265,9 @@ describe('Request/Response System', () => {
             
             // Each response should contain the original request ID
             responses.forEach((response, index) => {
+                // @ts-ignore
                 expect(response.data.requestId).toBe(index + 1);
+                // @ts-ignore
                 expect(response.data.processed).toBeGreaterThan(0);
             });
             

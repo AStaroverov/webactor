@@ -11,7 +11,7 @@ function createWorker() {
     });
 }
 
-describe.skip('Worker Communication Tests', () => {
+describe('Worker Communication Tests', () => {
     let mainThreadActor: any;
     let worker: Worker;
     let disconnect: VoidFunction;
