@@ -1,25 +1,30 @@
-import { Actor, ActorContext, Mailbox, Message } from './types';
+import { createEnvelopeChannel } from './createEnvelopePort';
+import { Actor, ActorContext, AnyData } from './types';
 
-type ActorConstructor<T extends Message> = (
-    context: ActorContext<T>,
+type ActorConstructor = (
+    context: ActorContext<AnyData>,
 ) => unknown | Function;
 
-export function createActorFactory<T extends Message>(props: { getMailbox: () => Mailbox<T> }) {
+export function createActorFactory(options: { createChannel: () => ReturnType<typeof createEnvelopeChannel> }) {
     return function createActor(
         name: string,
-        constructor: ActorConstructor<T>,
-    ): Actor<T> {
-        const mailboxIn = props.getMailbox();
-        const mailboxOut = props.getMailbox();
-
-        // @ts-ignore
-        if (mailboxIn === mailboxOut) {
-            throw new Error('getMailbox should return different instances');
-        }
-
+        constructor: ActorConstructor,
+    ): Actor<AnyData> {
+        const { port1, port2 } = options.createChannel();
+        
         let launched = false;
         let destroyed = false;
         let dispose: unknown | Function;
+
+        const destroy = () => {
+            if (destroyed) {
+                throw new Error(`Actor "${name}" is already destroyed`);
+            }
+            destroyed = true;
+            port1.destroy?.();
+            port2.destroy?.();
+            typeof dispose === 'function' && dispose();
+        };
 
         const launch = () => {
             if (launched) {
@@ -28,32 +33,20 @@ export function createActorFactory<T extends Message>(props: { getMailbox: () =>
             launched = true;
             dispose = constructor({
                 name,
-                postMessage: mailboxOut.postMessage.bind(mailboxOut),
-                dispatchEvent: mailboxOut.dispatchEvent.bind(mailboxOut),
-                addEventListener: mailboxIn.addEventListener.bind(mailboxIn),
-                removeEventListener: mailboxIn.removeEventListener.bind(mailboxIn),
+                postMessage: port1.postMessage.bind(port1),
+                addEventListener: port1.addEventListener.bind(port1),
+                removeEventListener: port1.removeEventListener.bind(port1),
             });
             return actor;
         };
-
-        const destroy = () => {
-            if (destroyed) {
-                throw new Error(`Actor "${name}" is already destroyed`);
-            }
-            destroyed = true;
-            mailboxIn.destroy?.();
-            mailboxOut.destroy?.();
-            typeof dispose === 'function' && dispose();
-        };
-
-        const actor = {
+    
+        const actor: Actor = {
             name,
             launch,
             destroy,
-            postMessage: mailboxIn.postMessage.bind(mailboxIn),
-            dispatchEvent: mailboxIn.dispatchEvent.bind(mailboxIn),
-            addEventListener: mailboxOut.addEventListener.bind(mailboxOut),
-            removeEventListener: mailboxOut.removeEventListener.bind(mailboxOut),
+            postMessage: port2.postMessage.bind(port2),
+            addEventListener: port2.addEventListener.bind(port2),
+            removeEventListener: port2.removeEventListener.bind(port2),
         };
 
         return actor;

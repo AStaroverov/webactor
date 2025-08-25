@@ -1,16 +1,18 @@
-import type { Message, MessagePortLike } from '../types';
-import { createEventId } from '../utils/common';
+import { post } from '../dispatch';
+import { createEnvelope, Envelope } from '../envelope';
+import { AnyData, EventType, type EnvelopeMessagePort, type Message } from '../types';
 
-export function response<T extends Message | MessagePort>(
-    target: MessagePortLike<Message>,
-    requestEvent: MessageEvent<Message>,
-    response: T,
+export function response(
+    target: EnvelopeMessagePort,
+    request: Envelope<Message>,
+    response: Message | MessagePort,
 ) {
-    const event = new MessageEvent('message', {
-        data: response,
-        origin: requestEvent.origin,
-        lastEventId: createEventId(),
-        source: response instanceof MessagePort ? response : undefined,
+    if (request.channelId == null) throw new Error('Missing channelId');
+
+    const envelope = createEnvelope(EventType.Message, response as AnyData, {
+        channelId: request.channelId,
+        transferable: response instanceof MessagePort ? [response] : undefined,
     });
-    target.dispatchEvent(event);
+
+    post(target, envelope.type, envelope);
 }

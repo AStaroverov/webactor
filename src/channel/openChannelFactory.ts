@@ -1,15 +1,18 @@
+import { connectTransmitters } from '../connectTransmitters';
+import { createEnvelopeChannel } from '../createEnvelopePort';
+import { post } from '../dispatch';
 import { timeoutProvider } from '../providers';
 import { request } from '../request/request';
-import { EventType, EventTypes, Message, MessagePortLike } from '../types';
+import { AnyData, EnvelopeMessagePort, EventType, Transmitter } from '../types';
 import { createEventId, noop } from '../utils/common';
 import { lock, onUnlock } from '../utils/Locks';
 import { isMessagePortLike } from '../worker/detect';
 import { HANDSHAKE } from './defs';
 import { ChannelTransmitter } from './types';
 
-export function openChannel<T extends Message>(
-    target: MessagePortLike<T>,
-    message: T,
+export function openChannel(
+    target: EnvelopeMessagePort,
+    message: AnyData,
     options?: {
         abortSignal?: AbortSignal;
     },
@@ -17,65 +20,47 @@ export function openChannel<T extends Message>(
     const channelId = createEventId();
     const unlockChannelPromise = lock('openChannel'+channelId);
 
-    return new Promise(async (resolve, reject) => {
+    return new Promise<ChannelTransmitter>(async (resolve, reject) => {
         const unlockChannel = await unlockChannelPromise;
-        const event = await request(
+        const envelope = await request(
             target,
             message,
             { id: channelId, abortSignal: options?.abortSignal }
         )
 
-        if (!isMessagePortLike(event.data)) {
+        if (!isMessagePortLike(envelope.data)) {
             reject(new Error('Invalid handshake response'));
             return;
         }
 
-        const port = event.data as MessagePortLike<Message>;
-
-        port.start?.();
-
-        const errorHandlers = new Set<(event: MessageEvent<Error>) => unknown>();
-        const addEventListener = (type: EventTypes, handler: (event: MessageEvent) => unknown) => {
-            if (type === EventType.Error) {
-                errorHandlers.add(handler);
-            }
-            // @ts-expect-error
-            port.addEventListener(type, handler);
-        }
-        const removeEventListener = (type: EventTypes, handler: (event: MessageEvent) => unknown) => {
-            if (type === EventType.Error) {
-                errorHandlers.delete(handler);
-            }
-            // @ts-expect-error
-            port.removeEventListener(type, handler);
+        const messagePort = envelope.data as MessagePort;
+        const localChannel = createEnvelopeChannel();
+        const disconnect = connectTransmitters(messagePort as Transmitter, localChannel.port1);
+        const close = () => {
+            messagePort.removeEventListener('message', resolveHandshake);
+            cleanupController.abort();
+            localChannel.port2.destroy();
+            unlockChannel();
+            messagePort.close();
+            disconnect();
         }
 
         // HANDSHAKE
-        timeoutProvider.setTimeout(() => port.postMessage(HANDSHAKE));
+        timeoutProvider.setTimeout(() => messagePort.postMessage(HANDSHAKE));
         const resolveHandshake = (event: MessageEvent) => {
             if (event.data !== HANDSHAKE) return;
-            port.removeEventListener('message', resolveHandshake);
+            messagePort.removeEventListener('message', resolveHandshake);
             resolve({
-                postMessage: port.postMessage.bind(port),
-                dispatchEvent: port.dispatchEvent.bind(port),
-                addEventListener,
-                removeEventListener,
-                close
-            });
+                ...localChannel.port2,
+                close,
+            }as ChannelTransmitter);
         }
-        port.addEventListener('message', resolveHandshake);
+        messagePort.addEventListener('message', resolveHandshake);
         
         const cleanupController = new AbortController();
-        const close = () => {
-            port.removeEventListener('message', resolveHandshake);
-            cleanupController.abort();
-            unlockChannel();
-            port.close?.();
-        }
         
         onUnlock('supportChannel'+channelId, cleanupController.signal).then(() => {
-            const error = new MessageEvent(EventType.Error, { data: new Error('Lose Channel') });
-            errorHandlers.forEach(handler => handler(error));
+            post(localChannel.port1, EventType.Error, new Error('Lose Channel'));
             close();
         }).catch(noop);
     }).catch((err) => {

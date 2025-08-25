@@ -14,5 +14,4 @@ export { supportChannel } from './channel/supportChannelFactory';
 export * from './channel/types';
 
 export * from './worker';
-export * from './worker/types';
 

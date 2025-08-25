@@ -1,5 +1,5 @@
-import { locksProvider, loggerProvider } from '../providers';
 
+import { locksProvider, loggerProvider } from '../providers';
 const webLocksSupported = globalThis.navigator !== undefined && globalThis.navigator.locks !== undefined;
 
 if (!webLocksSupported && process.env.NODE_ENV !== 'test') {

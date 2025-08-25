@@ -1,20 +1,24 @@
+import { listen, post } from '../dispatch';
+import { AnyEnvelope, createEnvelope, isEnvelope } from '../envelope';
 import { intervalProvider } from '../providers';
-import type {
-    Message,
-    MessagePortLike
+import {
+    EventType,
+    type AnyData,
+    type EnvelopeMessagePort,
 } from '../types';
 import { createEventId } from '../utils/common';
 import { reasonToError } from '../worker/error';
 
-export async function request<In extends Message>(
-    target: MessagePortLike<In & Message>,
-    message: Message,
+export async function request(
+    target: EnvelopeMessagePort,
+    message: AnyData,
     options?: {
         id?: string
         retryDelay?: number;
-        abortSignal?: AbortSignal
+        abortSignal?: AbortSignal;
+        transferable?: Transferable[];
     }
-): Promise<MessageEvent<In>> {
+): Promise<AnyEnvelope> {
     return new Promise((resolve, reject) => {
         options?.abortSignal?.addEventListener('abort', () => {
             reject(reasonToError(options?.abortSignal?.reason, 'Request aborted'));
@@ -22,31 +26,26 @@ export async function request<In extends Message>(
         }, { once: true });
 
         const id = options?.id ?? createEventId();
-        const event = new MessageEvent('message', { data: message, origin: id, lastEventId: id });
+        const envelope = isEnvelope(message) ? message : createEnvelope(EventType.Message, message, { id, channelId: id, transferable: options?.transferable });
         const retryIntervalId = intervalProvider.setInterval(
-            () => target.dispatchEvent(event),
+            () => post(target, envelope.type, envelope),
             options?.retryDelay ?? 500
         );
-        const onFinally = () => {
-            intervalProvider.clearInterval(retryIntervalId);
-            target.removeEventListener('error', onError);
-            target.removeEventListener('message', onResponse);
-            target.removeEventListener('messageerror', onError);
-        }
-        const onResponse = (event: MessageEvent<In>) => {
-            resolve(event);
-            onFinally();
-        };
-        const onError = (event: MessageEvent<Error>) => {
-            const error = event.data as Error & { originalEvent?: MessageEvent<Error> };
-            error.originalEvent = event;
+        const onError = (_type: string, error: Error | ErrorEvent) => {
             reject(error);
             onFinally();
         };
+        const onResponse = (_type: string, envelope: AnyData) => {
+            if (!isEnvelope(envelope)) throw new Error('Non-envelope message received');
+            resolve(envelope);
+            onFinally();
+        };
+        const unlisten = listen(target, onError, onResponse);
+        const onFinally = () => {
+            intervalProvider.clearInterval(retryIntervalId);
+            unlisten();
+        }
 
-        target.addEventListener('error', onError);
-        target.addEventListener('message', onResponse);
-        target.addEventListener('messageerror', onError);
-        target.dispatchEvent(event);
+        post(target, envelope.type, envelope);
     });
 };

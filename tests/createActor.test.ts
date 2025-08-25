@@ -1,16 +1,18 @@
-import { createMailbox } from '../src/createActor';
 import { createActorFactory } from '../src/createActorFactory';
+import { createEnvelopeEmitter } from '../src/createEnvelopeEmitter';
+import { createEnvelopeChannel } from '../src/createEnvelopePort';
+import { createEnvelope } from '../src/envelope';
 import { ActorContext } from '../src/types';
 
-describe('createMailbox', () => {
-    let mailbox: ReturnType<typeof createMailbox>;
+describe('createEnvelopeEmitter', () => {
+    let envelopeEmitter: ReturnType<typeof createEnvelopeEmitter>;
 
     beforeEach(() => {
-        mailbox = createMailbox();
+        envelopeEmitter = createEnvelopeEmitter();
     });
 
     afterEach(() => {
-        mailbox.destroy?.();
+        envelopeEmitter.destroy?.();
     });
 
     describe('event handlers', () => {
@@ -18,8 +20,8 @@ describe('createMailbox', () => {
             const mockCallback = jest.fn();
             const testMessage = { type: 'test', payload: 'data' };
             
-            mailbox.addEventListener('message', mockCallback);
-            mailbox.postMessage(testMessage);
+            envelopeEmitter.addEventListener('message', mockCallback);
+            envelopeEmitter.postMessage(testMessage);
             
             expect(mockCallback).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -33,33 +35,33 @@ describe('createMailbox', () => {
             const mockErrorCallback = jest.fn();
             const testError = new Error('Test error');
             
-            mailbox.addEventListener('error', mockErrorCallback);
+            envelopeEmitter.addEventListener('error', mockErrorCallback);
+
+            const errorEvent = createEnvelope('error', testError);
+            envelopeEmitter.postMessage(errorEvent);
             
-            const errorEvent = new MessageEvent('error', { data: testError });
-            mailbox.dispatchEvent(errorEvent);
-            
-            expect(mockErrorCallback).toHaveBeenCalledWith(errorEvent);
+            expect(mockErrorCallback).toHaveBeenCalledWith(testError);
         });
 
         it('should add and trigger messageerror event listeners', () => {
             const mockErrorCallback = jest.fn();
             const testError = new Error('Message error');
             
-            mailbox.addEventListener('messageerror', mockErrorCallback);
-            
-            const messageErrorEvent = new MessageEvent('messageerror', { data: testError });
-            mailbox.dispatchEvent(messageErrorEvent);
-            
-            expect(mockErrorCallback).toHaveBeenCalledWith(messageErrorEvent);
+            envelopeEmitter.addEventListener('messageerror', mockErrorCallback);
+
+            const messageErrorEvent = createEnvelope('messageerror', testError);
+            envelopeEmitter.postMessage(messageErrorEvent);
+
+            expect(mockErrorCallback).toHaveBeenCalledWith(testError);
         });
 
         it('should remove event listeners', () => {
             const mockCallback = jest.fn();
             const testMessage = { type: 'test' };
             
-            mailbox.addEventListener('message', mockCallback);
-            mailbox.removeEventListener('message', mockCallback);
-            mailbox.postMessage(testMessage);
+            envelopeEmitter.addEventListener('message', mockCallback);
+            envelopeEmitter.removeEventListener('message', mockCallback);
+            envelopeEmitter.postMessage(testMessage);
             
             expect(mockCallback).not.toHaveBeenCalled();
         });
@@ -69,9 +71,9 @@ describe('createMailbox', () => {
             const mockCallback2 = jest.fn();
             const testMessage = { type: 'test' };
             
-            mailbox.addEventListener('message', mockCallback1);
-            mailbox.addEventListener('message', mockCallback2);
-            mailbox.postMessage(testMessage);
+            envelopeEmitter.addEventListener('message', mockCallback1);
+            envelopeEmitter.addEventListener('message', mockCallback2);
+            envelopeEmitter.postMessage(testMessage);
             
             expect(mockCallback1).toHaveBeenCalled();
             expect(mockCallback2).toHaveBeenCalled();
@@ -82,7 +84,7 @@ describe('createMailbox', () => {
             
             expect(() => {
                 // @ts-ignore - testing invalid event type
-                mailbox.addEventListener('invalid', mockCallback);
+                envelopeEmitter.addEventListener('invalid', mockCallback);
             }).toThrow('Unsupported event type: invalid');
         });
 
@@ -91,15 +93,7 @@ describe('createMailbox', () => {
             
             expect(() => {
                 // @ts-ignore - testing invalid event type
-                mailbox.removeEventListener('invalid', mockCallback);
-            }).toThrow('Unsupported event type: invalid');
-        });
-
-        it('should throw error for unsupported event types in dispatchEvent', () => {
-            const invalidEvent = new Event('invalid');
-            
-            expect(() => {
-                mailbox.dispatchEvent(invalidEvent);
+                envelopeEmitter.removeEventListener('invalid', mockCallback);
             }).toThrow('Unsupported event type: invalid');
         });
     });
@@ -110,20 +104,20 @@ describe('createMailbox', () => {
             const mockErrorCallback = jest.fn();
             const mockMessageErrorCallback = jest.fn();
             
-            mailbox.addEventListener('message', mockMessageCallback);
-            mailbox.addEventListener('error', mockErrorCallback);
-            mailbox.addEventListener('messageerror', mockMessageErrorCallback);
+            envelopeEmitter.addEventListener('message', mockMessageCallback);
+            envelopeEmitter.addEventListener('error', mockErrorCallback);
+            envelopeEmitter.addEventListener('messageerror', mockMessageErrorCallback);
             
-            mailbox.destroy?.();
+            envelopeEmitter.destroy?.();
             
             // Try to trigger events after destroy
-            mailbox.postMessage({ test: 'message' });
+            envelopeEmitter.postMessage({ test: 'message' });
             
-            const errorEvent = new MessageEvent('error', { data: new Error('test') });
-            const messageErrorEvent = new MessageEvent('messageerror', { data: new Error('test') });
+            const errorEvent = createEnvelope('error', new Error('test'));
+            const messageErrorEvent = createEnvelope('messageerror', new Error('test'));
             
-            mailbox.dispatchEvent(errorEvent);
-            mailbox.dispatchEvent(messageErrorEvent);
+            envelopeEmitter.postMessage(errorEvent);
+            envelopeEmitter.postMessage(messageErrorEvent);
             
             // None of the callbacks should be called
             expect(mockMessageCallback).not.toHaveBeenCalled();
@@ -137,8 +131,8 @@ describe('createMailbox', () => {
             const mockCallback = jest.fn();
             const testMessage = { type: 'test', data: 'payload' };
             
-            mailbox.addEventListener('message', mockCallback);
-            mailbox.postMessage(testMessage);
+            envelopeEmitter.addEventListener('message', mockCallback);
+            envelopeEmitter.postMessage(testMessage);
             
             expect(mockCallback).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -148,13 +142,13 @@ describe('createMailbox', () => {
             );
         });
 
-        it('should handle dispatchEvent correctly', () => {
+        it('should handle postMessage correctly', () => {
             const mockCallback = jest.fn();
             const testMessage = { type: 'test' };
-            const messageEvent = new MessageEvent('message', { data: testMessage });
+            const messageEvent = createEnvelope('message', testMessage);
             
-            mailbox.addEventListener('message', mockCallback);
-            mailbox.dispatchEvent(messageEvent);
+            envelopeEmitter.addEventListener('message', mockCallback);
+            envelopeEmitter.postMessage(messageEvent);
             
             expect(mockCallback).toHaveBeenCalledWith(messageEvent);
         });
@@ -164,10 +158,10 @@ describe('createMailbox', () => {
             const mockCallback2 = jest.fn();
             const testMessage = { type: 'test' };
             
-            mailbox.addEventListener('message', mockCallback1);
-            mailbox.addEventListener('message', mockCallback2);
+            envelopeEmitter.addEventListener('message', mockCallback1);
+            envelopeEmitter.addEventListener('message', mockCallback2);
             
-            mailbox.postMessage(testMessage);
+            envelopeEmitter.postMessage(testMessage);
             
             expect(mockCallback1).toHaveBeenCalledTimes(1);
             expect(mockCallback2).toHaveBeenCalledTimes(1);
@@ -176,12 +170,12 @@ describe('createMailbox', () => {
 });
 
 describe('createActorFactory', () => {
-    let mockGetMailbox: jest.Mock;
+    let mockCreateChannel: jest.Mock;
     let createActorFromFactory: ReturnType<typeof createActorFactory>;
 
     beforeEach(() => {
-        mockGetMailbox = jest.fn().mockImplementation(() => createMailbox());
-        createActorFromFactory = createActorFactory({ getMailbox: mockGetMailbox });
+        mockCreateChannel = jest.fn().mockImplementation(() => createEnvelopeChannel());
+        createActorFromFactory = createActorFactory({ createChannel: mockCreateChannel });
     });
 
     afterEach(() => {
@@ -201,27 +195,6 @@ describe('createActorFactory', () => {
             
             actor.destroy();
         });
-
-        it('should throw error if getMailbox returns same instance', () => {
-            const sameMailbox = createMailbox();
-            const badGetMailbox = jest.fn().mockReturnValue(sameMailbox);
-            const badFactory = createActorFactory({ getMailbox: badGetMailbox });
-            
-            expect(() => {
-                badFactory('test-actor', jest.fn());
-            }).toThrow('getMailbox should return different instances');
-            
-            sameMailbox.destroy?.();
-        });
-
-        it('should create separate input/output mailboxes', () => {
-            const mockConstructor = jest.fn();
-            const actor = createActorFromFactory('test-actor', mockConstructor);
-            
-            expect(mockGetMailbox).toHaveBeenCalledTimes(2);
-            
-            actor.destroy();
-        });
     });
 
     describe('actor lifecycle', () => {
@@ -234,7 +207,6 @@ describe('createActorFactory', () => {
             expect(mockConstructor).toHaveBeenCalledWith({
                 name: 'test-actor',
                 postMessage: expect.any(Function),
-                dispatchEvent: expect.any(Function),
                 addEventListener: expect.any(Function),
                 removeEventListener: expect.any(Function),
             });
@@ -273,18 +245,22 @@ describe('createActorFactory', () => {
         });
 
         it('should destroy mailboxes on destroy', () => {
-            const mockDestroy1 = jest.fn();
-            const mockDestroy2 = jest.fn();
+            const mockDestroy = jest.fn();
+            const mockCreateEnvelopeChannel = () => {
+                const {port1, port2} = createEnvelopeChannel()
+                port1.destroy = mockDestroy
+                port2.destroy = mockDestroy
+                return {port1, port2}
+            }
             
-            mockGetMailbox
-                .mockReturnValueOnce({ ...createMailbox(), destroy: mockDestroy1 })
-                .mockReturnValueOnce({ ...createMailbox(), destroy: mockDestroy2 });
+            mockCreateChannel
+                .mockReturnValueOnce(mockCreateEnvelopeChannel())
+                .mockReturnValueOnce(mockCreateEnvelopeChannel());
             
             const actor = createActorFromFactory('test-actor', jest.fn());
             actor.destroy();
-            
-            expect(mockDestroy1).toHaveBeenCalled();
-            expect(mockDestroy2).toHaveBeenCalled();
+
+            expect(mockDestroy).toHaveBeenCalledTimes(2);
         });
     });
 

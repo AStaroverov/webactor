@@ -1,46 +1,52 @@
-// import { isSystemEnvelope } from './isSystemEnvelope';
-// import { loggerProvider } from './providers';
-// import type { EnvelopeTarget, ExtractMessage } from './types';
-// import { AnyEnvelope } from './types';
-// import { onPortResolve } from './utils/MessagePort';
-// import { isPostMessageLike } from './worker/detect';
+import { AnyEnvelope, createEnvelope, Envelope, isEnvelope } from "./envelope";
+import { AnyData, EventType, EventTypes, TransmitterSource, TransmitterTarget } from "./types";
 
-// function createPortDispatch<T extends MessagePort>(port: T) {
-//     return function dispatchWithQueue(envelope: AnyEnvelope) {
-//         onPortResolve(port, (state) => {
-//             if (!state) return;
-//             try {
-//                 port.postMessage(envelope, envelope.transferable as any);
-//             } catch (err) {
-//                 loggerProvider.error(err);
-//             }
-//         });
-//     };
-// }
+export function post<T extends EventTypes, V extends AnyData>(
+    target: TransmitterTarget<V>,
+    type: T,
+    value: V | Envelope<V> | MessageEvent<V> | Error | ErrorEvent | MessageEvent<Error>,
+): void {
+    const isEventMessage = value instanceof MessageEvent;
+    const data = (isEventMessage ? value.data : value);
+    const message = isEnvelope(data) && data.type === type
+        ? data
+        : createEnvelope(
+            type,
+            data
+        );
+    const transferable = isEnvelope(message) ? message.transferable : undefined;
 
-// export function createDispatch<T extends EnvelopeTarget>(target: T) {
-//     if (target instanceof MessagePort) {
-//         return createPortDispatch(target);
-//     }
+    // @ts-expect-error
+    target.postMessage(message as V, transferable as any);
+}
 
-//     if (isPostMessageLike(target)) {
-//         return target.postMessage.bind(target);
-//     }
+export function listen<T extends AnyData>(
+    source: TransmitterSource<T>,
+    onError: (type: typeof EventType.Error | typeof EventType.MessageError, error: Error | ErrorEvent) => void,
+    onMessage: (type: typeof EventType.Message, data: T) => void,
+): VoidFunction {
+    const map = {
+        [EventType.Error]: onError,
+        [EventType.Message]: onMessage,
+        [EventType.MessageError]: onError
+    }
 
-//     throw new Error('Invalid dispatch target');
-// }
+    source.start?.();
 
-// export function createDeferredDispatch<T extends EnvelopeTarget>(target: T, promise: Promise<unknown>) {
-//     const dispatch = createDispatch(target);
-//     return function dispatchWithQueue(envelope: AnyEnvelope) {
-//         if (isSystemEnvelope(envelope)) {
-//             dispatch(envelope);
-//         } else {
-//             promise.then(() => dispatch(envelope)).catch(loggerProvider.error);
-//         }
-//     };
-// }
+    const unsubscribes = Object.values(EventType).map(type => {
+        const handler = (value: Error | ErrorEvent | AnyData | AnyEnvelope | MessageEvent<Error | AnyData | AnyEnvelope>) => {
+            if (value instanceof MessageEvent) {
+                value = value.data;
+            }
+            // @ts-ignore
+            map[type](type, value);
+        };
 
-// export function dispatch<T extends EnvelopeTarget, E extends ExtractMessage<T>>(target: T, envelope: E) {
-//     createDispatch(target)(envelope);
-// }
+        // @ts-ignore
+        source.addEventListener(type, handler);
+        // @ts-ignore
+        return () => source.removeEventListener(type, handler);
+    });
+
+    return () => unsubscribes.forEach(unsub => unsub());
+}

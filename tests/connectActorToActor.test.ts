@@ -1,14 +1,15 @@
 import { connectActorToActor } from '../src/connectActorToActor';
-import { createMailbox } from '../src/createActor';
 import { createActorFactory } from '../src/createActorFactory';
+import { createEnvelopeChannel } from '../src/createEnvelopePort';
+import { createEnvelope } from '../src/envelope';
 import { Actor, ActorContext } from '../src/types';
 
 describe('connectActorToActor', () => {
     let createActorFromFactory: ReturnType<typeof createActorFactory>;
 
     beforeEach(() => {
-        const mockGetMailbox = jest.fn().mockImplementation(() => createMailbox());
-        createActorFromFactory = createActorFactory({ getMailbox: mockGetMailbox });
+        const mockCreateChannel = jest.fn().mockImplementation(() => createEnvelopeChannel());
+        createActorFromFactory = createActorFactory({ createChannel: mockCreateChannel });
     });
 
     afterEach(() => {
@@ -176,10 +177,10 @@ describe('connectActorToActor', () => {
             const disconnect = connectActorToActor(actor1, actor2);
             
             const testError = new Error('Test error');
-            const errorEvent = new MessageEvent('error', { data: testError });
+            const errorEnvelope = createEnvelope('error', testError);
             
             // Dispatch error from actor1's context (mailboxOut)
-            actor1Context!.dispatchEvent(errorEvent);
+            actor1Context!.postMessage(errorEnvelope);
             
             await new Promise(resolve => setTimeout(resolve, 10));
             
@@ -208,9 +209,9 @@ describe('connectActorToActor', () => {
             const disconnect = connectActorToActor(actor1, actor2);
             
             const testError = new Error('Message parsing error');
-            const messageErrorEvent = new MessageEvent('messageerror', { data: testError });
+            const errorEnvelope = createEnvelope('messageerror', testError);
             
-            actor1Context!.dispatchEvent(messageErrorEvent);
+            actor1Context!.postMessage(errorEnvelope);
             
             await new Promise(resolve => setTimeout(resolve, 10));
             

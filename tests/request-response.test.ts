@@ -1,5 +1,6 @@
 import { connectActorToActor } from '../src';
 import { createActor } from '../src/createActor';
+import { createEnvelope } from '../src/envelope';
 import { request } from '../src/request/request';
 import { response } from '../src/request/response';
 import { ActorContext } from '../src/types';
@@ -35,17 +36,17 @@ describe('Request/Response System', () => {
             
             // Make request from requester context to responder context
             const requestMessage = { type: 'ping', payload: 'hello' };    
-            const responseEvent = await request(requesterContext!, requestMessage);
+            const responseEnvelope = await request(requesterContext!, requestMessage);
             
             // Verify response
-            expect(responseEvent.data).toEqual({
+            expect(responseEnvelope.data).toEqual({
                 type: 'pong',
                 originalMessage: { type: 'ping', payload: 'hello' },
             });
             
             // Verify event has correct origin (request ID)
-            expect(responseEvent.origin).toBeDefined();
-            expect(typeof responseEvent.origin).toBe('string');
+            expect(responseEnvelope.channelId).toBeDefined();
+            expect(typeof responseEnvelope.channelId).toBe('string');
             
             // Cleanup
             disconnect();
@@ -56,8 +57,8 @@ describe('Request/Response System', () => {
         it('should handle request with custom ID', async () => {
             let requesterContext: ActorContext<any> | null = null;
             let responderContext: ActorContext<any> | null = null;
-            let receivedOrigin: string | null = null;
-            
+            let receivedChannelId: string | undefined = undefined;
+
             const requesterActor = createActor('requester', (context: ActorContext) => {
                 requesterContext = context;
             });
@@ -65,7 +66,7 @@ describe('Request/Response System', () => {
             const responderActor = createActor('responder', (context: ActorContext) => {
                 responderContext = context;
                 context.addEventListener('message', (event) => {
-                    receivedOrigin = event.origin;
+                    receivedChannelId = event.channelId;
                     response(responderContext!, event, { result: 'success' });
                 });
             });
@@ -79,8 +80,8 @@ describe('Request/Response System', () => {
             const responseEvent = await request(requesterContext!, { test: true }, { id: customId });
             
             expect(responseEvent.data).toEqual({ result: 'success' });
-            expect(receivedOrigin).toBe(customId);
-            expect(responseEvent.origin).toBe(customId);
+            expect(receivedChannelId).toBe(customId);
+            expect(responseEvent.channelId).toBe(customId);
             
             disconnect();
             requesterActor.destroy();
@@ -177,10 +178,8 @@ describe('Request/Response System', () => {
                 responderContext = context;
                 context.addEventListener('message', (event) => {
                     // Simulate error in responder
-                    const errorEvent = new MessageEvent('error', { 
-                        data: new Error('Responder processing failed') 
-                    });
-                    responderContext!.dispatchEvent(errorEvent);
+                    const errorEnvelope = createEnvelope('error', new Error('Responder processing failed'));
+                    responderContext!.postMessage(errorEnvelope);
                 });
             });
 
@@ -208,10 +207,8 @@ describe('Request/Response System', () => {
             const responderActor = createActor('responder', (context: ActorContext) => {
                 context.addEventListener('message', (event) => {
                     // Simulate message error
-                    const messageErrorEvent = new MessageEvent('messageerror', { 
-                        data: new Error('Message parsing failed') 
-                    });
-                    context.dispatchEvent(messageErrorEvent);
+                    const messageErrorEnvelope = createEnvelope('messageerror', new Error('Message parsing failed'));
+                    context.postMessage(messageErrorEnvelope);
                 });
             });
 
