@@ -1,4 +1,4 @@
-import { ActorContext, createActor, createEnvelope, EventType, openChannel, type ChannelTransmitter } from 'webactor';
+import { ActorContext, createActor, openChannel, type ChannelTransmitter } from 'webactor';
 import {
   ChatEvent,
   ChatEventPayload,
@@ -16,8 +16,8 @@ export function createChatUIActor() {
     let users: ChatUser[] = [];
     let typingUsers = new Set<string>();
     let connectionStatus: 'connected' | 'connecting' | 'disconnected' = 'connecting';
-    let typingTimeout: NodeJS.Timeout | null = null;
-  let channel: ChannelTransmitter | null = null;
+    let typingTimeout: number | null = null;
+    let channel: ChannelTransmitter | null = null;
 
     const generateUserId = () => Math.random().toString(36).substring(2, 11);
 
@@ -80,10 +80,10 @@ export function createChatUIActor() {
         });
 
         // Announce user joined via channel
-        channel.postMessage(createEnvelope(EventType.Message, {
+        channel.postMessage({
           type: ChatEvent.USER_JOIN,
           payload: { user: currentUser }
-        }));
+        });
       } catch (e) {
         connectionStatus = 'disconnected';
         updateConnectionStatus();
@@ -273,10 +273,10 @@ export function createChatUIActor() {
         const text = messageInput.value.trim();
         if (!text || !currentUser || !channel) return;
 
-        channel.postMessage(createEnvelope(EventType.Message, {
+        channel.postMessage({
           type: ChatEvent.SEND_MESSAGE,
           payload: { text, room: currentRoom }
-        }));
+        });
 
         messageInput.value = '';
         sendButton.disabled = true;
@@ -285,11 +285,11 @@ export function createChatUIActor() {
           clearTimeout(typingTimeout);
           typingTimeout = null;
         }
-        
-        if (channel) channel.postMessage(createEnvelope(EventType.Message, {
+
+        if (channel) channel.postMessage({
           type: ChatEvent.USER_STOP_TYPING,
           payload: { userId: currentUser.id, room: currentRoom }
-        }));
+        });
       };
 
       sendButton.addEventListener('click', sendMessage);
@@ -305,30 +305,30 @@ export function createChatUIActor() {
         const hasText = messageInput.value.trim().length > 0;
         sendButton.disabled = !hasText;
 
-  if (!currentUser || !channel) return;
+        if (!currentUser || !channel) return;
 
         if (hasText) {
-          channel?.postMessage(createEnvelope(EventType.Message, {
+          channel?.postMessage({
             type: ChatEvent.USER_TYPING,
             payload: { userId: currentUser.id, userName: currentUser.name, room: currentRoom }
-          }));
+          });
 
           if (typingTimeout) clearTimeout(typingTimeout);
-          typingTimeout = setTimeout(() => {
-            channel?.postMessage(createEnvelope(EventType.Message, {
+          typingTimeout = window.setTimeout(() => {
+            channel?.postMessage({
               type: ChatEvent.USER_STOP_TYPING,
               payload: { userId: currentUser!.id, room: currentRoom }
-            }));
+            });
           }, 2000);
         } else {
           if (typingTimeout) {
             clearTimeout(typingTimeout);
             typingTimeout = null;
           }
-          if (channel) channel.postMessage(createEnvelope(EventType.Message, {
+          if (channel) channel.postMessage({
             type: ChatEvent.USER_STOP_TYPING,
             payload: { userId: currentUser.id, room: currentRoom }
-          }));
+          });
         }
       });
 
@@ -336,10 +336,10 @@ export function createChatUIActor() {
         const newRoom = roomSelect.value;
         if (newRoom !== currentRoom) {
           currentRoom = newRoom;
-          if (channel) channel.postMessage(createEnvelope(EventType.Message, {
+          if (channel) channel.postMessage({
             type: ChatEvent.ROOM_CHANGE,
             payload: { room: currentRoom }
-          }));
+          });
           updateMessages();
         }
       });
@@ -350,10 +350,10 @@ export function createChatUIActor() {
       window.addEventListener('beforeunload', () => {
         try {
           if (currentUser && channel) {
-            channel.postMessage(createEnvelope(EventType.Message, {
+            channel.postMessage({
               type: ChatEvent.USER_LEAVE,
               payload: { userId: currentUser.id }
-            }));
+            });
             channel.close();
           }
         } catch {}
@@ -362,8 +362,8 @@ export function createChatUIActor() {
 
 
     setTimeout(() => {
-  initDOM();
-  initializeUser();
+      initDOM();
+      initializeUser();
     }, 50);
   });
 }

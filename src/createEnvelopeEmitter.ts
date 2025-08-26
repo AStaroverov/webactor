@@ -1,4 +1,4 @@
-import { createEnvelope, Envelope, isEnvelope } from "./envelope";
+import { createEnvelope, Envelope, EnvelopeTransferable, isEnvelope } from "./envelope";
 import { AnyData, EnvelopeEmitter, EventType, EventTypes } from "./types";
 
 export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
@@ -52,7 +52,7 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
                 callbacksRecord[EventType.MessageError].clear();
             });
         },
-        postMessage(message: Error | ErrorEvent | T | Envelope<T | Error | ErrorEvent>, transferable?: StructuredSerializeOptions | Transferable[]): void {
+        postMessage(message: Error | ErrorEvent | T | Envelope<T | Error | ErrorEvent>, transferable?: EnvelopeTransferable): void {
             const type = isEnvelope(message) ? message.type : EventType.Message;
 
             if (isEnvelope(message) && message.type !== EventType.Message) {

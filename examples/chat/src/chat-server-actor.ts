@@ -1,4 +1,4 @@
-import { ActorContext, createActor, createEnvelope, EventType, supportChannel, type ChannelTransmitter } from 'webactor';
+import { ActorContext, createActor, supportChannel, type ChannelTransmitter } from 'webactor';
 import {
   ChatEvent,
   ChatEventPayload,
@@ -22,10 +22,10 @@ export function createChatServerActor() {
 
     const generateId = () => Math.random().toString(36).substring(2, 11);
 
-  const broadcastToAll = (event: ChatEventPayload, exceptId?: string) => {
+    const broadcastToAll = (event: ChatEventPayload, exceptId?: string) => {
       for (const [id, { channel }] of clients) {
         if (id === exceptId) continue;
-    try { channel.postMessage(createEnvelope(EventType.Message, event)); } catch {}
+        try { channel.postMessage(event); } catch { }
       }
     };
 
@@ -48,7 +48,7 @@ export function createChatServerActor() {
         state.messages = state.messages.slice(-100);
       }
 
-  broadcastToAll({
+      broadcastToAll({
         type: ChatEvent.NEW_MESSAGE,
         payload: { message }
       });
@@ -56,13 +56,13 @@ export function createChatServerActor() {
 
     const addUser = (user: ChatUser) => {
       state.users.set(user.id, user);
-      
-  broadcastToAll({
+
+      broadcastToAll({
         type: ChatEvent.USER_JOIN,
         payload: { user }
       });
 
-  broadcastToAll({
+      broadcastToAll({
         type: ChatEvent.USERS_UPDATE,
         payload: { users: Array.from(state.users.values()) }
       });
@@ -74,12 +74,12 @@ export function createChatServerActor() {
 
       state.users.delete(userId);
 
-  broadcastToAll({
+      broadcastToAll({
         type: ChatEvent.USER_LEAVE,
         payload: { userId }
       });
 
-  broadcastToAll({
+      broadcastToAll({
         type: ChatEvent.USERS_UPDATE,
         payload: { users: Array.from(state.users.values()) }
       });
@@ -124,10 +124,12 @@ export function createChatServerActor() {
           clients.set(connectionId, { channel });
 
           // Inform this client only
-          try { channel.postMessage(createEnvelope(EventType.Message, {
-            type: ChatEvent.CONNECTION_STATUS,
-            payload: { status: 'connected' }
-          })); } catch {}
+          try {
+            channel.postMessage({
+              type: ChatEvent.CONNECTION_STATUS,
+              payload: { status: 'connected' }
+            });
+          } catch { }
 
           // Listen for messages from this client
           channel.addEventListener('message', (envelope) => {

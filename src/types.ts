@@ -1,4 +1,4 @@
-import { Envelope } from "./envelope";
+import { Envelope, EnvelopeTransferable } from "./envelope";
 
 export type ValueOf<T> = T[keyof T];
 
@@ -17,9 +17,7 @@ export type Message = AnyData;
 export interface PostMessageLike<T> {
     (mssg: T): unknown
     (mssg: T, none?: undefined): unknown
-    (mssg: T, options: StructuredSerializeOptions): unknown
-    (mssg: T, transferable: Transferable): unknown
-    (mssg: T, transferable: Transferable[]): unknown
+    (mssg: T, options: EnvelopeTransferable): unknown
 }
 
 export interface PostLike<T> {
@@ -49,15 +47,13 @@ export interface EnvelopeListenerLike<T extends AnyData> {
     addEventListener: ListenerLike<Envelope<T>, Error | ErrorEvent>
     removeEventListener: ListenerLike<Envelope<T>, Error | ErrorEvent>
 }
-export interface EnvelopeTarget<T extends AnyData = AnyData> extends PostLike<Envelope<T>> {};
+export interface EnvelopeTarget<T extends AnyData = AnyData> extends PostLike<T | Envelope<T>> {};
 export interface EnvelopeSource<T extends AnyData = AnyData> extends EnvelopeListenerLike<T> {};
 export interface EnvelopeMessagePort<T extends AnyData = AnyData> extends EnvelopeTarget<T>, EnvelopeSource<T> {};
 
 // ACTOR
-export interface EnvelopeEmitter<T extends AnyData = AnyData> extends Omit<EnvelopeMessagePort<T>, 'postMessage'> {
+export interface EnvelopeEmitter<T extends AnyData = AnyData> extends EnvelopeMessagePort<T> {
     destroy?: () => void;
-    postMessage(mssg: T): void;
-    postMessage(mssg: Envelope<T>): void;
 };
 
 // Transmitter
