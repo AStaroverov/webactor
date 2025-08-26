@@ -36,12 +36,12 @@ export function openChannel(
         const localChannel = createEnvelopeChannel();
         const disconnect = connectTransmitters(messagePort as Transmitter, localChannel.port1);
         const close = () => {
+            disconnect();
             messagePort.removeEventListener('message', resolveHandshake);
             cleanupController.abort();
             localChannel.port2.destroy();
-            unlockChannel();
             messagePort.close();
-            disconnect();
+            unlockChannel();
         }
 
         // HANDSHAKE

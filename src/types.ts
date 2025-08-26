@@ -68,7 +68,7 @@ export type Transmitter<T extends AnyData = AnyData> =  EventMessagePortLike<T> 
 
 export type Actor<T extends AnyData = AnyData> = EnvelopeEmitter<T> & {
     name: string;
-    launch: () => Actor<T>;
+    launch: () => void;
     destroy: () => void;
 };
 

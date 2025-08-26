@@ -2,13 +2,10 @@ import { createEnvelope, Envelope, isEnvelope } from "./envelope";
 import { AnyData, EnvelopeEmitter, EventType, EventTypes } from "./types";
 
 export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
-    const errorCallbacks = new Set<(event: Error | ErrorEvent) => unknown>();
-    const messageCallbacks = new Set<(event: Envelope<T>) => unknown>();
-    const messageErrorCallbacks = new Set<(event: Error | ErrorEvent) => unknown>();
     const callbacksRecord = {
-        [EventType.Error]: errorCallbacks,
-        [EventType.Message]: messageCallbacks,
-        [EventType.MessageError]: messageErrorCallbacks,
+        [EventType.Error]: new Set<(event: Error | ErrorEvent) => unknown>(),
+        [EventType.Message]: new Set<(event: Envelope<T>) => unknown>(),
+        [EventType.MessageError]: new Set<(event: Error | ErrorEvent) => unknown>(),
     }
 
     function addEventListener(type: 'error', callback: (event: Error | ErrorEvent) => unknown): void
@@ -35,10 +32,11 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
 
     function callBacks(type: EventTypes, message: unknown): void {
         void Promise.resolve().then(() => {
-            const callbacks = callbacksRecord[type];
-            if (callbacks == null) {
+            if (callbacksRecord[type] == null) {
                 throw new Error(`Unsupported event type: ${type}`);
             }
+            const callbacks = callbacksRecord[type];
+            
             for (let callback of callbacks) {
                 // @ts-ignore
                 callback(message);
@@ -48,25 +46,26 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
 
     return {
         destroy() {
-            errorCallbacks.clear();
-            messageCallbacks.clear();
-            messageErrorCallbacks.clear();
+            void Promise.resolve().then(() => {
+                callbacksRecord[EventType.Error].clear();
+                callbacksRecord[EventType.Message].clear();
+                callbacksRecord[EventType.MessageError].clear();
+            });
         },
         postMessage(message: Error | ErrorEvent | T | Envelope<T | Error | ErrorEvent>, transferable?: StructuredSerializeOptions | Transferable[]): void {
             const type = isEnvelope(message) ? message.type : EventType.Message;
 
             if (isEnvelope(message) && message.type !== EventType.Message) {
                 callBacks(message.type, message.data as Error | ErrorEvent);
-                return;
+            } else {
+                const envelope = isEnvelope(message) ? message : createEnvelope(
+                    EventType.Message,
+                    message,
+                    transferable
+                );
+                
+                callBacks(type, envelope);
             }
-
-            const envelope = isEnvelope(message) ? message : createEnvelope(
-                EventType.Message,
-                message,
-                transferable
-            );
-
-            callBacks(type, envelope);
         },
         addEventListener,
         removeEventListener,

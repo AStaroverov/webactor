@@ -30,14 +30,13 @@ export function createActorFactory(options: { createChannel: () => ReturnType<ty
             if (launched) {
                 throw new Error(`Actor "${name}" is already launched`);
             }
-            launched = true;
             dispose = constructor({
                 name,
                 postMessage: port1.postMessage.bind(port1),
                 addEventListener: port1.addEventListener.bind(port1),
                 removeEventListener: port1.removeEventListener.bind(port1),
             });
-            return actor;
+            launched = true;
         };
     
         const actor: Actor = {
