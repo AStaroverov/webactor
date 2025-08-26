@@ -38,7 +38,7 @@ async function bootstrap() {
       console.error('🚨 Application error:', event.error);
     });
 
-    if (import.meta.env.DEV) {
+    if ((import.meta as any).env?.DEV) {
       (window as any).__CHAT__ = {
         ui: uiActor,
         worker,

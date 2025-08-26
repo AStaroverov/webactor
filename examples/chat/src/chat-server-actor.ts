@@ -17,7 +17,7 @@ export function createChatServerActor() {
       currentRoom: 'general'
     };
 
-    const generateId = () => Math.random().toString(36).substr(2, 9);
+    const generateId = () => Math.random().toString(36).substring(2, 11);
 
     const broadcastToAll = (event: ChatEventPayload) => {
       context.postMessage(event);
@@ -124,6 +124,12 @@ export function createChatServerActor() {
         case ChatEvent.USER_JOIN: {
           const { user } = message.payload;
           addUser(user);
+
+          // Send connection status to the new user
+          broadcastToAll({
+            type: ChatEvent.CONNECTION_STATUS,
+            payload: { status: 'connected' }
+          });
 
           context.postMessage({
             type: ChatEvent.NEW_MESSAGE,

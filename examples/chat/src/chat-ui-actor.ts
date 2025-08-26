@@ -18,7 +18,7 @@ export function createChatUIActor() {
     let connectionStatus: 'connected' | 'connecting' | 'disconnected' = 'connecting';
     let typingTimeout: NodeJS.Timeout | null = null;
 
-    const generateUserId = () => Math.random().toString(36).substr(2, 9);
+    const generateUserId = () => Math.random().toString(36).substring(2, 11);
 
     const generateUserName = () => {
       const adjectives = ['Happy', 'Clever', 'Bright', 'Swift', 'Gentle', 'Brave', 'Kind', 'Smart'];
@@ -39,6 +39,12 @@ export function createChatUIActor() {
         type: ChatEvent.USER_JOIN,
         payload: { user: currentUser }
       });
+
+      // Set connection status to connected after user is initialized
+      setTimeout(() => {
+        connectionStatus = 'connected';
+        updateConnectionStatus();
+      }, 100);
     };
 
     const formatTime = (timestamp: number) => {
