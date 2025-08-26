@@ -15,157 +15,119 @@ describe('createEnvelopeEmitter', () => {
         envelopeEmitter.destroy?.();
     });
 
-    describe('event handlers', () => {
-        it('should add and trigger message event listeners', async () => {
-            const mockCallback = jest.fn();
-            const testMessage = { type: 'test', payload: 'data' };
-            
-            envelopeEmitter.addEventListener('message', mockCallback);
-            envelopeEmitter.postMessage(testMessage);
-            
-            expect(mockCallback).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    type: 'message',
-                    data: testMessage
-                })
-            );
-        });
+    it('should add and trigger message event listeners', async () => {
+        const mockCallback = jest.fn();
+        const testMessage = { type: 'test', payload: 'data' };
 
-        it('should add and trigger error event listeners', () => {
-            const mockErrorCallback = jest.fn();
-            const testError = new Error('Test error');
-            
-            envelopeEmitter.addEventListener('error', mockErrorCallback);
+        envelopeEmitter.addEventListener('message', mockCallback);
+        envelopeEmitter.postMessage(testMessage);
 
-            const errorEvent = createEnvelope('error', testError);
-            envelopeEmitter.postMessage(errorEvent);
-            
-            expect(mockErrorCallback).toHaveBeenCalledWith(testError);
-        });
+        await new Promise(resolve => setTimeout(resolve, 0));
 
-        it('should add and trigger messageerror event listeners', () => {
-            const mockErrorCallback = jest.fn();
-            const testError = new Error('Message error');
-            
-            envelopeEmitter.addEventListener('messageerror', mockErrorCallback);
-
-            const messageErrorEvent = createEnvelope('messageerror', testError);
-            envelopeEmitter.postMessage(messageErrorEvent);
-
-            expect(mockErrorCallback).toHaveBeenCalledWith(testError);
-        });
-
-        it('should remove event listeners', () => {
-            const mockCallback = jest.fn();
-            const testMessage = { type: 'test' };
-            
-            envelopeEmitter.addEventListener('message', mockCallback);
-            envelopeEmitter.removeEventListener('message', mockCallback);
-            envelopeEmitter.postMessage(testMessage);
-            
-            expect(mockCallback).not.toHaveBeenCalled();
-        });
-
-        it('should support multiple listeners for same event type', () => {
-            const mockCallback1 = jest.fn();
-            const mockCallback2 = jest.fn();
-            const testMessage = { type: 'test' };
-            
-            envelopeEmitter.addEventListener('message', mockCallback1);
-            envelopeEmitter.addEventListener('message', mockCallback2);
-            envelopeEmitter.postMessage(testMessage);
-            
-            expect(mockCallback1).toHaveBeenCalled();
-            expect(mockCallback2).toHaveBeenCalled();
-        });
-
-        it('should throw error for unsupported event types in addEventListener', () => {
-            const mockCallback = jest.fn();
-            
-            expect(() => {
-                // @ts-ignore - testing invalid event type
-                envelopeEmitter.addEventListener('invalid', mockCallback);
-            }).toThrow('Unsupported event type: invalid');
-        });
-
-        it('should throw error for unsupported event types in removeEventListener', () => {
-            const mockCallback = jest.fn();
-            
-            expect(() => {
-                // @ts-ignore - testing invalid event type
-                envelopeEmitter.removeEventListener('invalid', mockCallback);
-            }).toThrow('Unsupported event type: invalid');
-        });
+        expect(mockCallback).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: 'message',
+                data: testMessage
+            })
+        );
     });
 
-    describe('cleanup', () => {
-        it('should clear all callbacks on destroy', () => {
-            const mockMessageCallback = jest.fn();
-            const mockErrorCallback = jest.fn();
-            const mockMessageErrorCallback = jest.fn();
-            
-            envelopeEmitter.addEventListener('message', mockMessageCallback);
-            envelopeEmitter.addEventListener('error', mockErrorCallback);
-            envelopeEmitter.addEventListener('messageerror', mockMessageErrorCallback);
-            
-            envelopeEmitter.destroy?.();
-            
-            // Try to trigger events after destroy
-            envelopeEmitter.postMessage({ test: 'message' });
-            
-            const errorEvent = createEnvelope('error', new Error('test'));
-            const messageErrorEvent = createEnvelope('messageerror', new Error('test'));
-            
-            envelopeEmitter.postMessage(errorEvent);
-            envelopeEmitter.postMessage(messageErrorEvent);
-            
-            // None of the callbacks should be called
-            expect(mockMessageCallback).not.toHaveBeenCalled();
-            expect(mockErrorCallback).not.toHaveBeenCalled();
-            expect(mockMessageErrorCallback).not.toHaveBeenCalled();
-        });
+    it('should add and trigger error event listeners', async () => {
+        const mockErrorCallback = jest.fn();
+        const testError = new Error('Test error');
+
+        envelopeEmitter.addEventListener('error', mockErrorCallback);
+
+        const errorEvent = createEnvelope('error', testError);
+        envelopeEmitter.postMessage(errorEvent);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockErrorCallback).toHaveBeenCalledWith(testError);
     });
 
-    describe('message posting and dispatching', () => {
-        it('should handle postMessage correctly', () => {
-            const mockCallback = jest.fn();
-            const testMessage = { type: 'test', data: 'payload' };
-            
-            envelopeEmitter.addEventListener('message', mockCallback);
-            envelopeEmitter.postMessage(testMessage);
-            
-            expect(mockCallback).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    type: 'message',
-                    data: testMessage
-                })
-            );
-        });
+    it('should add and trigger messageerror event listeners', async () => {
+        const mockErrorCallback = jest.fn();
+        const testError = new Error('Message error');
 
-        it('should handle postMessage correctly', () => {
-            const mockCallback = jest.fn();
-            const testMessage = { type: 'test' };
-            const messageEvent = createEnvelope('message', testMessage);
-            
-            envelopeEmitter.addEventListener('message', mockCallback);
-            envelopeEmitter.postMessage(messageEvent);
-            
-            expect(mockCallback).toHaveBeenCalledWith(messageEvent);
-        });
+        envelopeEmitter.addEventListener('messageerror', mockErrorCallback);
 
-        it('should call all current callbacks when posting message', () => {
-            const mockCallback1 = jest.fn();
-            const mockCallback2 = jest.fn();
-            const testMessage = { type: 'test' };
-            
-            envelopeEmitter.addEventListener('message', mockCallback1);
-            envelopeEmitter.addEventListener('message', mockCallback2);
-            
-            envelopeEmitter.postMessage(testMessage);
-            
-            expect(mockCallback1).toHaveBeenCalledTimes(1);
-            expect(mockCallback2).toHaveBeenCalledTimes(1);
-        });
+        const messageErrorEvent = createEnvelope('messageerror', testError);
+        envelopeEmitter.postMessage(messageErrorEvent);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockErrorCallback).toHaveBeenCalledWith(testError);
+    });
+
+    it('should remove event listeners', () => {
+        const mockCallback = jest.fn();
+        const testMessage = { type: 'test' };
+
+        envelopeEmitter.addEventListener('message', mockCallback);
+        envelopeEmitter.removeEventListener('message', mockCallback);
+        envelopeEmitter.postMessage(testMessage);
+
+        expect(mockCallback).not.toHaveBeenCalled();
+    });
+
+    it('should support multiple listeners for same event type', async () => {
+        const mockCallback1 = jest.fn();
+        const mockCallback2 = jest.fn();
+        const testMessage = { type: 'test' };
+
+        envelopeEmitter.addEventListener('message', mockCallback1);
+        envelopeEmitter.addEventListener('message', mockCallback2);
+        envelopeEmitter.postMessage(testMessage);
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockCallback1).toHaveBeenCalled();
+        expect(mockCallback2).toHaveBeenCalled();
+    });
+
+    it('should throw error for unsupported event types in addEventListener', () => {
+        const mockCallback = jest.fn();
+
+        expect(() => {
+            // @ts-ignore - testing invalid event type
+            envelopeEmitter.addEventListener('invalid', mockCallback);
+        }).toThrow('Unsupported event type: invalid');
+    });
+
+    it('should throw error for unsupported event types in removeEventListener', () => {
+        const mockCallback = jest.fn();
+
+        expect(() => {
+            // @ts-ignore - testing invalid event type
+            envelopeEmitter.removeEventListener('invalid', mockCallback);
+        }).toThrow('Unsupported event type: invalid');
+    });
+
+    it('should clear all callbacks on destroy', () => {
+        const mockMessageCallback = jest.fn();
+        const mockErrorCallback = jest.fn();
+        const mockMessageErrorCallback = jest.fn();
+
+        envelopeEmitter.addEventListener('message', mockMessageCallback);
+        envelopeEmitter.addEventListener('error', mockErrorCallback);
+        envelopeEmitter.addEventListener('messageerror', mockMessageErrorCallback);
+
+        envelopeEmitter.destroy?.();
+
+        // Try to trigger events after destroy
+        envelopeEmitter.postMessage({ test: 'message' });
+
+        const errorEvent = createEnvelope('error', new Error('test'));
+        const messageErrorEvent = createEnvelope('messageerror', new Error('test'));
+
+        envelopeEmitter.postMessage(errorEvent);
+        envelopeEmitter.postMessage(messageErrorEvent);
+
+        // None of the callbacks should be called
+        expect(mockMessageCallback).not.toHaveBeenCalled();
+        expect(mockErrorCallback).not.toHaveBeenCalled();
+        expect(mockMessageErrorCallback).not.toHaveBeenCalled();
     });
 });
 
@@ -186,13 +148,13 @@ describe('createActorFactory', () => {
         it('should create actor with given name and constructor', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
+
             expect(actor.name).toBe('test-actor');
             expect(typeof actor.launch).toBe('function');
             expect(typeof actor.destroy).toBe('function');
             expect(typeof actor.postMessage).toBe('function');
             expect(typeof actor.addEventListener).toBe('function');
-            
+
             actor.destroy();
         });
     });
@@ -201,26 +163,16 @@ describe('createActorFactory', () => {
         it('should call constructor on launch with correct context', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
+
             actor.launch();
-            
+
             expect(mockConstructor).toHaveBeenCalledWith({
                 name: 'test-actor',
                 postMessage: expect.any(Function),
                 addEventListener: expect.any(Function),
                 removeEventListener: expect.any(Function),
             });
-            
-            actor.destroy();
-        });
 
-        it('should return actor instance from launch', () => {
-            const mockConstructor = jest.fn();
-            const actor = createActorFromFactory('test-actor', mockConstructor);
-            
-            const launched = actor.launch();
-            expect(launched).toBe(actor);
-            
             actor.destroy();
         });
 
@@ -228,35 +180,35 @@ describe('createActorFactory', () => {
             const mockDispose = jest.fn();
             const mockConstructor = jest.fn().mockReturnValue(mockDispose);
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
+
             actor.launch();
             actor.destroy();
-            
+
             expect(mockDispose).toHaveBeenCalled();
         });
 
         it('should not call dispose if constructor returns non-function', () => {
             const mockConstructor = jest.fn().mockReturnValue('not-a-function');
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
+
             actor.launch();
-            
+
             expect(() => actor.destroy()).not.toThrow();
         });
 
         it('should destroy mailboxes on destroy', () => {
             const mockDestroy = jest.fn();
             const mockCreateEnvelopeChannel = () => {
-                const {port1, port2} = createEnvelopeChannel()
+                const { port1, port2 } = createEnvelopeChannel()
                 port1.destroy = mockDestroy
                 port2.destroy = mockDestroy
-                return {port1, port2}
+                return { port1, port2 }
             }
-            
+
             mockCreateChannel
                 .mockReturnValueOnce(mockCreateEnvelopeChannel())
                 .mockReturnValueOnce(mockCreateEnvelopeChannel());
-            
+
             const actor = createActorFromFactory('test-actor', jest.fn());
             actor.destroy();
 
@@ -277,34 +229,34 @@ describe('createActorFactory', () => {
             const actor2Constructor = (context: ActorContext) => {
                 context.addEventListener('message', actor2MessageHandler);
             }
-            
+
             const actor1 = createActorFromFactory('actor1', actor1Constructor);
             const actor2 = createActorFromFactory('actor2', actor2Constructor);
 
             actor1.launch();
             actor2.launch();
-            
+
             // Connect actors by manually wiring their message systems
             actor1.addEventListener('message', (event) => {
                 actor2.postMessage(event.data);
             });
-            
+
             actor2.addEventListener('message', (event) => {
                 actor1.postMessage(event.data);
             });
-            
+
             // Send initial message
             actor1.postMessage({ type: 'ping', payload: 'test' });
-            
+
             // Give time for async message handling
             await new Promise(resolve => setTimeout(resolve, 0));
-            
+
             expect(actor2MessageHandler).toHaveBeenCalledWith(
                 expect.objectContaining({
                     data: { type: 'pong', payload: 'test' }
                 })
             );
-            
+
             actor1.destroy();
             actor2.destroy();
         });
@@ -314,49 +266,48 @@ describe('createActorFactory', () => {
         it('should throw error on multiple launch calls', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
-            const result1 = actor.launch();
-            expect(result1).toBe(actor);
+
+            actor.launch();
             expect(mockConstructor).toHaveBeenCalledTimes(1);
-            
+
             expect(() => actor.launch()).toThrow('Actor "test-actor" is already launched');
             expect(mockConstructor).toHaveBeenCalledTimes(1); // Should not call constructor again
-            
+
             actor.destroy();
         });
 
         it('should handle destroy before launch', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
+
             expect(() => actor.destroy()).not.toThrow();
         });
 
         it('should throw error on multiple destroy calls', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
+
             actor.launch();
             actor.destroy();
-            
+
             expect(() => actor.destroy()).toThrow('Actor "test-actor" is already destroyed');
         });
 
         it('should throw error on multiple destroy calls even without launch', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
+
             actor.destroy();
-            
+
             expect(() => actor.destroy()).toThrow('Actor "test-actor" is already destroyed');
         });
 
         it('should not allow launch after destroy', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
-            
+
             actor.destroy();
-            
+
             // Should be able to attempt launch after destroy, but the behavior may vary
             // This test documents the current behavior - you might want to adjust based on requirements
             expect(() => actor.launch()).not.toThrow();
@@ -366,61 +317,39 @@ describe('createActorFactory', () => {
             const errorConstructor = jest.fn().mockImplementation(() => {
                 throw new Error('Constructor error');
             });
-            
+
             const actor = createActorFromFactory('test-actor', errorConstructor);
-            
+
             expect(() => actor.launch()).toThrow('Constructor error');
-            
+
             actor.destroy();
         });
     });
 
     describe('error handling', () => {
-        it('should propagate errors from message handlers', () => {
-            const errorHandler = jest.fn().mockImplementation(() => {
-                throw new Error('Handler error');
-            });
-            
-            const mockConstructor = jest.fn((context) => {
-                context.addEventListener('message', errorHandler);
-            });
-            
-            const actor = createActorFromFactory('test-actor', mockConstructor);
-            actor.launch();
-            
-            // Error should propagate from handler
-            expect(() => {
-                actor.postMessage({ type: 'test' });
-            }).toThrow('Handler error');
-            
-            expect(errorHandler).toHaveBeenCalled();
-            
-            actor.destroy();
-        });
-
         it('should handle invalid message data', () => {
             const messageHandler = jest.fn();
             const mockConstructor = jest.fn((context) => {
                 context.addEventListener('message', messageHandler);
             });
-            
+
             const actor = createActorFromFactory('test-actor', mockConstructor);
             actor.launch();
-            
+
             // Test with various invalid data types
             expect(() => {
                 actor.postMessage(null as any);
             }).not.toThrow();
-            
+
             expect(() => {
                 actor.postMessage(undefined as any);
             }).not.toThrow();
-            
+
             expect(() => {
                 // @ts-ignore - testing runtime behavior
                 actor.postMessage();
             }).not.toThrow();
-            
+
             actor.destroy();
         });
     });

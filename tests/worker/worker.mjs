@@ -1,5 +1,5 @@
 import { self } from '@apacheli/web-workers';
-import { connectActorToMessagePort, createActor, onConnectMessagePort } from '../../dist/webactor.mjs';
+import { connectActorToMessagePort, createActor, onConnectMessagePort } from '../../dist/index.js';
 
 console.log('Worker: Waiting for connection from main thread...');
 
