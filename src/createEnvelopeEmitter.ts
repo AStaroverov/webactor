@@ -34,14 +34,16 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
     }
 
     function callBacks(type: EventTypes, message: unknown): void {
-        const callbacks = callbacksRecord[type];
-        if (callbacks == null) {
-            throw new Error(`Unsupported event type: ${type}`);
-        }
-        for (let callback of callbacks) {
-            // @ts-ignore
-            callback(message);
-        }
+        void Promise.resolve().then(() => {
+            const callbacks = callbacksRecord[type];
+            if (callbacks == null) {
+                throw new Error(`Unsupported event type: ${type}`);
+            }
+            for (let callback of callbacks) {
+                // @ts-ignore
+                callback(message);
+            }
+        });
     }
 
     return {

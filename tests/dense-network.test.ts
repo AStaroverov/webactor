@@ -1,0 +1,219 @@
+import { ActorContext, createActor, createDenseNetwork } from '../src/index';
+
+describe('Dense Network Tests', () => {
+    let network: any;
+    let actors: any[] = [];
+
+    afterEach(async () => {
+        try {
+            if (network) {
+                network.destroy();
+                network = null;
+            }
+            
+            actors = [];
+        } catch (error) {
+            console.warn('Cleanup error (ignoring):', error);
+        }
+    });
+
+    it('should create dense network and connect all actors through hub', async () => {
+        const actor1Messages: any[] = [];
+        const actor2Messages: any[] = [];
+        const actor3Messages: any[] = [];
+
+        const actor1 = createActor('node1', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                actor1Messages.push({ ...event.data, receivedBy: 'node1' });
+            });
+            context.postMessage({ type: 'hello', from: 'node1', message: 'Hello from node1!' });
+        });
+
+        const actor2 = createActor('node2', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                actor2Messages.push({ ...event.data, receivedBy: 'node2' });
+            });
+            context.postMessage({ type: 'hello', from: 'node2', message: 'Hello from node2!' });
+        });
+
+        const actor3 = createActor('node3', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                actor3Messages.push({ ...event.data, receivedBy: 'node3' });
+            });
+            context.postMessage({ type: 'hello', from: 'node3', message: 'Hello from node3!' });
+        });
+
+        actors = [actor1, actor2, actor3];
+
+        network = createDenseNetwork(actor1, actor2, actor3);
+        network.launch();
+
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        expect(actor1Messages).toHaveLength(3);
+        expect(actor2Messages).toHaveLength(3);
+        expect(actor3Messages).toHaveLength(3);
+
+        expect(actor1Messages).toContainEqual(
+            expect.objectContaining({ from: 'node1', receivedBy: 'node1' })
+        );
+        expect(actor1Messages).toContainEqual(
+            expect.objectContaining({ from: 'node2', receivedBy: 'node1' })
+        );
+        expect(actor1Messages).toContainEqual(
+            expect.objectContaining({ from: 'node3', receivedBy: 'node1' })
+        );
+
+        expect(actor2Messages).toContainEqual(
+            expect.objectContaining({ from: 'node1', receivedBy: 'node2' })
+        );
+        expect(actor2Messages).toContainEqual(
+            expect.objectContaining({ from: 'node2', receivedBy: 'node2' })
+        );
+        expect(actor2Messages).toContainEqual(
+            expect.objectContaining({ from: 'node3', receivedBy: 'node2' })
+        );
+
+        expect(actor3Messages).toContainEqual(
+            expect.objectContaining({ from: 'node1', receivedBy: 'node3' })
+        );
+        expect(actor3Messages).toContainEqual(
+            expect.objectContaining({ from: 'node2', receivedBy: 'node3' })
+        );
+        expect(actor3Messages).toContainEqual(
+            expect.objectContaining({ from: 'node3', receivedBy: 'node3' })
+        );
+    });
+
+    it('should handle two-node network', async () => {
+        const node1Messages: any[] = [];
+        const node2Messages: any[] = [];
+
+        const node1 = createActor('peer1', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                node1Messages.push(event.data);
+            });
+            context.postMessage({ type: 'ping', from: 'peer1' });
+        });
+
+        const node2 = createActor('peer2', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                node2Messages.push(event.data);
+            });
+            context.postMessage({ type: 'pong', from: 'peer2' });
+        });
+
+        actors = [node1, node2];
+
+        network = createDenseNetwork(node1, node2);
+        network.launch();
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        expect(node1Messages).toHaveLength(2);
+        expect(node2Messages).toHaveLength(2);
+
+        expect(node1Messages).toContainEqual({ type: 'ping', from: 'peer1' });
+        expect(node1Messages).toContainEqual({ type: 'pong', from: 'peer2' });
+        
+        expect(node2Messages).toContainEqual({ type: 'ping', from: 'peer1' });
+        expect(node2Messages).toContainEqual({ type: 'pong', from: 'peer2' });
+    });
+
+    it('should support interactive messaging after launch', async () => {
+        const receivedMessages: any[] = [];
+
+        const listener = createActor('listener', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                receivedMessages.push(event.data);
+            });
+        });
+
+        let senderContext: ActorContext | null = null;
+        const sender = createActor('sender', (context: ActorContext) => {
+            senderContext = context;
+        });
+
+        actors = [listener, sender];
+
+        network = createDenseNetwork(listener, sender);
+        network.launch();
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        senderContext!.postMessage({ type: 'runtime', message: 'Runtime message 1' });
+        senderContext!.postMessage({ type: 'runtime', message: 'Runtime message 2' });
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(receivedMessages).toHaveLength(2);
+        expect(receivedMessages[0]).toEqual({ type: 'runtime', message: 'Runtime message 1' });
+        expect(receivedMessages[1]).toEqual({ type: 'runtime', message: 'Runtime message 2' });
+    });
+
+    it('should throw error when no transmitters provided', () => {
+        expect(() => {
+            createDenseNetwork();
+        }).toThrow('At least one transmitter is required to create dense network');
+    });
+
+    it('should throw error when launching already launched network', () => {
+        const actor = createActor('test', () => {});
+        actors = [actor];
+        
+        network = createDenseNetwork(actor);
+        network.launch();
+
+        expect(() => {
+            network.launch();
+        }).toThrow('Dense network is already launched');
+    });
+
+    it('should throw error when destroying already destroyed network', () => {
+        const actor = createActor('test', () => {});
+        actors = [actor];
+        
+        network = createDenseNetwork(actor);
+        network.launch();
+        network.destroy();
+
+        expect(() => {
+            network.destroy();
+        }).toThrow('Dense network is already destroyed');
+    });
+
+    it('should handle mixed transmitter types (actors and workers)', async () => {
+        const actorMessages: any[] = [];
+        let mockWorker: any;
+        
+        const actor = createActor('mixed-actor', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                actorMessages.push(event.data);
+            });
+            context.postMessage({ type: 'from-actor', message: 'Hello from actor' });
+        });
+
+        mockWorker = {
+            postMessage: jest.fn(),
+            addEventListener: jest.fn(),
+            removeEventListener: jest.fn(),
+            terminate: jest.fn(),
+            onmessage: null,
+            onerror: null
+        };
+
+        actors = [actor];
+        
+        network = createDenseNetwork(actor, mockWorker);
+        network.launch();
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(actorMessages).toContainEqual({ type: 'from-actor', message: 'Hello from actor' });
+
+        expect(mockWorker.addEventListener).toHaveBeenCalled();
+
+        network.destroy();
+        expect(mockWorker.terminate).toHaveBeenCalled();
+    });
+});

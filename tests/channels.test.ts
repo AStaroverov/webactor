@@ -2,7 +2,7 @@ import './locks';
 
 import { openChannel } from '../src/channel/openChannelFactory';
 import { supportChannel } from '../src/channel/supportChannelFactory';
-import { connectActors } from '../src/connectActorToActor';
+import { connectActors } from '../src/connectActors';
 import { createActor } from '../src/createActor';
 import { ActorContext } from '../src/types';
 import { restoreMessageChannel, setupMessageChannelMock } from './message-channel-mock';

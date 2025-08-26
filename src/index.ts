@@ -3,9 +3,10 @@ export * from './providers';
 export { createActor } from './createActor';
 export { createActorFactory } from './createActorFactory';
 export { createRetranslator } from './createRetranslator';
+export { createDenseNetwork } from './createDenseNetwork';
 export * from './types';
 
-export * from './connectActorToActor';
+export * from './connectActors';
 
 export { request } from './request/request';
 export { response } from './request/response';

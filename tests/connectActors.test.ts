@@ -1,10 +1,10 @@
-import { connectActors } from '../src/connectActorToActor';
+import { connectActors } from '../src/connectActors';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';
 import { createEnvelope } from '../src/envelope';
 import { Actor, ActorContext } from '../src/types';
 
-describe('connectActorToActor', () => {
+describe('connectActors', () => {
     let createActorFromFactory: ReturnType<typeof createActorFactory>;
 
     beforeEach(() => {
