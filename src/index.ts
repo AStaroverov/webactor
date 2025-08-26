@@ -2,6 +2,7 @@ export * from './providers';
 
 export { createActor } from './createActor';
 export { createActorFactory } from './createActorFactory';
+export { createRetranslator } from './createRetranslator';
 export * from './types';
 
 export * from './connectActorToActor';
