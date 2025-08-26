@@ -1,9 +1,9 @@
-import { createActor, ActorContext } from 'webactor';
-import { 
-  ChatMessage, 
-  ChatUser, 
-  ChatEventPayload, 
+import { ActorContext, createActor, createEnvelope, EventType, openChannel, type ChannelTransmitter } from 'webactor';
+import {
   ChatEvent,
+  ChatEventPayload,
+  ChatMessage,
+  ChatUser,
   DEFAULT_ROOMS
 } from './types';
 
@@ -17,6 +17,7 @@ export function createChatUIActor() {
     let typingUsers = new Set<string>();
     let connectionStatus: 'connected' | 'connecting' | 'disconnected' = 'connecting';
     let typingTimeout: NodeJS.Timeout | null = null;
+  let channel: ChannelTransmitter | null = null;
 
     const generateUserId = () => Math.random().toString(36).substring(2, 11);
 
@@ -28,23 +29,66 @@ export function createChatUIActor() {
       return `${adj}${noun}${Math.floor(Math.random() * 100)}`;
     };
 
-    const initializeUser = () => {
+    const initializeUser = async () => {
       currentUser = {
         id: generateUserId(),
         name: generateUserName(),
         joinedAt: Date.now()
       };
 
-      context.postMessage({
-        type: ChatEvent.USER_JOIN,
-        payload: { user: currentUser }
-      });
+      try {
+        // Open per-client channel to server via base actor link
+        channel = await openChannel(context, { type: 'chat:open-channel' });
 
-      // Set connection status to connected after user is initialized
-      setTimeout(() => {
-        connectionStatus = 'connected';
+        // Listen for server messages over channel
+        channel.addEventListener('message', (envelope) => {
+          const message = envelope.data as ChatEventPayload;
+          switch (message.type) {
+            case ChatEvent.NEW_MESSAGE:
+              messages.push(message.payload.message);
+              if (messages.length > 1000) messages = messages.slice(-1000);
+              updateMessages();
+              break;
+            case ChatEvent.USERS_UPDATE:
+              users = message.payload.users.filter(u => u.id !== currentUser?.id);
+              updateUsers();
+              break;
+            case ChatEvent.USER_TYPING:
+              if (message.payload.userId !== currentUser?.id && message.payload.room === currentRoom) {
+                typingUsers.add(message.payload.userName);
+                updateTypingIndicator();
+              }
+              break;
+            case ChatEvent.USER_STOP_TYPING: {
+              const typingUser = users.find(u => u.id === message.payload.userId);
+              if (typingUser && message.payload.room === currentRoom) {
+                typingUsers.delete(typingUser.name);
+                updateTypingIndicator();
+              }
+              break;
+            }
+            case ChatEvent.CONNECTION_STATUS:
+              connectionStatus = message.payload.status;
+              updateConnectionStatus();
+              break;
+          }
+        });
+
+        channel.addEventListener('error', () => {
+          connectionStatus = 'disconnected';
+          updateConnectionStatus();
+        });
+
+        // Announce user joined via channel
+        channel.postMessage(createEnvelope(EventType.Message, {
+          type: ChatEvent.USER_JOIN,
+          payload: { user: currentUser }
+        }));
+      } catch (e) {
+        connectionStatus = 'disconnected';
         updateConnectionStatus();
-      }, 100);
+        console.error('Failed to open chat channel', e);
+      }
     };
 
     const formatTime = (timestamp: number) => {
@@ -227,12 +271,12 @@ export function createChatUIActor() {
 
       const sendMessage = () => {
         const text = messageInput.value.trim();
-        if (!text || !currentUser) return;
+        if (!text || !currentUser || !channel) return;
 
-        context.postMessage({
+        channel.postMessage(createEnvelope(EventType.Message, {
           type: ChatEvent.SEND_MESSAGE,
           payload: { text, room: currentRoom }
-        });
+        }));
 
         messageInput.value = '';
         sendButton.disabled = true;
@@ -242,10 +286,10 @@ export function createChatUIActor() {
           typingTimeout = null;
         }
         
-        context.postMessage({
+        if (channel) channel.postMessage(createEnvelope(EventType.Message, {
           type: ChatEvent.USER_STOP_TYPING,
           payload: { userId: currentUser.id, room: currentRoom }
-        });
+        }));
       };
 
       sendButton.addEventListener('click', sendMessage);
@@ -261,30 +305,30 @@ export function createChatUIActor() {
         const hasText = messageInput.value.trim().length > 0;
         sendButton.disabled = !hasText;
 
-        if (!currentUser) return;
+  if (!currentUser || !channel) return;
 
         if (hasText) {
-          context.postMessage({
+          channel?.postMessage(createEnvelope(EventType.Message, {
             type: ChatEvent.USER_TYPING,
             payload: { userId: currentUser.id, userName: currentUser.name, room: currentRoom }
-          });
+          }));
 
           if (typingTimeout) clearTimeout(typingTimeout);
           typingTimeout = setTimeout(() => {
-            context.postMessage({
+            channel?.postMessage(createEnvelope(EventType.Message, {
               type: ChatEvent.USER_STOP_TYPING,
               payload: { userId: currentUser!.id, room: currentRoom }
-            });
+            }));
           }, 2000);
         } else {
           if (typingTimeout) {
             clearTimeout(typingTimeout);
             typingTimeout = null;
           }
-          context.postMessage({
+          if (channel) channel.postMessage(createEnvelope(EventType.Message, {
             type: ChatEvent.USER_STOP_TYPING,
             payload: { userId: currentUser.id, room: currentRoom }
-          });
+          }));
         }
       });
 
@@ -292,62 +336,34 @@ export function createChatUIActor() {
         const newRoom = roomSelect.value;
         if (newRoom !== currentRoom) {
           currentRoom = newRoom;
-          context.postMessage({
+          if (channel) channel.postMessage(createEnvelope(EventType.Message, {
             type: ChatEvent.ROOM_CHANGE,
             payload: { room: currentRoom }
-          });
+          }));
           updateMessages();
         }
       });
     };
 
-    context.addEventListener('message', (event) => {
-      const message = event.data as ChatEventPayload;
-
-      switch (message.type) {
-        case ChatEvent.NEW_MESSAGE:
-          messages.push(message.payload.message);
-          if (messages.length > 1000) {
-            messages = messages.slice(-1000);
+    // Graceful shutdown: notify server and close channel
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        try {
+          if (currentUser && channel) {
+            channel.postMessage(createEnvelope(EventType.Message, {
+              type: ChatEvent.USER_LEAVE,
+              payload: { userId: currentUser.id }
+            }));
+            channel.close();
           }
-          updateMessages();
-          break;
+        } catch {}
+      });
+    }
 
-        case ChatEvent.USERS_UPDATE:
-          users = message.payload.users.filter(u => u.id !== currentUser?.id);
-          updateUsers();
-          break;
-
-        case ChatEvent.USER_TYPING:
-          if (message.payload.userId !== currentUser?.id && message.payload.room === currentRoom) {
-            typingUsers.add(message.payload.userName);
-            updateTypingIndicator();
-          }
-          break;
-
-        case ChatEvent.USER_STOP_TYPING:
-          const typingUser = users.find(u => u.id === message.payload.userId);
-          if (typingUser && message.payload.room === currentRoom) {
-            typingUsers.delete(typingUser.name);
-            updateTypingIndicator();
-          }
-          break;
-
-        case ChatEvent.CONNECTION_STATUS:
-          connectionStatus = message.payload.status;
-          updateConnectionStatus();
-          break;
-
-        case ChatEvent.USER_JOIN:
-        case ChatEvent.USER_LEAVE:
-        case ChatEvent.ROOM_CHANGE:
-          break;
-      }
-    });
 
     setTimeout(() => {
-      initDOM();
-      initializeUser();
+  initDOM();
+  initializeUser();
     }, 50);
   });
 }

@@ -2,8 +2,8 @@ export * from './providers';
 
 export { createActor } from './createActor';
 export { createActorFactory } from './createActorFactory';
-export { createRetranslator } from './createRetranslator';
 export { createDenseNetwork } from './createDenseNetwork';
+export { createRetranslator } from './createRetranslator';
 export * from './types';
 
 export * from './connectActors';
@@ -15,5 +15,6 @@ export { openChannel } from './channel/openChannelFactory';
 export { supportChannel } from './channel/supportChannelFactory';
 export * from './channel/types';
 
+export * from './envelope';
 export * from './worker';
 

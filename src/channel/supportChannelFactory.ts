@@ -22,7 +22,7 @@ export function supportChannel(
     const messageChannel = new MessageChannel();
 
     return new Promise(async (resolve, reject) => {
-        response(target, envelope, messageChannel.port1);
+        response(target, envelope, messageChannel.port1, [messageChannel.port1]);
 
         const unlockChannel = await lock('supportChannel'+channelId);
         const localChannel = createEnvelopeChannel();

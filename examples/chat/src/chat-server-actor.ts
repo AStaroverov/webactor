@@ -1,10 +1,10 @@
-import { createActor, ActorContext } from 'webactor';
-import { 
-  ChatMessage, 
-  ChatUser, 
-  ChatState, 
-  ChatEventPayload, 
+import { ActorContext, createActor, createEnvelope, EventType, supportChannel, type ChannelTransmitter } from 'webactor';
+import {
   ChatEvent,
+  ChatEventPayload,
+  ChatMessage,
+  ChatState,
+  ChatUser,
   DEFAULT_ROOMS
 } from './types';
 
@@ -17,10 +17,16 @@ export function createChatServerActor() {
       currentRoom: 'general'
     };
 
+    // Per-client channels (one per tab)
+    const clients = new Map<string, { channel: ChannelTransmitter; userId?: string }>();
+
     const generateId = () => Math.random().toString(36).substring(2, 11);
 
-    const broadcastToAll = (event: ChatEventPayload) => {
-      context.postMessage(event);
+  const broadcastToAll = (event: ChatEventPayload, exceptId?: string) => {
+      for (const [id, { channel }] of clients) {
+        if (id === exceptId) continue;
+    try { channel.postMessage(createEnvelope(EventType.Message, event)); } catch {}
+      }
     };
 
     const addMessage = (userId: string, text: string, room: string) => {
@@ -42,7 +48,7 @@ export function createChatServerActor() {
         state.messages = state.messages.slice(-100);
       }
 
-      broadcastToAll({
+  broadcastToAll({
         type: ChatEvent.NEW_MESSAGE,
         payload: { message }
       });
@@ -51,12 +57,12 @@ export function createChatServerActor() {
     const addUser = (user: ChatUser) => {
       state.users.set(user.id, user);
       
-      broadcastToAll({
+  broadcastToAll({
         type: ChatEvent.USER_JOIN,
         payload: { user }
       });
 
-      broadcastToAll({
+  broadcastToAll({
         type: ChatEvent.USERS_UPDATE,
         payload: { users: Array.from(state.users.values()) }
       });
@@ -68,12 +74,12 @@ export function createChatServerActor() {
 
       state.users.delete(userId);
 
-      broadcastToAll({
+  broadcastToAll({
         type: ChatEvent.USER_LEAVE,
         payload: { userId }
       });
 
-      broadcastToAll({
+  broadcastToAll({
         type: ChatEvent.USERS_UPDATE,
         payload: { users: Array.from(state.users.values()) }
       });
@@ -106,121 +112,125 @@ export function createChatServerActor() {
       }
     };
 
-    context.addEventListener('message', (event) => {
-      const message = event.data as ChatEventPayload;
+    // Accept channel requests and handle per-client messages
+    context.addEventListener('message', async (envelope) => {
+      const data: any = envelope.data;
 
-      switch (message.type) {
-        case ChatEvent.SEND_MESSAGE: {
-          const { text, room } = message.payload;
-          
-          const userId = Array.from(state.users.keys())[0];
-          if (!userId || !text.trim()) return;
+      // Channel handshake request from client
+      if (data && data.type === 'chat:open-channel') {
+        const connectionId = generateId();
+        try {
+          const channel = await supportChannel(context, envelope as any);
+          clients.set(connectionId, { channel });
 
-          setUserTyping(userId, room, false);
-          addMessage(userId, text, room);
-          break;
-        }
-
-        case ChatEvent.USER_JOIN: {
-          const { user } = message.payload;
-          addUser(user);
-
-          // Send connection status to the new user
-          broadcastToAll({
+          // Inform this client only
+          try { channel.postMessage(createEnvelope(EventType.Message, {
             type: ChatEvent.CONNECTION_STATUS,
             payload: { status: 'connected' }
-          });
+          })); } catch {}
 
-          context.postMessage({
-            type: ChatEvent.NEW_MESSAGE,
-            payload: {
-              message: {
-                id: generateId(),
-                userId: 'system',
-                userName: 'System',
-                text: `${user.name} joined the chat`,
-                timestamp: Date.now(),
-                room: state.currentRoom
+          // Listen for messages from this client
+          channel.addEventListener('message', (envelope) => {
+            const message = envelope.data as ChatEventPayload;
+            switch (message.type) {
+              case ChatEvent.SEND_MESSAGE: {
+                const { text, room } = message.payload;
+                const userId = Array.from(state.users.keys()).find(uid => uid === clients.get(connectionId)?.userId);
+                if (!userId || !text.trim()) return;
+                setUserTyping(userId, room, false);
+                addMessage(userId, text, room);
+                break;
               }
+              case ChatEvent.USER_JOIN: {
+                const { user } = message.payload;
+                clients.set(connectionId, { channel, userId: user.id });
+                addUser(user);
+                // System message about join
+                const joinMsg: ChatMessage = {
+                  id: generateId(),
+                  userId: 'system',
+                  userName: 'System',
+                  text: `${user.name} joined the chat`,
+                  timestamp: Date.now(),
+                  room: state.currentRoom
+                };
+                state.messages.push(joinMsg);
+                broadcastToAll({ type: ChatEvent.NEW_MESSAGE, payload: { message: joinMsg } });
+                break;
+              }
+              case ChatEvent.USER_LEAVE: {
+                const { userId } = message.payload;
+                const user = state.users.get(userId);
+                if (user) {
+                  const leaveMsg: ChatMessage = {
+                    id: generateId(),
+                    userId: 'system',
+                    userName: 'System',
+                    text: `${user.name} left the chat`,
+                    timestamp: Date.now(),
+                    room: state.currentRoom
+                  };
+                  state.messages.push(leaveMsg);
+                  broadcastToAll({ type: ChatEvent.NEW_MESSAGE, payload: { message: leaveMsg } });
+                }
+                removeUser(userId);
+                break;
+              }
+              case ChatEvent.USER_TYPING: {
+                const { userId, room } = message.payload;
+                setUserTyping(userId, room, true);
+                break;
+              }
+              case ChatEvent.USER_STOP_TYPING: {
+                const { userId, room } = message.payload;
+                setUserTyping(userId, room, false);
+                break;
+              }
+              case ChatEvent.ROOM_CHANGE: {
+                const { room } = message.payload;
+                if (state.rooms.find(r => r.id === room)) {
+                  state.currentRoom = room;
+                }
+                break;
+              }
+              case ChatEvent.CONNECTION_STATUS: {
+                // ignore
+                break;
+              }
+              default:
+                console.warn('Unknown chat event type from channel:', (message as any).type);
             }
           });
-          break;
-        }
 
-        case ChatEvent.USER_LEAVE: {
-          const { userId } = message.payload;
-          const user = state.users.get(userId);
-          
-          if (user) {
-            context.postMessage({
-              type: ChatEvent.NEW_MESSAGE,
-              payload: {
-                message: {
+          // Handle channel termination (client/tab closed or lost)
+          channel.addEventListener('error', () => {
+            const info = clients.get(connectionId);
+            clients.delete(connectionId);
+            if (info?.userId) {
+              const user = state.users.get(info.userId);
+              removeUser(info.userId);
+              if (user) {
+                const leaveMsg: ChatMessage = {
                   id: generateId(),
                   userId: 'system',
                   userName: 'System',
                   text: `${user.name} left the chat`,
                   timestamp: Date.now(),
                   room: state.currentRoom
-                }
+                };
+                state.messages.push(leaveMsg);
+                broadcastToAll({ type: ChatEvent.NEW_MESSAGE, payload: { message: leaveMsg } });
               }
-            });
-          }
-
-          removeUser(userId);
-          break;
+            }
+          });
+        } catch (err) {
+          console.warn('Failed to support chat channel:', err);
         }
-
-        case ChatEvent.USER_TYPING: {
-          const { userId, room } = message.payload;
-          setUserTyping(userId, room, true);
-          break;
-        }
-
-        case ChatEvent.USER_STOP_TYPING: {
-          const { userId, room } = message.payload;
-          setUserTyping(userId, room, false);
-          break;
-        }
-
-        case ChatEvent.ROOM_CHANGE: {
-          const { room } = message.payload;
-          if (state.rooms.find(r => r.id === room)) {
-            state.currentRoom = room;
-          }
-          break;
-        }
-
-        case ChatEvent.CONNECTION_STATUS: {
-          break;
-        }
-
-        default:
-          console.warn('Unknown chat event type:', (message as any).type);
+        return;
       }
     });
 
-    setTimeout(() => {
-      broadcastToAll({
-        type: ChatEvent.CONNECTION_STATUS,
-        payload: { status: 'connected' }
-      });
-
-      const welcomeMessage: ChatMessage = {
-        id: generateId(),
-        userId: 'system',
-        userName: 'System',
-        text: 'Welcome to the multi-tab chat! Try opening this page in multiple tabs to see real-time synchronization.',
-        timestamp: Date.now(),
-        room: 'general'
-      };
-
-      state.messages.push(welcomeMessage);
-
-      broadcastToAll({
-        type: ChatEvent.NEW_MESSAGE,
-        payload: { message: welcomeMessage }
-      });
-    }, 100);
+    // Optionally, server can push a periodic status/welcome when at least one client connects
+    // Here we keep state.welcome in memory and broadcast on first user join via the channel handler above.
   });
 }

@@ -18,7 +18,7 @@ export function post<T extends EventTypes, V extends AnyData>(
         );
     const transferable = isEnvelope(message) ? message.transferable : undefined;
 
-    // @ts-expect-error
+    // @ts-ignore
     target.postMessage(message as V, transferable as any);
 }
 

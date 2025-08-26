@@ -1,6 +1,6 @@
-import './style.css';
 import { connectActorToWorker } from 'webactor';
 import { createChatUIActor } from './chat-ui-actor';
+import './style.css';
 
 async function bootstrap() {
   console.log('🚀 Starting multi-tab chat application...');
