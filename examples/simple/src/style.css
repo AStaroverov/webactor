@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for the actor demo */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Actor message animations */
+.message-entry {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Button hover effects */
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Counter display animation */
+#counter {
+  transition: all 0.3s ease-out;
+}
+
+#counter.updated {
+  animation: counterPulse 0.4s ease-in-out;
+}
+
+@keyframes counterPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); color: #3b82f6; }
+  100% { transform: scale(1); }
+}
+
+/* Message log styling */
+#message-log {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  line-height: 1.4;
+}
+
+#message-log > div {
+  border-left: 2px solid transparent;
+  padding-left: 8px;
+  margin-bottom: 2px;
+}
+
+#message-log > div:nth-child(odd) {
+  background-color: rgba(243, 244, 246, 0.5);
+}
+
+#message-log > div.new-message {
+  border-left-color: #3b82f6;
+  animation: messageHighlight 1s ease-out;
+}
+
+@keyframes messageHighlight {
+  0% { background-color: #dbeafe; }
+  100% { background-color: transparent; }
+}
+
+/* Actor system status indicator */
+.system-status {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  background: #10b981;
+  color: white;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.system-status::before {
+  content: "�";
+  margin-right: 0.5rem;
+  animation: pulse 2s infinite;
+}
+
+/* Error state styles */
+.error-state {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.error-state button {
+  background-color: #ef4444;
+}
+
+.error-state button:hover {
+  background-color: #dc2626;
+}
+
+/* Loading state */
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.loading button {
+  cursor: wait;
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem;
+  }
+  
+  button {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+  }
+  
+  #counter {
+    font-size: 2.5rem;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Dark mode support (if needed) */
+@media (prefers-color-scheme: dark) {
+  /* Future: add dark mode styles */
+}

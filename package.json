@@ -1,27 +1,20 @@
 {
   "name": "webactor",
   "description": "Everything that you need for actor architecture on client",
-  "version": "0.3.3",
+  "version": "1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AStaroverov/actorr.git"
   },
   "author": "AStaroverov",
-  "main": "./dist/webactor.umd.cjs",
-  "module": "./dist/webactor.js",
+  "type": "module",
+  "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/webactor.js",
-      "require": "./dist/webactor.umd.cjs"
-    }
-  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "dev": "vite --config vite.examples.config.js",
-    "build": "tsc --noEmit && vite build --config vite.build.config.js",
+    "build": "tsc --noEmit && vite build",
     "test": "jest --detectOpenHandles",
     "release": "npm run build && npm publish",
     "release_beta": "npm run build && npm publish --tag beta"
