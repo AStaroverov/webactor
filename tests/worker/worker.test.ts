@@ -17,16 +17,23 @@ describe('Worker Communication Tests', () => {
     let disconnect: VoidFunction;
 
     afterEach(async () => {
-        if (disconnect) {
-            disconnect();
-        }
-        if (mainThreadActor) {
-            mainThreadActor.destroy();
-        }
-        if (worker) {
-            worker.terminate();
-            // Give worker time to clean up
-            await new Promise(resolve => setTimeout(resolve, 50));
+        try {
+            if (disconnect) {
+                disconnect();
+                disconnect = null as any;
+            }
+            if (mainThreadActor) {
+                mainThreadActor.destroy();
+                mainThreadActor = null;
+            }
+            if (worker) {
+                worker.terminate();
+                worker = null as any;
+                // Give worker time to clean up
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        } catch (error) {
+            console.warn('Cleanup error (ignoring):', error);
         }
     });
 
@@ -216,7 +223,12 @@ describe('Worker Communication Tests', () => {
         // Cleanup
         disconnect1();
         disconnect2();
+        actor1.destroy();
+        actor2.destroy();
         worker1.terminate();
         worker2.terminate();
+        
+        // Give workers time to clean up
+        await new Promise(resolve => setTimeout(resolve, 50));
     }, 15000);
 });

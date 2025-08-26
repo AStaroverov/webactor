@@ -25,6 +25,25 @@ const workerActor = createActor('worker-actor', (context) => {
                 timestamp: Date.now()
             });
         }
+        
+        if (event.data.type === 'compute') {
+            const startTime = Date.now();
+            let result = 0;
+            const iterations = event.data.iterations || 1000000;
+            
+            for (let i = 0; i < iterations; i++) {
+                result += Math.sqrt(i * 2 + 1);
+            }
+            
+            const duration = Date.now() - startTime;
+            
+            context.postMessage({
+                type: 'computation-result',
+                result: result,
+                iterations: iterations,
+                duration: duration
+            });
+        }
     });
 });
 workerActor.launch();
