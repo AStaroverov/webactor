@@ -1,5 +1,7 @@
-import { listen, post } from './dispatch';
+import { AnyEnvelope, isEnvelope, shallowCopyEnvelope } from './envelope';
 import { AnyData, ErrorEventTypes, EventTypes, Transmitter } from './types';
+import { createRoute, extendRoute, reduceRoute, routeEndsWith } from './utils/route';
+import { getTransmitterName, listen, post } from './utils/transmitter';
 
 export function connectTransmitters<T1 extends Transmitter, T2 extends Transmitter>(
     transmitter1: T1,
@@ -23,31 +25,27 @@ function resubscribe(
     return listen(source, onError, onMessage);
 }
 
-function createReposter(_source: Transmitter, target: Transmitter) {
-    // const map = new WeakMap<MessagePortLike<AnyEnvelope>, Set<string>>();
-    // const addMessageId = (port: MessagePortLike<AnyEnvelope>, id: string) => {
-    //     if (!map.has(port)) {
-    //         map.set(port, new Set());
-    //     }
-    //     map.get(port)!.add(id);
-    // };
-    // const hasMessageId = (port: MessagePortLike<AnyEnvelope>, id: string) => {
-    //     return map.has(port) && map.get(port)!.has(id);
-    // };
-
+function createReposter(source: Transmitter, target: Transmitter) {
+    const sourceName = getTransmitterName(source);
+    const targetName = getTransmitterName(target);
     return function repost(type: EventTypes, data: AnyData) {
-        // const data = event.data;
-        // const isResponse = data.channelId != null && hasMessageId(source, data.channelId);
-        // const shouldCopy = target instanceof MessagePort && !isResponse;
-        // const copy = shouldCopy
-        //     ? new MessageEvent(event.type, {
-        //         data: event.data,
-        //         origin: event.origin,
-        //         lastEventId: createEventId(),
-        //     })
-        //     : event;
-
-        post(target, type, data);
-        // event.data.channelId && addMessageId(target, event.data.channelId);
+        if (isEnvelope(data)) {
+            const envelope = processEnvelope(data, sourceName, targetName);
+            envelope && post(target, type, envelope);
+        } else {
+            post(target, type, data);
+        }
     };
+}
+
+function processEnvelope(envelope: AnyEnvelope, sourceName: string, targetName: string) {
+    const copy = shallowCopyEnvelope(envelope);
+    copy.__checkpoints = extendRoute(copy.__checkpoints ?? createRoute(), sourceName);
+
+    if (copy.__route !== undefined) {
+        if (!routeEndsWith(copy.__route, targetName)) return undefined; // Stop if route doesn't match
+        copy.__route = reduceRoute(copy.__route, targetName);
+    }
+
+    return copy;
 }

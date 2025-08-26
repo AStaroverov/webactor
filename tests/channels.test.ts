@@ -2,7 +2,7 @@ import './locks';
 
 import { openChannel } from '../src/channel/openChannelFactory';
 import { supportChannel } from '../src/channel/supportChannelFactory';
-import { connectActorToActor } from '../src/connectActorToActor';
+import { connectActors } from '../src/connectActorToActor';
 import { createActor } from '../src/createActor';
 import { ActorContext } from '../src/types';
 import { restoreMessageChannel, setupMessageChannelMock } from './message-channel-mock';
@@ -42,7 +42,7 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, supporterActor);
+            const disconnect = connectActors(requesterActor, supporterActor);
             
             requesterActor.launch();
             supporterActor.launch();
@@ -114,7 +114,7 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, supporterActor);
+            const disconnect = connectActors(requesterActor, supporterActor);
             
             requesterActor.launch();
             supporterActor.launch();
@@ -177,7 +177,7 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, supporterActor);
+            const disconnect = connectActors(requesterActor, supporterActor);
             
             requesterActor.launch();
             supporterActor.launch();
@@ -262,9 +262,9 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             });
             
             // Connect all actors to each other (full mesh)
-            const disconnect12 = connectActorToActor(actor1, actor2);
-            const disconnect13 = connectActorToActor(actor1, actor3);
-            const disconnect23 = connectActorToActor(actor2, actor3);
+            const disconnect12 = connectActors(actor1, actor2);
+            const disconnect13 = connectActors(actor1, actor3);
+            const disconnect23 = connectActors(actor2, actor3);
             
             actor1.launch();
             actor2.launch();
@@ -358,8 +358,8 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             });
             
             // Connect actors to enable channel requests
-            const disconnect12 = connectActorToActor(actor1, actor2);
-            const disconnect34 = connectActorToActor(actor3, actor4);
+            const disconnect12 = connectActors(actor1, actor2);
+            const disconnect34 = connectActors(actor3, actor4);
             
             actor1.launch();
             actor2.launch();

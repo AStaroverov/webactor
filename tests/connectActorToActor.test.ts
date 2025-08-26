@@ -1,4 +1,4 @@
-import { connectActorToActor } from '../src/connectActorToActor';
+import { connectActors } from '../src/connectActorToActor';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';
 import { createEnvelope } from '../src/envelope';
@@ -18,14 +18,14 @@ describe('connectActorToActor', () => {
 
     describe('function signature and basic behavior', () => {
         it('should be a function', () => {
-            expect(typeof connectActorToActor).toBe('function');
+            expect(typeof connectActors).toBe('function');
         });
 
         it('should return a disconnect function', () => {
             const actor1 = createActorFromFactory('actor1', jest.fn());
             const actor2 = createActorFromFactory('actor2', jest.fn());
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             expect(typeof disconnect).toBe('function');
             
@@ -59,7 +59,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             const message1 = { type: 'ping', from: 'actor1' };
             const message2 = { type: 'pong', from: 'actor2' };
@@ -100,7 +100,7 @@ describe('connectActorToActor', () => {
             parentActor.launch();
             
             // Связываем ActorContext (parentContext) с Actor (innerActor)
-            const disconnect = connectActorToActor(parentContext!, innerActor!);
+            const disconnect = connectActors(parentContext!, innerActor!);
             
             // Отправляем сообщение через ActorContext и проверяем что оно дошло до Actor
             parentActor!.postMessage({ type: 'test', data: 'hello from context to actor' });
@@ -135,7 +135,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             const message1 = { type: 'test1', payload: 'from actor1' };
             const message2 = { type: 'test2', payload: 'from actor2' };
@@ -174,7 +174,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             const testError = new Error('Test error');
             const errorEnvelope = createEnvelope('error', testError);
@@ -206,7 +206,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             const testError = new Error('Message parsing error');
             const errorEnvelope = createEnvelope('messageerror', testError);
@@ -237,7 +237,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             const complexMessage = {
                 type: 'complex',
@@ -278,7 +278,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             // Send message while connected
             actor1Context!.postMessage({ type: 'before-disconnect' });
@@ -320,7 +320,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             // Destroy one actor while still connected
             actor1.destroy();
@@ -341,7 +341,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             expect(() => {
                 disconnect();
@@ -366,7 +366,7 @@ describe('connectActorToActor', () => {
             
             actor.launch();
             
-            const disconnect = connectActorToActor(actor, actor);
+            const disconnect = connectActors(actor, actor);
             
             actorContext!.postMessage({ type: 'self-message' });
             
@@ -397,7 +397,7 @@ describe('connectActorToActor', () => {
             actor1.launch();
             actor2.launch();
             
-            const disconnect = connectActorToActor(actor1, actor2);
+            const disconnect = connectActors(actor1, actor2);
             
             // Send multiple messages in sequence
             const messages = [

@@ -61,7 +61,7 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
             const envelope = isEnvelope(message) ? message : createEnvelope(
                 EventType.Message,
                 message,
-                { transferable }
+                transferable
             );
 
             callBacks(type, envelope);

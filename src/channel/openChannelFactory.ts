@@ -1,11 +1,13 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
-import { post } from '../dispatch';
+import { EnvelopeTransferable } from '../envelope';
 import { timeoutProvider } from '../providers';
 import { request } from '../request/request';
 import { AnyData, EnvelopeMessagePort, EventType, Transmitter } from '../types';
-import { createEventId, noop } from '../utils/common';
+import { createShortRandomString, noop } from '../utils/common';
 import { lock, onUnlock } from '../utils/Locks';
+import { createRoute } from '../utils/route';
+import { post } from '../utils/transmitter';
 import { isMessagePortLike } from '../worker/detect';
 import { HANDSHAKE } from './defs';
 import { ChannelTransmitter } from './types';
@@ -15,18 +17,15 @@ export function openChannel(
     message: AnyData,
     options?: {
         abortSignal?: AbortSignal;
+        transferable?: EnvelopeTransferable;
     },
 ): Promise<ChannelTransmitter> {
-    const channelId = createEventId();
+    const channelId = createShortRandomString();
     const unlockChannelPromise = lock('openChannel'+channelId);
 
     return new Promise<ChannelTransmitter>(async (resolve, reject) => {
         const unlockChannel = await unlockChannelPromise;
-        const envelope = await request(
-            target,
-            message,
-            { id: channelId, abortSignal: options?.abortSignal }
-        )
+        const envelope = await request(target, message, { ...options, channelId: createRoute(channelId) });
 
         if (!isMessagePortLike(envelope.data)) {
             reject(new Error('Invalid handshake response'));

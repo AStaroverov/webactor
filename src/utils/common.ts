@@ -1,15 +1,10 @@
-
 export const identity = <T = any>(v: T) => v;
 export const noop = (): any => { };
 
-export function createShortRandomString() {
-    return Math.round(Math.random() * Date.now()).toString(32);
+export function createRandomNumber() {
+    return Math.random() * Date.now();
 }
 
-const PREFIX = 'event-';
-export function createEventId() {
-    return `${PREFIX}${createShortRandomString()}`;
-}
-export function isEventId(id: string) {
-    return id.startsWith(PREFIX);
+export function createShortRandomString() {
+    return Math.round(createRandomNumber()).toString(32);
 }

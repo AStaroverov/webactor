@@ -1,5 +1,7 @@
-import { AnyEnvelope, createEnvelope, Envelope, isEnvelope } from "./envelope";
-import { AnyData, EventType, EventTypes, TransmitterSource, TransmitterTarget } from "./types";
+import { AnyEnvelope, createEnvelope, Envelope, isEnvelope } from "../envelope";
+import { AnyData, EventType, EventTypes, Transmitter, TransmitterSource, TransmitterTarget } from "../types";
+import { createPointerId } from "./createPointerId";
+import { threadId } from "./thread";
 
 export function post<T extends EventTypes, V extends AnyData>(
     target: TransmitterTarget<V>,
@@ -49,4 +51,15 @@ export function listen<T extends AnyData>(
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
+}
+
+export function getTransmitterName(transmitter: Transmitter): string {
+    const postfix = '<' + threadId + '-' + createPointerId(transmitter) + '>'
+    if ('name' in transmitter && typeof transmitter.name === 'string') {
+        return transmitter.name + postfix;
+    }
+    if (transmitter instanceof MessagePort) {
+        return 'MessagePort' + postfix;
+    }
+    return 'UnknownTransmitter' + postfix;
 }

@@ -1,9 +1,10 @@
-import { connectActorToActor } from '../src';
+import { connectActors } from '../src';
 import { createActor } from '../src/createActor';
 import { createEnvelope } from '../src/envelope';
 import { request } from '../src/request/request';
 import { response } from '../src/request/response';
 import { ActorContext } from '../src/types';
+import { getFirstRouteCheckpoint } from '../src/utils/route';
 
 describe('Request/Response System', () => {
     describe('basic functionality', () => {
@@ -29,7 +30,7 @@ describe('Request/Response System', () => {
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, responderActor);
+            const disconnect = connectActors(requesterActor, responderActor);
 
             requesterActor.launch();
             responderActor.launch();
@@ -45,8 +46,8 @@ describe('Request/Response System', () => {
             });
             
             // Verify event has correct origin (request ID)
-            expect(responseEnvelope.channelId).toBeDefined();
-            expect(typeof responseEnvelope.channelId).toBe('string');
+            expect(responseEnvelope.__checkpoints).toBeDefined();
+            expect(typeof responseEnvelope.__checkpoints).toBe('string');
             
             // Cleanup
             disconnect();
@@ -66,22 +67,22 @@ describe('Request/Response System', () => {
             const responderActor = createActor('responder', (context: ActorContext) => {
                 responderContext = context;
                 context.addEventListener('message', (event) => {
-                    receivedChannelId = event.channelId;
+                    receivedChannelId = getFirstRouteCheckpoint(event.__checkpoints!);
                     response(responderContext!, event, { result: 'success' });
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, responderActor);
+            const disconnect = connectActors(requesterActor, responderActor);
             
             requesterActor.launch();
             responderActor.launch();
             
             const customId = 'custom-request-123';
-            const responseEvent = await request(requesterContext!, { test: true }, { id: customId });
+            const responseEvent = await request(requesterContext!, { test: true }, { channelId: customId });
             
             expect(responseEvent.data).toEqual({ result: 'success' });
             expect(receivedChannelId).toBe(customId);
-            expect(responseEvent.channelId).toBe(customId);
+            expect(getFirstRouteCheckpoint(responseEvent.__checkpoints!)).toBe(customId);
             
             disconnect();
             requesterActor.destroy();
@@ -110,7 +111,7 @@ describe('Request/Response System', () => {
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, responderActor);
+            const disconnect = connectActors(requesterActor, responderActor);
             
             requesterActor.launch();
             responderActor.launch();
@@ -143,7 +144,7 @@ describe('Request/Response System', () => {
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, responderActor);
+            const disconnect = connectActors(requesterActor, responderActor);
             
             requesterActor.launch();
             responderActor.launch();
@@ -183,7 +184,7 @@ describe('Request/Response System', () => {
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, responderActor);
+            const disconnect = connectActors(requesterActor, responderActor);
             
             requesterActor.launch();
             responderActor.launch();
@@ -212,7 +213,7 @@ describe('Request/Response System', () => {
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, responderActor);
+            const disconnect = connectActors(requesterActor, responderActor);
             
             requesterActor.launch();
             responderActor.launch();
@@ -248,7 +249,7 @@ describe('Request/Response System', () => {
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, responderActor);
+            const disconnect = connectActors(requesterActor, responderActor);
             
             requesterActor.launch();
             responderActor.launch();
@@ -296,7 +297,7 @@ describe('Request/Response System', () => {
                 });
             });
 
-            const disconnect = connectActorToActor(requesterActor, responderActor);
+            const disconnect = connectActors(requesterActor, responderActor);
             
             requesterActor.launch();
             responderActor.launch();
