@@ -1,0 +1,345 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Multi-Tab Chat Styles */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Message animations */
+.message-slide-in {
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Typing indicator animation */
+.typing-dots {
+  animation: typingDots 1.4s infinite ease-in-out;
+}
+
+.typing-dots:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typingDots {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+/* User status indicators */
+.user-online {
+  position: relative;
+}
+
+.user-online::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+.user-typing::after {
+  background: #f59e0b;
+  animation: pulse 1s infinite;
+}
+
+/* Connection status */
+.connection-status {
+  position: relative;
+}
+
+.connection-status.connected::before {
+  content: '●';
+  color: #10b981;
+  margin-right: 0.25rem;
+  animation: pulse 2s infinite;
+}
+
+.connection-status.connecting::before {
+  content: '●';
+  color: #f59e0b;
+  margin-right: 0.25rem;
+  animation: pulse 1s infinite;
+}
+
+.connection-status.disconnected::before {
+  content: '●';
+  color: #ef4444;
+  margin-right: 0.25rem;
+  animation: pulse 0.5s infinite;
+}
+
+/* Chat message styles */
+.message-bubble {
+  max-width: 70%;
+  word-wrap: break-word;
+  position: relative;
+}
+
+.message-bubble.own {
+  margin-left: auto;
+}
+
+.message-bubble.own::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -8px;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+  border-bottom-color: #2563eb;
+  border-right: 0;
+  border-bottom-right-radius: 0;
+}
+
+.message-bubble.other::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -8px;
+  width: 0;
+  height: 0;
+  border: 8px solid transparent;
+  border-bottom-color: white;
+  border-left: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* Scroll behavior */
+#messages-container {
+  scroll-behavior: smooth;
+}
+
+#messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+#messages-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+#messages-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+#messages-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Input focus styles */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+/* Button hover effects */
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Room indicators */
+.room-indicator {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.room-general { background: #dbeafe; color: #1e40af; }
+.room-random { background: #fef3c7; color: #92400e; }
+.room-tech { background: #d1fae5; color: #065f46; }
+.room-games { background: #fce7f3; color: #9d174d; }
+
+/* Notification styles */
+.notification {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: white;
+  font-weight: 500;
+  z-index: 50;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.notification.success { background: #10b981; }
+.notification.error { background: #ef4444; }
+.notification.warning { background: #f59e0b; }
+.notification.info { background: #3b82f6; }
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .w-80 {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .flex {
+    flex-direction: column;
+  }
+  
+  .flex-1 {
+    height: 60vh;
+  }
+  
+  .message-bubble {
+    max-width: 85%;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+  
+  body {
+    background-color: #111827;
+    color: #f9fafb;
+  }
+  
+  .bg-white {
+    background-color: #1f2937;
+  }
+  
+  .bg-gray-50 {
+    background-color: #111827;
+  }
+  
+  .bg-gray-100 {
+    background-color: #374151;
+  }
+  
+  .text-gray-900 {
+    color: #f9fafb;
+  }
+  
+  .text-gray-700 {
+    color: #d1d5db;
+  }
+  
+  .text-gray-600 {
+    color: #9ca3af;
+  }
+  
+  .text-gray-500 {
+    color: #6b7280;
+  }
+  
+  .border {
+    border-color: #374151;
+  }
+  
+  input, select {
+    background-color: #374151;
+    color: #f9fafb;
+  }
+  
+  .message-bubble.other {
+    background-color: #374151;
+  }
+}
+
+/* Performance optimizations */
+.messages-container {
+  contain: layout style paint;
+}
+
+.user-list {
+  contain: layout style;
+}
+
+/* Loading states */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus indicators for keyboard navigation */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  button {
+    border: 2px solid;
+  }
+  
+  .message-bubble {
+    border: 1px solid;
+  }
+}
