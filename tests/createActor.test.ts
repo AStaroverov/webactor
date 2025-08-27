@@ -32,34 +32,6 @@ describe('createEnvelopeEmitter', () => {
         );
     });
 
-    it('should add and trigger error event listeners', async () => {
-        const mockErrorCallback = jest.fn();
-        const testError = new Error('Test error');
-
-        envelopeEmitter.addEventListener('error', mockErrorCallback);
-
-        const errorEvent = createEnvelope('error', testError);
-        envelopeEmitter.postMessage(errorEvent);
-
-        await new Promise(resolve => setTimeout(resolve, 0));
-
-        expect(mockErrorCallback).toHaveBeenCalledWith(testError);
-    });
-
-    it('should add and trigger messageerror event listeners', async () => {
-        const mockErrorCallback = jest.fn();
-        const testError = new Error('Message error');
-
-        envelopeEmitter.addEventListener('messageerror', mockErrorCallback);
-
-        const messageErrorEvent = createEnvelope('messageerror', testError);
-        envelopeEmitter.postMessage(messageErrorEvent);
-
-        await new Promise(resolve => setTimeout(resolve, 0));
-
-        expect(mockErrorCallback).toHaveBeenCalledWith(testError);
-    });
-
     it('should remove event listeners', () => {
         const mockCallback = jest.fn();
         const testMessage = { type: 'test' };
@@ -86,32 +58,10 @@ describe('createEnvelopeEmitter', () => {
         expect(mockCallback2).toHaveBeenCalled();
     });
 
-    it('should throw error for unsupported event types in addEventListener', () => {
-        const mockCallback = jest.fn();
-
-        expect(() => {
-            // @ts-ignore - testing invalid event type
-            envelopeEmitter.addEventListener('invalid', mockCallback);
-        }).toThrow('Unsupported event type: invalid');
-    });
-
-    it('should throw error for unsupported event types in removeEventListener', () => {
-        const mockCallback = jest.fn();
-
-        expect(() => {
-            // @ts-ignore - testing invalid event type
-            envelopeEmitter.removeEventListener('invalid', mockCallback);
-        }).toThrow('Unsupported event type: invalid');
-    });
-
     it('should clear all callbacks on close', () => {
         const mockMessageCallback = jest.fn();
-        const mockErrorCallback = jest.fn();
-        const mockMessageErrorCallback = jest.fn();
 
         envelopeEmitter.addEventListener('message', mockMessageCallback);
-        envelopeEmitter.addEventListener('error', mockErrorCallback);
-        envelopeEmitter.addEventListener('messageerror', mockMessageErrorCallback);
 
         envelopeEmitter.close?.();
 
@@ -119,15 +69,11 @@ describe('createEnvelopeEmitter', () => {
         envelopeEmitter.postMessage({ test: 'message' });
 
         const errorEvent = createEnvelope('error', new Error('test'));
-        const messageErrorEvent = createEnvelope('messageerror', new Error('test'));
 
         envelopeEmitter.postMessage(errorEvent);
-        envelopeEmitter.postMessage(messageErrorEvent);
 
         // None of the callbacks should be called
         expect(mockMessageCallback).not.toHaveBeenCalled();
-        expect(mockErrorCallback).not.toHaveBeenCalled();
-        expect(mockMessageErrorCallback).not.toHaveBeenCalled();
     });
 });
 
@@ -168,6 +114,7 @@ describe('createActorFactory', () => {
 
             expect(mockConstructor).toHaveBeenCalledWith({
                 name: 'test-actor',
+                close: expect.any(Function),
                 postMessage: expect.any(Function),
                 addEventListener: expect.any(Function),
                 removeEventListener: expect.any(Function),
@@ -290,7 +237,7 @@ describe('createActorFactory', () => {
             actor.launch();
             actor.close();
 
-            expect(() => actor.close()).toThrow('Actor "test-actor" is already closeed');
+            expect(() => actor.close()).toThrow('Actor "test-actor" is already closed');
         });
 
         it('should throw error on multiple close calls even without launch', () => {
@@ -299,7 +246,7 @@ describe('createActorFactory', () => {
 
             actor.close();
 
-            expect(() => actor.close()).toThrow('Actor "test-actor" is already closeed');
+            expect(() => actor.close()).toThrow('Actor "test-actor" is already closed');
         });
 
         it('should not allow launch after close', () => {

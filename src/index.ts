@@ -7,6 +7,7 @@ export { createRetranslator } from './createRetranslator';
 export * from './types';
 
 export * from './connectActors';
+export * from './connectActorToMessagePort';
 
 export { request } from './request/request';
 export { response } from './request/response';

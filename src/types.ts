@@ -1,3 +1,4 @@
+import { Reason } from "./def";
 import { Envelope, EnvelopeTransferable, EnvelopeType } from "./envelope";
 
 export type ValueOf<T> = T[keyof T];
@@ -12,7 +13,7 @@ export const EventType = {
 export type EventTypes = ValueOf<typeof EventType>;
 export type ErrorEventTypes = typeof EventType.Error | typeof EventType.MessageError;
 
-export type AnyData = Transferable | number | string | boolean | null | undefined | AnyData[] | { [key: string]: AnyData };
+export type AnyData = Error | Transferable | number | string | boolean | null | undefined | AnyData[] | { [key: string]: AnyData };
 export type Message = AnyData;
 
 export interface PostMessageLike<T> {
@@ -43,7 +44,7 @@ export interface EventMessagePortLike<T extends Message> extends EventTargetLike
 
 // ENVELOPE LIKE
 export interface EnvelopeListener<T> {
-    (type: typeof EnvelopeType.Close, callback: (reason?: Envelope<string | Error>) => unknown): void
+    (type: typeof EnvelopeType.Close, callback: (reason?: Envelope<{ reason: Reason, source?: AnyData }>) => unknown): void
     (type: typeof EnvelopeType.Message, callback: (envelope: Envelope<T>) => unknown): void
 }
 export interface EnvelopeListenerLike<T extends AnyData> {
@@ -68,11 +69,11 @@ export type Transmitter<T extends AnyData = AnyData> = EventMessagePortLike<T> |
 
 export type Actor<T extends AnyData = AnyData> = EnvelopeEmitter<T> & {
     name: string;
-    close: (reason?: unknown) => void;
+    close: (reason?: Reason) => void;
     launch: () => void;
 };
 
 export type ActorContext<T extends AnyData = AnyData> = EnvelopeEmitter<T> & {
     name: string;
-    close: (reason?: unknown) => void;
+    close: (reason?: Reason) => void;
 };

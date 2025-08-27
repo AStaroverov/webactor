@@ -6,7 +6,7 @@ import { useContextMessagePort } from './worker/useContextMessagePort';
 
 export interface DenseNetwork {
     launch(): DenseNetwork;
-    destroy(): void;
+    close(): void;
 }
 
 export function createDenseNetwork(...transmitters: Transmitter[]): DenseNetwork {
@@ -18,16 +18,16 @@ export function createDenseNetwork(...transmitters: Transmitter[]): DenseNetwork
         name: 'dense-network-hub'
     });
 
+    let closed = false;
     let launched = false;
-    let destroyed = false;
     let disconnectFunctions: VoidFunction[] = [];
 
     const launch = () => {
+        if (closed) {
+            throw new Error('Dense network is already closed');
+        }
         if (launched) {
             throw new Error('Dense network is already launched');
-        }
-        if (destroyed) {
-            throw new Error('Dense network is already destroyed');
         }
 
         launched = true;
@@ -51,12 +51,12 @@ export function createDenseNetwork(...transmitters: Transmitter[]): DenseNetwork
         return network;
     };
 
-    const destroy = () => {
-        if (destroyed) {
-            throw new Error('Dense network is already destroyed');
+    const close = () => {
+        if (closed) {
+            throw new Error('Dense network is already closed');
         }
 
-        destroyed = true;
+        closed = true;
 
         disconnectFunctions.forEach(disconnect => {
             try {
@@ -86,7 +86,7 @@ export function createDenseNetwork(...transmitters: Transmitter[]): DenseNetwork
 
     const network: DenseNetwork = {
         launch,
-        destroy
+        close
     };
 
     return network;

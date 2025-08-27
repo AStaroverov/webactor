@@ -1,5 +1,5 @@
 import { createEnvelopeChannel } from "./createEnvelopePort";
-import { Reason, Reasons } from "./def";
+import { ReasonReacord, Reasons } from "./def";
 import { isEnvelope } from "./envelope";
 import { Actor } from "./types";
 import { createShortRandomString, noop } from "./utils/common";
@@ -28,7 +28,7 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
             if (workerPortCheckpoint.length === 0) return;
             off();
             onUnlock(workerPortCheckpoint, abortController.signal).then(() => {
-                if (!shouldRetry(Reason.LostWorker)) return;
+                if (!shouldRetry(ReasonReacord.LostWorker)) return;
                 close();
                 launchWorker();
             }).catch(noop);

@@ -1,6 +1,6 @@
 import { connectTransmitters } from "./connectTransmitters";
 import { createEnvelopeChannel } from "./createEnvelopePort";
-import { Reason, Reasons } from "./def";
+import { Reason, ReasonReacord, Reasons } from "./def";
 import { Actor } from "./types";
 import { createShortRandomString } from "./utils/common";
 import { on } from "./utils/transmitter";
@@ -18,11 +18,11 @@ export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetr
         });
         const errorOff = on(actor, 'error', (error) => {
             if (!shouldRetry(error)) return;
-            close(Reason.Restart);
+            close(ReasonReacord.Restart);
             launchActor();
         });
         const disconnectTransmitters = connectTransmitters(actor, proxy.port1, ['message']);
-        const close = (reason?: unknown | Reasons) => {
+        const close = (reason?: Reason) => {
             closeOff();
             errorOff();
             actor.close(reason);
@@ -33,7 +33,7 @@ export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetr
         return close;
     }
 
-    const disposes: ((reason?: unknown) => void)[] = [];
+    const disposes: ((reason?: Reason) => void)[] = [];
 
     const launchProxy = () => {
         disposes.push(launchActor());
@@ -41,7 +41,7 @@ export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetr
         disposes.push(() => proxy.port2.close());
     }
 
-    const closeProxy = (reason?: unknown | Reasons) => {
+    const closeProxy = (reason?: Reason) => {
         disposes.forEach(dispose => dispose(reason));
     }
 

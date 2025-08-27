@@ -1,9 +1,9 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
-import { Reason } from '../def';
-import { Envelope } from '../envelope';
+import { Reason, ReasonReacord } from '../def';
+import { Envelope, EnvelopeType } from '../envelope';
 import { response } from '../request/response';
-import { AnyData, EnvelopeMessagePort, Transmitter } from '../types';
+import { AnyData, EnvelopeMessagePort, EventType, Transmitter } from '../types';
 import { noop } from '../utils/common';
 import { lock, onUnlock } from '../utils/Locks';
 import { getFirstRouteCheckpoint } from '../utils/route';
@@ -27,18 +27,18 @@ export function supportChannel(
 
         const unlockChannel = await lock('supportChannel' + channelId);
         const localChannel = createEnvelopeChannel();
-        const disconnect = connectTransmitters(messageChannel.port2 as Transmitter, localChannel.port1, ['message', 'close']);
+        const disconnect = connectTransmitters(messageChannel.port2 as Transmitter, localChannel.port1, [EnvelopeType.Message, EnvelopeType.Close]);
         const abortController = new AbortController();
-        const close = (reason?: unknown) => {
-            post(localChannel.port1, 'close', { reason, source: 'supportChannel' });
-            post(localChannel.port2, 'close', { reason, source: 'supportChannel' });
+        const close = (reason?: Reason) => {
+            post(localChannel.port1, EnvelopeType.Close, { reason, source: 'supportChannel' });
+            post(localChannel.port2, EnvelopeType.Close, { reason, source: 'supportChannel' });
             disconnect();
             abortController.abort();
             localChannel.port1.close();
             localChannel.port2.close();
             messageChannel.port1.close();
             messageChannel.port2.close();
-            messageChannel.port2.removeEventListener('message', handshake);
+            messageChannel.port2.removeEventListener(EventType.Message, handshake);
             unlockChannel();
         }
 
@@ -50,10 +50,10 @@ export function supportChannel(
             } as ChannelTransmitter);
         }
 
-        messageChannel.port2.addEventListener('message', handshake, { once: true });
+        messageChannel.port2.addEventListener(EventType.Message, handshake, { once: true });
 
         onUnlock('openChannel' + channelId, abortController.signal)
-            .then(() => close(Reason.LostChannel))
+            .then(() => close(ReasonReacord.LostChannel))
             .catch(noop);
     });
 };

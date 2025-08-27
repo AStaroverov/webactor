@@ -1,5 +1,6 @@
-import { self } from '@apacheli/web-workers';
-import { connectActorToMessagePort, createActor, onConnectMessagePort } from '../../dist/index.js';
+import './polyfil.mjs';
+
+import { connectActorToMessagePort, createActor, useContextMessagePort } from '../../dist/index.js';
 
 console.log('Worker: Waiting for connection from main thread...');
 
@@ -46,10 +47,7 @@ const workerActor = createActor('worker-actor', (context) => {
         }
     });
 });
-workerActor.launch();
 
-// Handle connection from main thread
-onConnectMessagePort(self, (port) => {
-    // Connect the worker actor to the port (main thread)
-    connectActorToMessagePort(workerActor, port);
-});
+const worker = useContextMessagePort();
+connectActorToMessagePort(worker, workerActor);
+workerActor.launch();

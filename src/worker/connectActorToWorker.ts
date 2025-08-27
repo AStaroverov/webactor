@@ -1,5 +1,5 @@
+import { connectActorToMessagePort } from '../connectActorToMessagePort';
 import { Actor } from '../types';
-import { connectActorToMessagePort } from './connectActorToMessagePort';
 import { getWorkerMessagePort } from './utils';
 
 export function connectActorToWorker<A extends Actor, W extends Worker | SharedWorker>(

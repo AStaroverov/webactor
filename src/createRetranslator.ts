@@ -16,12 +16,14 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
 
     const postToPort2 = port2.postMessage.bind(port2);
 
-    const destroy = () => {
+    const close = () => {
         if (destroyed) {
-            throw new Error(`Retranslator "${name}" is already destroyed`);
+            throw new Error(`Retranslator "${name}" is already closed`);
         }
         destroyed = true;
+        // @ts-ignore
         port1.removeEventListener(EnvelopeType.Close, postToPort2);
+        // @ts-ignore
         port1.removeEventListener(EnvelopeType.Message, postToPort2);
         port1.close?.();
         port2.close?.();
@@ -33,7 +35,9 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
         }
         launched = true;
 
+        // @ts-ignore
         port1.addEventListener(EnvelopeType.Close, postToPort2);
+        // @ts-ignore
         port1.addEventListener(EnvelopeType.Message, postToPort2);
 
         return actor;
@@ -41,8 +45,8 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
 
     const actor: Actor = {
         name,
+        close,
         launch,
-        close: destroy,
         postMessage: port1.postMessage.bind(port1),
         addEventListener: port2.addEventListener.bind(port2),
         removeEventListener: port2.removeEventListener.bind(port2),

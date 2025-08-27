@@ -1,7 +1,6 @@
 import { connectActors } from '../src/connectActors';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';
-import { createEnvelope } from '../src/envelope';
 import { Actor, ActorContext } from '../src/types';
 
 describe('connectActors', () => {
@@ -153,69 +152,6 @@ describe('connectActors', () => {
             expect(actor1Handler).toHaveBeenCalledWith(
                 expect.objectContaining({ data: message2 })
             );
-
-            disconnect();
-            actor1.close();
-            actor2.close();
-        });
-
-        it('should propagate errors between connected actors', async () => {
-            const actor2ErrorHandler = jest.fn();
-            let actor1Context: ActorContext | null = null;
-
-            const actor1 = createActorFromFactory('actor1', (context: ActorContext) => {
-                actor1Context = context;
-            });
-
-            const actor2 = createActorFromFactory('actor2', (context: ActorContext) => {
-                context.addEventListener('error', actor2ErrorHandler);
-            });
-
-            actor1.launch();
-            actor2.launch();
-
-            const disconnect = connectActors(actor1, actor2);
-
-            const testError = new Error('Test error');
-            const errorEnvelope = createEnvelope('error', testError);
-
-            // Dispatch error from actor1's context (mailboxOut)
-            actor1Context!.postMessage(errorEnvelope);
-
-            await new Promise(resolve => setTimeout(resolve, 10));
-
-            expect(actor2ErrorHandler).toHaveBeenCalled();
-
-            disconnect();
-            actor1.close();
-            actor2.close();
-        });
-
-        it('should propagate messageerror events between connected actors', async () => {
-            const actor2ErrorHandler = jest.fn();
-            let actor1Context: ActorContext | null = null;
-
-            const actor1 = createActorFromFactory('actor1', (context: ActorContext) => {
-                actor1Context = context;
-            });
-
-            const actor2 = createActorFromFactory('actor2', (context: ActorContext) => {
-                context.addEventListener('messageerror', actor2ErrorHandler);
-            });
-
-            actor1.launch();
-            actor2.launch();
-
-            const disconnect = connectActors(actor1, actor2);
-
-            const testError = new Error('Message parsing error');
-            const errorEnvelope = createEnvelope('messageerror', testError);
-
-            actor1Context!.postMessage(errorEnvelope);
-
-            await new Promise(resolve => setTimeout(resolve, 10));
-
-            expect(actor2ErrorHandler).toHaveBeenCalled();
 
             disconnect();
             actor1.close();

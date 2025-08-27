@@ -22,7 +22,7 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
             if (!callbacksRecord.has(envelope.type)) return;
             for (let callback of callbacksRecord.get(envelope.type)!) {
                 // @ts-ignore
-                callback(message);
+                callback(envelope);
             }
         });
     }
@@ -34,10 +34,6 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
             });
         },
         postMessage(message: T | Envelope<T>, transferable?: EnvelopeTransferable): void {
-            if (isEnvelope(message) && transferable != null) {
-                throw new Error('Cannot use transferable with envelope message');
-            }
-
             const envelope = isEnvelope(message) ? message : createEnvelope(
                 EventType.Message,
                 message,

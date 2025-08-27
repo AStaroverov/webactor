@@ -7,10 +7,10 @@ describe('Dense Network Tests', () => {
     afterEach(async () => {
         try {
             if (network) {
-                network.destroy();
+                network.close();
                 network = null;
             }
-            
+
             actors = [];
         } catch (error) {
             console.warn('Cleanup error (ignoring):', error);
@@ -115,7 +115,7 @@ describe('Dense Network Tests', () => {
 
         expect(node1Messages).toContainEqual({ type: 'ping', from: 'peer1' });
         expect(node1Messages).toContainEqual({ type: 'pong', from: 'peer2' });
-        
+
         expect(node2Messages).toContainEqual({ type: 'ping', from: 'peer1' });
         expect(node2Messages).toContainEqual({ type: 'pong', from: 'peer2' });
     });
@@ -158,9 +158,9 @@ describe('Dense Network Tests', () => {
     });
 
     it('should throw error when launching already launched network', () => {
-        const actor = createActor('test', () => {});
+        const actor = createActor('test', () => { });
         actors = [actor];
-        
+
         network = createDenseNetwork(actor);
         network.launch();
 
@@ -169,23 +169,23 @@ describe('Dense Network Tests', () => {
         }).toThrow('Dense network is already launched');
     });
 
-    it('should throw error when destroying already destroyed network', () => {
-        const actor = createActor('test', () => {});
+    it('should throw error when closing already closed network', () => {
+        const actor = createActor('test', () => { });
         actors = [actor];
-        
+
         network = createDenseNetwork(actor);
         network.launch();
-        network.destroy();
+        network.close();
 
         expect(() => {
-            network.destroy();
-        }).toThrow('Dense network is already destroyed');
+            network.close();
+        }).toThrow('Dense network is already closed');
     });
 
     it('should handle mixed transmitter types (actors and workers)', async () => {
         const actorMessages: any[] = [];
         let mockWorker: any;
-        
+
         const actor = createActor('mixed-actor', (context: ActorContext) => {
             context.addEventListener('message', (event) => {
                 actorMessages.push(event.data);
@@ -203,7 +203,7 @@ describe('Dense Network Tests', () => {
         };
 
         actors = [actor];
-        
+
         network = createDenseNetwork(actor, mockWorker);
         network.launch();
 
@@ -213,7 +213,7 @@ describe('Dense Network Tests', () => {
 
         expect(mockWorker.addEventListener).toHaveBeenCalled();
 
-        network.destroy();
+        network.close();
         expect(mockWorker.terminate).toHaveBeenCalled();
     });
 });

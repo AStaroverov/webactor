@@ -4,5 +4,5 @@ export default {
     },
     testEnvironment: 'node',
     // Allow longer timeouts for worker tests
-    testTimeout: 15000,
+    testTimeout: 3000,
 };

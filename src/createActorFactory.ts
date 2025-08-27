@@ -1,6 +1,8 @@
 import { createEnvelopeChannel } from './createEnvelopePort';
+import { Reason } from './def';
 import { EnvelopeType } from './envelope';
 import { Actor, ActorContext, AnyData } from './types';
+import { post } from './utils/transmitter';
 
 type ActorConstructor = (context: ActorContext<AnyData>) => unknown | Function;
 
@@ -15,12 +17,12 @@ export function createActorFactory(options: { createChannel: () => ReturnType<ty
         let destroyed = false;
         let dispose: unknown | Function;
 
-        const close = (reason?: unknown) => {
+        const close = (reason?: Reason) => {
             if (destroyed) {
-                throw new Error(`Actor "${name}" is already destroyed`);
+                throw new Error(`Actor "${name}" is already closed`);
             }
 
-            port1.postMessage({ type: EnvelopeType.Close, reason });
+            post(port1, EnvelopeType.Close, { reason });
 
             destroyed = true;
             port1.close?.();
