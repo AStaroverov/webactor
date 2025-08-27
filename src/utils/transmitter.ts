@@ -25,7 +25,7 @@ export function post<T extends EnvelopeTypes, V extends AnyData>(
 export function on<T extends AnyData>(
     source: TransmitterSource,
     type: EventTypes | EnvelopeTypes,
-    callback: (value: T) => void,
+    callback: (value: T) => unknown | Promise<unknown>,
 ): VoidFunction {
     source.start?.();
 

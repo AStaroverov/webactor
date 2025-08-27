@@ -7,18 +7,20 @@ import { createShortRandomString } from "./utils/common";
 import { on } from "./utils/transmitter";
 
 export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetry }: {
-    shouldRetry: (reason?: unknown | Reason) => boolean;
+    shouldRetry: (reason?: unknown | Reason) => boolean | Promise<boolean>;
 }): Actor {
     const proxy = createEnvelopeChannel();
 
     const launchActor = () => {
         const actor = ActorConstructor();
-        const closeOff = on<CloseEnvelope>(actor, 'close', (envelope) => {
-            if (!shouldRetry(envelope.data.reason)) return;
+        const closeOff = on<CloseEnvelope>(actor, 'close', async (envelope) => {
+            const shouldRestart = await shouldRetry(envelope.data.reason);
+            if (!shouldRestart) return;
             launchActor();
         });
-        const errorOff = on<ErrorEnvelope>(actor, 'error', (envelope) => {
-            if (!shouldRetry(envelope.data)) return;
+        const errorOff = on<ErrorEnvelope>(actor, 'error', async (envelope) => {
+            const shouldRestart = await shouldRetry(envelope.data);
+            if (!shouldRestart) return;
             close(ReasonReacord.Restart);
             launchActor();
         });

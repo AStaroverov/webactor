@@ -228,5 +228,40 @@ describe('Actor Supervisors', () => {
 
             expect(launchCount).toBe(5);
         });
+
+        it('should support async shouldRetry function', async () => {
+            let launchCount = 0;
+            let testActor: Actor;
+            const retryDecisions: boolean[] = [];
+
+            const actorConstructor = () => {
+                launchCount++;
+                testActor = createActor('test-actor', () => {
+                    if (launchCount <= 3) {
+                        setTimeout(() => {
+                            testActor.close(new Error(`Error ${launchCount}`));
+                        }, 10);
+                    }
+                });
+                return testActor;
+            };
+
+            supervisedActor = applyActorSupervisor(actorConstructor, {
+                shouldRetry: async (reason: unknown | Reason) => {
+                    // Simulate async decision making (e.g., checking external service)
+                    await new Promise(resolve => setTimeout(resolve, 50));
+
+                    const shouldRestart = reason instanceof Error && launchCount < 3;
+                    retryDecisions.push(shouldRestart);
+                    return shouldRestart;
+                }
+            });
+
+            supervisedActor.launch();
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            expect(launchCount).toBe(3);
+            expect(retryDecisions).toEqual([true, true, false]);
+        });
     });
 });

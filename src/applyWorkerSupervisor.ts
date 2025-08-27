@@ -9,14 +9,15 @@ import { on } from "./utils/transmitter";
 import { connectActorToWorker } from "./worker";
 
 export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldRetry }: {
-    shouldRetry: (reason?: unknown | Reasons) => boolean;
+    shouldRetry: (reason?: unknown | Reasons) => boolean | Promise<boolean>;
 }): Actor {
     const proxy = createEnvelopeChannel();
 
     const launchWorker = () => {
         const worker = WorkerConstructor();
-        const errorOff = on<ErrorEvent>(worker, 'error', (error) => {
-            if (!shouldRetry(error)) return;
+        const errorOff = on<ErrorEvent>(worker, 'error', async (error) => {
+            const shouldRestart = await shouldRetry(error);
+            if (!shouldRestart) return;
             close();
             launchWorker();
         });
@@ -27,11 +28,12 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
             const workerPortCheckpoint = getLastRouteCheckpoint(data.__checkpoints);
             if (workerPortCheckpoint.length === 0) return;
             off();
-            onUnlock(workerPortCheckpoint, abortController.signal).then(() => {
-                if (!shouldRetry(ReasonReacord.LostWorker)) return;
+            onUnlock(workerPortCheckpoint, abortController.signal).catch(noop).then(async () => {
+                const shouldRestart = await shouldRetry(ReasonReacord.LostWorker);
+                if (!shouldRestart) return;
                 close();
                 launchWorker();
-            }).catch(noop);
+            });
         });
         const disconnectTransmitters = connectActorToWorker(proxy.port1 as Actor, worker as Worker | SharedWorker);
         const close = () => {
