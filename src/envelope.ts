@@ -1,3 +1,4 @@
+import { Reason } from "./def";
 import { AnyData, ValueOf } from "./types";
 import { Route } from "./utils/route";
 import { threadId } from "./utils/thread";
@@ -22,6 +23,8 @@ export type Envelope<T> = {
 }
 
 export type AnyEnvelope = Envelope<AnyData>;
+export type ErrorEnvelope = Envelope<AnyData>;
+export type CloseEnvelope = Envelope<{ reason: Reason, source: unknown }>;
 
 export function isEnvelope(v: unknown): v is AnyEnvelope {
     return (typeof v === "object" && v !== null && "__route" in v && "__checkpoints" in v);

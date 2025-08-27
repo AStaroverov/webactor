@@ -1,23 +1,24 @@
 import { connectTransmitters } from "./connectTransmitters";
 import { createEnvelopeChannel } from "./createEnvelopePort";
-import { Reason, ReasonReacord, Reasons } from "./def";
+import { Reason, ReasonReacord } from "./def";
+import { CloseEnvelope, ErrorEnvelope } from "./envelope";
 import { Actor } from "./types";
 import { createShortRandomString } from "./utils/common";
 import { on } from "./utils/transmitter";
 
 export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetry }: {
-    shouldRetry: (reason?: unknown | Reasons) => boolean;
+    shouldRetry: (reason?: unknown | Reason) => boolean;
 }): Actor {
     const proxy = createEnvelopeChannel();
 
     const launchActor = () => {
         const actor = ActorConstructor();
-        const closeOff = on(actor, 'close', (reason) => {
-            if (!shouldRetry(reason)) return;
+        const closeOff = on<CloseEnvelope>(actor, 'close', (envelope) => {
+            if (!shouldRetry(envelope.data.reason)) return;
             launchActor();
         });
-        const errorOff = on(actor, 'error', (error) => {
-            if (!shouldRetry(error)) return;
+        const errorOff = on<ErrorEnvelope>(actor, 'error', (envelope) => {
+            if (!shouldRetry(envelope.data)) return;
             close(ReasonReacord.Restart);
             launchActor();
         });

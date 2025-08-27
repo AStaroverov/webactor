@@ -1,6 +1,6 @@
-import { AnyData, ValueOf } from "./types";
+import { ValueOf } from "./types";
 
-export type Reason = AnyData;
+export type Reason = ValueOf<typeof ReasonReacord>;
 export const ReasonReacord = {
     Restart: 'Restart',
     LostWorker: new Error('Lost worker'),

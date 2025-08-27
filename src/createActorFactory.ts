@@ -1,10 +1,10 @@
 import { createEnvelopeChannel } from './createEnvelopePort';
 import { Reason } from './def';
-import { EnvelopeType } from './envelope';
-import { Actor, ActorContext, AnyData } from './types';
+import { AnyEnvelope, EnvelopeType } from './envelope';
+import { Actor, ActorContext } from './types';
 import { post } from './utils/transmitter';
 
-type ActorConstructor = (context: ActorContext<AnyData>) => unknown | Function;
+type ActorConstructor = (context: ActorContext<AnyEnvelope>) => unknown | Function;
 
 export function createActorFactory(options: { createChannel: () => ReturnType<typeof createEnvelopeChannel> }) {
     return function createActor(

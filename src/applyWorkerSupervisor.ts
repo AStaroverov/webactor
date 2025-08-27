@@ -15,7 +15,7 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
 
     const launchWorker = () => {
         const worker = WorkerConstructor();
-        const errorOff = on(worker, 'error', (error) => {
+        const errorOff = on<ErrorEvent>(worker, 'error', (error) => {
             if (!shouldRetry(error)) return;
             close();
             launchWorker();

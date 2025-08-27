@@ -1,7 +1,7 @@
 import { AnyEnvelope, createEnvelope, Envelope, EnvelopeTransferable, EnvelopeTypes, isEnvelope } from "./envelope";
 import { AnyData, EnvelopeEmitter, EventType } from "./types";
 
-export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
+export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<Envelope<T>> {
     const callbacksRecord: Map<EnvelopeTypes, Set<(event: any) => unknown>> = new Map();
 
     function addEventListener(type: EnvelopeTypes, callback: (event: any) => unknown): void {

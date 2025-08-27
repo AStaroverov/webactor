@@ -22,10 +22,10 @@ export function post<T extends EnvelopeTypes, V extends AnyData>(
     target.postMessage(message as V, transferable as any);
 }
 
-export function on<T extends EventTypes | EnvelopeTypes, V extends AnyData>(
-    source: TransmitterSource<V>,
-    type: T,
-    callback: (value: V) => void,
+export function on<T extends AnyData>(
+    source: TransmitterSource,
+    type: EventTypes | EnvelopeTypes,
+    callback: (value: T) => void,
 ): VoidFunction {
     source.start?.();
 
@@ -33,7 +33,7 @@ export function on<T extends EventTypes | EnvelopeTypes, V extends AnyData>(
         if (value instanceof MessageEvent) {
             value = value.data;
         }
-        callback(value as V)
+        callback(value as T);
     };
 
     // @ts-ignore
