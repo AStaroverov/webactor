@@ -11,6 +11,7 @@ export function useContextMessagePort() {
     const disposes: VoidFunction[] = [];
 
     const stop = onConnectMessagePort(async (port) => {
+        // race on dispatch
         await lock(getTransmitterName(port as Transmitter));
         const disconnect = connectTransmitters(channel.port1, port as Transmitter);
         disposes.push(disconnect);

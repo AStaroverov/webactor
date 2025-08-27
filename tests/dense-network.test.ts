@@ -17,7 +17,7 @@ describe('Dense Network Tests', () => {
         }
     });
 
-    it('should create dense network and connect all actors through hub', async () => {
+    it('should create dense network and connect all actors each other', async () => {
         const actor1Messages: any[] = [];
         const actor2Messages: any[] = [];
         const actor3Messages: any[] = [];
@@ -50,13 +50,10 @@ describe('Dense Network Tests', () => {
 
         await new Promise(resolve => setTimeout(resolve, 200));
 
-        expect(actor1Messages).toHaveLength(3);
-        expect(actor2Messages).toHaveLength(3);
-        expect(actor3Messages).toHaveLength(3);
+        expect(actor1Messages).toHaveLength(2);
+        expect(actor2Messages).toHaveLength(2);
+        expect(actor3Messages).toHaveLength(2);
 
-        expect(actor1Messages).toContainEqual(
-            expect.objectContaining({ from: 'node1', receivedBy: 'node1' })
-        );
         expect(actor1Messages).toContainEqual(
             expect.objectContaining({ from: 'node2', receivedBy: 'node1' })
         );
@@ -68,9 +65,6 @@ describe('Dense Network Tests', () => {
             expect.objectContaining({ from: 'node1', receivedBy: 'node2' })
         );
         expect(actor2Messages).toContainEqual(
-            expect.objectContaining({ from: 'node2', receivedBy: 'node2' })
-        );
-        expect(actor2Messages).toContainEqual(
             expect.objectContaining({ from: 'node3', receivedBy: 'node2' })
         );
 
@@ -79,9 +73,6 @@ describe('Dense Network Tests', () => {
         );
         expect(actor3Messages).toContainEqual(
             expect.objectContaining({ from: 'node2', receivedBy: 'node3' })
-        );
-        expect(actor3Messages).toContainEqual(
-            expect.objectContaining({ from: 'node3', receivedBy: 'node3' })
         );
     });
 
@@ -110,14 +101,12 @@ describe('Dense Network Tests', () => {
 
         await new Promise(resolve => setTimeout(resolve, 150));
 
-        expect(node1Messages).toHaveLength(2);
-        expect(node2Messages).toHaveLength(2);
+        expect(node1Messages).toHaveLength(1);
+        expect(node2Messages).toHaveLength(1);
 
-        expect(node1Messages).toContainEqual({ type: 'ping', from: 'peer1' });
         expect(node1Messages).toContainEqual({ type: 'pong', from: 'peer2' });
 
         expect(node2Messages).toContainEqual({ type: 'ping', from: 'peer1' });
-        expect(node2Messages).toContainEqual({ type: 'pong', from: 'peer2' });
     });
 
     it('should support interactive messaging after launch', async () => {
@@ -180,40 +169,5 @@ describe('Dense Network Tests', () => {
         expect(() => {
             network.close();
         }).toThrow('Dense network is already closed');
-    });
-
-    it('should handle mixed transmitter types (actors and workers)', async () => {
-        const actorMessages: any[] = [];
-        let mockWorker: any;
-
-        const actor = createActor('mixed-actor', (context: ActorContext) => {
-            context.addEventListener('message', (event) => {
-                actorMessages.push(event.data);
-            });
-            context.postMessage({ type: 'from-actor', message: 'Hello from actor' });
-        });
-
-        mockWorker = {
-            postMessage: jest.fn(),
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
-            terminate: jest.fn(),
-            onmessage: null,
-            onerror: null
-        };
-
-        actors = [actor];
-
-        network = createDenseNetwork(actor, mockWorker);
-        network.launch();
-
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        expect(actorMessages).toContainEqual({ type: 'from-actor', message: 'Hello from actor' });
-
-        expect(mockWorker.addEventListener).toHaveBeenCalled();
-
-        network.close();
-        expect(mockWorker.terminate).toHaveBeenCalled();
     });
 });

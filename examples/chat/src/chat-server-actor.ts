@@ -205,7 +205,7 @@ export function createChatServerActor() {
           });
 
           // Handle channel termination (client/tab closed or lost)
-          channel.addEventListener('error', () => {
+          channel.addEventListener('close', () => {
             const info = clients.get(connectionId);
             clients.delete(connectionId);
             if (info?.userId) {

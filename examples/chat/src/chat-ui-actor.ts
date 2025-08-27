@@ -74,7 +74,7 @@ export function createChatUIActor() {
           }
         });
 
-        channel.addEventListener('error', () => {
+        channel.addEventListener('close', () => {
           connectionStatus = 'disconnected';
           updateConnectionStatus();
         });
@@ -92,9 +92,9 @@ export function createChatUIActor() {
     };
 
     const formatTime = (timestamp: number) => {
-      return new Date(timestamp).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      return new Date(timestamp).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
       });
     };
 
@@ -131,7 +131,7 @@ export function createChatUIActor() {
       if (!messagesContainer) return;
 
       const roomMessages = messages.filter(m => m.room === currentRoom);
-      
+
       messagesContainer.innerHTML = '';
       roomMessages.forEach(message => {
         messagesContainer.appendChild(createMessageElement(message));
@@ -162,7 +162,7 @@ export function createChatUIActor() {
       if (!statusElement) return;
 
       statusElement.className = `connection-status text-sm font-medium ${connectionStatus}`;
-      
+
       const statusText = {
         connected: 'Connected',
         connecting: 'Connecting...',
@@ -178,7 +178,7 @@ export function createChatUIActor() {
 
       if (typingUsers.size > 0) {
         const typingUserNames = Array.from(typingUsers);
-        const typingText = typingUserNames.length === 1 
+        const typingText = typingUserNames.length === 1
           ? `${typingUserNames[0]} is typing...`
           : `${typingUserNames.slice(0, -1).join(', ')} and ${typingUserNames[typingUserNames.length - 1]} are typing...`;
 
@@ -215,9 +215,9 @@ export function createChatUIActor() {
             <div class="p-4 border-b border-gray-200">
               <label class="block text-sm font-medium text-gray-700 mb-2">Room</label>
               <select id="room-select" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                ${DEFAULT_ROOMS.map(room => 
-                  `<option value="${room.id}" ${room.id === currentRoom ? 'selected' : ''}>${room.name}</option>`
-                ).join('')}
+                ${DEFAULT_ROOMS.map(room =>
+        `<option value="${room.id}" ${room.id === currentRoom ? 'selected' : ''}>${room.name}</option>`
+      ).join('')}
               </select>
             </div>
 
@@ -280,7 +280,7 @@ export function createChatUIActor() {
 
         messageInput.value = '';
         sendButton.disabled = true;
-        
+
         if (typingTimeout) {
           clearTimeout(typingTimeout);
           typingTimeout = null;
@@ -356,7 +356,7 @@ export function createChatUIActor() {
             });
             channel.close();
           }
-        } catch {}
+        } catch { }
       });
     }
 

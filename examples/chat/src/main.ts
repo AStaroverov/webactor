@@ -1,4 +1,4 @@
-import { connectActorToWorker } from 'webactor';
+import { createDenseNetwork } from 'webactor';
 import { createChatUIActor } from './chat-ui-actor';
 import './style.css';
 
@@ -7,15 +7,18 @@ async function bootstrap() {
 
   try {
     const uiActor = createChatUIActor();
-    
+
     const worker = new SharedWorker(
       new URL('./chat-server.worker.ts', import.meta.url),
       { type: 'module' }
     );
 
-    const disconnectWorker = connectActorToWorker(uiActor, worker);
+    const network = createDenseNetwork(
+      uiActor,
+      worker
+    );
 
-    uiActor.launch();
+    network.launch();
 
     console.log('✅ Chat application running');
     console.log('- UI Actor: handles DOM interactions and user input');
@@ -24,11 +27,9 @@ async function bootstrap() {
 
     window.addEventListener('beforeunload', () => {
       console.log('🧹 Shutting down chat application...');
-      
+
       try {
-        disconnectWorker();
-        uiActor.destroy();
-        worker.port.close();
+        network.close();
       } catch (error) {
         console.warn('Cleanup error:', error);
       }
@@ -37,19 +38,9 @@ async function bootstrap() {
     window.addEventListener('error', (event) => {
       console.error('🚨 Application error:', event.error);
     });
-
-    if ((import.meta as any).env?.DEV) {
-      (window as any).__CHAT__ = {
-        ui: uiActor,
-        worker,
-        disconnect: disconnectWorker
-      };
-      console.log('🔧 Development mode: chat objects available on window.__CHAT__');
-    }
-
   } catch (error) {
     console.error('💥 Failed to start chat application:', error);
-    
+
     const app = document.querySelector('#app');
     if (app) {
       app.innerHTML = `

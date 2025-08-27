@@ -1,6 +1,6 @@
 import './polyfil.mjs';
 
-import { connectActorToMessagePort, createActor, useContextMessagePort } from '../../dist/index.js';
+import { createActor, createDenseNetwork, useContextMessagePort } from '../../dist/index.js';
 
 console.log('Worker: Waiting for connection from main thread...');
 
@@ -48,6 +48,4 @@ const workerActor = createActor('worker-actor', (context) => {
     });
 });
 
-const worker = useContextMessagePort();
-connectActorToMessagePort(worker, workerActor);
-workerActor.launch();
+createDenseNetwork(useContextMessagePort(), workerActor).launch();

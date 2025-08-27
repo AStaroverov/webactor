@@ -1,4 +1,4 @@
-import { connectActorToMessagePort } from '../connectActorToMessagePort';
+import { connectTransmitters } from '../connectTransmitters';
 import { Actor } from '../types';
 import { getWorkerMessagePort } from './utils';
 
@@ -7,7 +7,7 @@ export function connectActorToWorker<A extends Actor, W extends Worker | SharedW
     worker: W,
 ) {
     const workerPort = getWorkerMessagePort(worker);
-    return connectActorToMessagePort(actor, workerPort);
+    return connectTransmitters(actor, workerPort);
 }
 
 export function connectWorkerToActor<A extends Actor, W extends Worker | SharedWorker>(
