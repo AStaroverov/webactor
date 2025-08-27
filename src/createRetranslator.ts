@@ -1,4 +1,5 @@
 import { createEnvelopeChannel } from './createEnvelopePort';
+import { EnvelopeType } from './envelope';
 import { Actor } from './types';
 
 export interface RetranslatorOptions {
@@ -7,9 +8,9 @@ export interface RetranslatorOptions {
 
 export function createRetranslator(options: RetranslatorOptions = {}): Actor {
     const { name = 'retranslator' } = options;
-    
+
     const { port1, port2 } = createEnvelopeChannel();
-    
+
     let launched = false;
     let destroyed = false;
 
@@ -20,13 +21,10 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
             throw new Error(`Retranslator "${name}" is already destroyed`);
         }
         destroyed = true;
-        // @ts-ignore
-        port1.removeEventListener('error', postToPort2);
-        port1.removeEventListener('message', postToPort2);
-        // @ts-ignore
-        port1.removeEventListener('messageerror', postToPort2);
-        port1.destroy?.();
-        port2.destroy?.();
+        port1.removeEventListener(EnvelopeType.Close, postToPort2);
+        port1.removeEventListener(EnvelopeType.Message, postToPort2);
+        port1.close?.();
+        port2.close?.();
     };
 
     const launch = () => {
@@ -34,20 +32,17 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
             throw new Error(`Retranslator "${name}" is already launched`);
         }
         launched = true;
-        
-        // @ts-ignore
-        port1.addEventListener('error', postToPort2);
-        port1.addEventListener('message', postToPort2);
-        // @ts-ignore
-        port1.addEventListener('messageerror', postToPort2);
-        
+
+        port1.addEventListener(EnvelopeType.Close, postToPort2);
+        port1.addEventListener(EnvelopeType.Message, postToPort2);
+
         return actor;
     };
 
     const actor: Actor = {
         name,
         launch,
-        destroy,
+        close: destroy,
         postMessage: port1.postMessage.bind(port1),
         addEventListener: port2.addEventListener.bind(port2),
         removeEventListener: port2.removeEventListener.bind(port2),

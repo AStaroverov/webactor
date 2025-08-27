@@ -1,14 +1,21 @@
-import { AnyData, EventType, EventTypes } from "./types";
+import { AnyData, ValueOf } from "./types";
 import { Route } from "./utils/route";
+import { threadId } from "./utils/thread";
 
+export const EnvelopeType = {
+    Error: 'error',
+    Close: 'close',
+    Message: 'message',
+} as const;
 
+export type EnvelopeTypes = ValueOf<typeof EnvelopeType>
 export type EnvelopeTransferable = undefined | Transferable[] | StructuredSerializeOptions;
 export type Envelope<T> = {
-    readonly __: true
-    readonly type: EventTypes;
+    readonly type: EnvelopeTypes;
     readonly data: T;
     readonly transferable?: EnvelopeTransferable;
 
+    __threadId: string;
     // Internal routing information
     __route: undefined | Route;
     __checkpoints: undefined | Route;
@@ -17,29 +24,25 @@ export type Envelope<T> = {
 export type AnyEnvelope = Envelope<AnyData>;
 
 export function isEnvelope(v: unknown): v is AnyEnvelope {
-    return (typeof v === "object" && v !== null && "__" in v);
+    return (typeof v === "object" && v !== null && "__route" in v && "__checkpoints" in v);
 }
 
-export function isErrorEnvelope(v: unknown): v is Envelope<Error> {
-    return isEnvelope(v) && (v.type === EventType.Error || v.type === EventType.MessageError);
-}
-export function createEnvelope<T>(type: EventTypes, data: T, transferable?: EnvelopeTransferable, options?: {
+export function createEnvelope<T>(type: EnvelopeTypes, data: T, transferable?: EnvelopeTransferable, options?: {
     route?: Route;
     checkpoints?: Route;
 }): Envelope<T> {
     return {
-        __: true,
         type,
         data,
         transferable,
         __route: options?.route,
         __checkpoints: options?.checkpoints,
+        __threadId: threadId,
     };
 }
 
 export function shallowCopyEnvelope<T extends AnyEnvelope>(v: T): T {
     return <T>{
-        __: true,
         type: v.type,
         data: v.data,
         transferable: v.transferable,

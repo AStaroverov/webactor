@@ -1,12 +1,12 @@
-import { AnyEnvelope, createEnvelope, Envelope, isEnvelope } from "../envelope";
-import { AnyData, EventType, EventTypes, Transmitter, TransmitterSource, TransmitterTarget } from "../types";
+import { AnyEnvelope, createEnvelope, Envelope, EnvelopeTypes, isEnvelope } from "../envelope";
+import { AnyData, EventTypes, Transmitter, TransmitterSource, TransmitterTarget } from "../types";
 import { createPointerId } from "./createPointerId";
 import { threadId } from "./thread";
 
-export function post<T extends EventTypes, V extends AnyData>(
+export function post<T extends EnvelopeTypes, V extends AnyData>(
     target: TransmitterTarget<V>,
     type: T,
-    value: V | Envelope<V> | MessageEvent<V> | Error | ErrorEvent | MessageEvent<Error>,
+    value: V | Envelope<V> | MessageEvent<V> | MessageEvent<Envelope<V>>,
 ): void {
     const isEventMessage = value instanceof MessageEvent;
     const data = (isEventMessage ? value.data : value);
@@ -22,35 +22,24 @@ export function post<T extends EventTypes, V extends AnyData>(
     target.postMessage(message as V, transferable as any);
 }
 
-export function listen<T extends AnyData>(
-    source: TransmitterSource<T>,
-    onError: (type: typeof EventType.Error | typeof EventType.MessageError, error: Error | ErrorEvent) => void,
-    onMessage: (type: typeof EventType.Message, data: T) => void,
+export function on<T extends EventTypes | EnvelopeTypes, V extends AnyData>(
+    source: TransmitterSource<V>,
+    type: T,
+    callback: (value: V) => void,
 ): VoidFunction {
-    const map = {
-        [EventType.Error]: onError,
-        [EventType.Message]: onMessage,
-        [EventType.MessageError]: onError
-    }
-
     source.start?.();
 
-    const unsubscribes = Object.values(EventType).map(type => {
-        const handler = (value: Error | ErrorEvent | AnyData | AnyEnvelope | MessageEvent<Error | AnyData | AnyEnvelope>) => {
-            if (value instanceof MessageEvent) {
-                value = value.data;
-            }
-            // @ts-ignore
-            map[type](type, value);
-        };
+    const handler = (value: Error | ErrorEvent | AnyData | AnyEnvelope | MessageEvent<Error | AnyData | AnyEnvelope>) => {
+        if (value instanceof MessageEvent) {
+            value = value.data;
+        }
+        callback(value as V)
+    };
 
-        // @ts-ignore
-        source.addEventListener(type, handler);
-        // @ts-ignore
-        return () => source.removeEventListener(type, handler);
-    });
-
-    return () => unsubscribes.forEach(unsub => unsub());
+    // @ts-ignore
+    source.addEventListener(type, handler);
+    // @ts-ignore
+    return () => source.removeEventListener(type, handler);
 }
 
 export function getTransmitterName(transmitter: Transmitter): string {

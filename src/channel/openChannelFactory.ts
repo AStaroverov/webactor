@@ -1,9 +1,10 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
+import { Reason } from '../def';
 import { EnvelopeTransferable } from '../envelope';
 import { timeoutProvider } from '../providers';
 import { request } from '../request/request';
-import { AnyData, EnvelopeMessagePort, EventType, Transmitter } from '../types';
+import { AnyData, EnvelopeMessagePort, Transmitter } from '../types';
 import { createShortRandomString, noop } from '../utils/common';
 import { lock, onUnlock } from '../utils/Locks';
 import { createRoute } from '../utils/route';
@@ -21,7 +22,7 @@ export function openChannel(
     },
 ): Promise<ChannelTransmitter> {
     const channelId = createShortRandomString();
-    const unlockChannelPromise = lock('openChannel'+channelId);
+    const unlockChannelPromise = lock('openChannel' + channelId);
 
     return new Promise<ChannelTransmitter>(async (resolve, reject) => {
         const unlockChannel = await unlockChannelPromise;
@@ -34,12 +35,14 @@ export function openChannel(
 
         const messagePort = envelope.data as MessagePort;
         const localChannel = createEnvelopeChannel();
-        const disconnect = connectTransmitters(messagePort as Transmitter, localChannel.port1);
-        const close = () => {
+        const disconnect = connectTransmitters(messagePort as Transmitter, localChannel.port1, ['message', 'close']);
+        const close = (reason?: unknown) => {
+            post(localChannel.port1, 'close', { reason, source: 'openChannel' });
+            post(localChannel.port2, 'close', { reason, source: 'openChannel' });
             disconnect();
             messagePort.removeEventListener('message', resolveHandshake);
             cleanupController.abort();
-            localChannel.port2.destroy();
+            localChannel.port2.close();
             messagePort.close();
             unlockChannel();
         }
@@ -52,16 +55,15 @@ export function openChannel(
             resolve({
                 ...localChannel.port2,
                 close,
-            }as ChannelTransmitter);
+            } as ChannelTransmitter);
         }
         messagePort.addEventListener('message', resolveHandshake);
-        
+
         const cleanupController = new AbortController();
-        
-        onUnlock('supportChannel'+channelId, cleanupController.signal).then(() => {
-            post(localChannel.port1, EventType.Error, new Error('Lose Channel'));
-            close();
-        }).catch(noop);
+
+        onUnlock('supportChannel' + channelId, cleanupController.signal)
+            .then(() => close(Reason.LostChannel))
+            .catch(noop);
     }).catch((err) => {
         unlockChannelPromise.then((unlock) => unlock());
         throw err;

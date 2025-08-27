@@ -12,7 +12,7 @@ describe('createEnvelopeEmitter', () => {
     });
 
     afterEach(() => {
-        envelopeEmitter.destroy?.();
+        envelopeEmitter.close?.();
     });
 
     it('should add and trigger message event listeners', async () => {
@@ -104,7 +104,7 @@ describe('createEnvelopeEmitter', () => {
         }).toThrow('Unsupported event type: invalid');
     });
 
-    it('should clear all callbacks on destroy', () => {
+    it('should clear all callbacks on close', () => {
         const mockMessageCallback = jest.fn();
         const mockErrorCallback = jest.fn();
         const mockMessageErrorCallback = jest.fn();
@@ -113,9 +113,9 @@ describe('createEnvelopeEmitter', () => {
         envelopeEmitter.addEventListener('error', mockErrorCallback);
         envelopeEmitter.addEventListener('messageerror', mockMessageErrorCallback);
 
-        envelopeEmitter.destroy?.();
+        envelopeEmitter.close?.();
 
-        // Try to trigger events after destroy
+        // Try to trigger events after close
         envelopeEmitter.postMessage({ test: 'message' });
 
         const errorEvent = createEnvelope('error', new Error('test'));
@@ -151,11 +151,11 @@ describe('createActorFactory', () => {
 
             expect(actor.name).toBe('test-actor');
             expect(typeof actor.launch).toBe('function');
-            expect(typeof actor.destroy).toBe('function');
+            expect(typeof actor.close).toBe('function');
             expect(typeof actor.postMessage).toBe('function');
             expect(typeof actor.addEventListener).toBe('function');
 
-            actor.destroy();
+            actor.close();
         });
     });
 
@@ -173,16 +173,16 @@ describe('createActorFactory', () => {
                 removeEventListener: expect.any(Function),
             });
 
-            actor.destroy();
+            actor.close();
         });
 
-        it('should call dispose function on destroy if constructor returns function', () => {
+        it('should call dispose function on close if constructor returns function', () => {
             const mockDispose = jest.fn();
             const mockConstructor = jest.fn().mockReturnValue(mockDispose);
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.launch();
-            actor.destroy();
+            actor.close();
 
             expect(mockDispose).toHaveBeenCalled();
         });
@@ -193,15 +193,15 @@ describe('createActorFactory', () => {
 
             actor.launch();
 
-            expect(() => actor.destroy()).not.toThrow();
+            expect(() => actor.close()).not.toThrow();
         });
 
-        it('should destroy mailboxes on destroy', () => {
-            const mockDestroy = jest.fn();
+        it('should close mailboxes on close', () => {
+            const mockclose = jest.fn();
             const mockCreateEnvelopeChannel = () => {
                 const { port1, port2 } = createEnvelopeChannel()
-                port1.destroy = mockDestroy
-                port2.destroy = mockDestroy
+                port1.close = mockclose
+                port2.close = mockclose
                 return { port1, port2 }
             }
 
@@ -210,9 +210,9 @@ describe('createActorFactory', () => {
                 .mockReturnValueOnce(mockCreateEnvelopeChannel());
 
             const actor = createActorFromFactory('test-actor', jest.fn());
-            actor.destroy();
+            actor.close();
 
-            expect(mockDestroy).toHaveBeenCalledTimes(2);
+            expect(mockclose).toHaveBeenCalledTimes(2);
         });
     });
 
@@ -257,8 +257,8 @@ describe('createActorFactory', () => {
                 })
             );
 
-            actor1.destroy();
-            actor2.destroy();
+            actor1.close();
+            actor2.close();
         });
     });
 
@@ -273,42 +273,42 @@ describe('createActorFactory', () => {
             expect(() => actor.launch()).toThrow('Actor "test-actor" is already launched');
             expect(mockConstructor).toHaveBeenCalledTimes(1); // Should not call constructor again
 
-            actor.destroy();
+            actor.close();
         });
 
-        it('should handle destroy before launch', () => {
+        it('should handle close before launch', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
-            expect(() => actor.destroy()).not.toThrow();
+            expect(() => actor.close()).not.toThrow();
         });
 
-        it('should throw error on multiple destroy calls', () => {
+        it('should throw error on multiple close calls', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.launch();
-            actor.destroy();
+            actor.close();
 
-            expect(() => actor.destroy()).toThrow('Actor "test-actor" is already destroyed');
+            expect(() => actor.close()).toThrow('Actor "test-actor" is already closeed');
         });
 
-        it('should throw error on multiple destroy calls even without launch', () => {
+        it('should throw error on multiple close calls even without launch', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
-            actor.destroy();
+            actor.close();
 
-            expect(() => actor.destroy()).toThrow('Actor "test-actor" is already destroyed');
+            expect(() => actor.close()).toThrow('Actor "test-actor" is already closeed');
         });
 
-        it('should not allow launch after destroy', () => {
+        it('should not allow launch after close', () => {
             const mockConstructor = jest.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
-            actor.destroy();
+            actor.close();
 
-            // Should be able to attempt launch after destroy, but the behavior may vary
+            // Should be able to attempt launch after close, but the behavior may vary
             // This test documents the current behavior - you might want to adjust based on requirements
             expect(() => actor.launch()).not.toThrow();
         });
@@ -322,7 +322,7 @@ describe('createActorFactory', () => {
 
             expect(() => actor.launch()).toThrow('Constructor error');
 
-            actor.destroy();
+            actor.close();
         });
     });
 
@@ -350,7 +350,7 @@ describe('createActorFactory', () => {
                 actor.postMessage();
             }).not.toThrow();
 
-            actor.destroy();
+            actor.close();
         });
     });
 });

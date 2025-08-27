@@ -1,8 +1,9 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
+import { Reason } from '../def';
 import { Envelope } from '../envelope';
 import { response } from '../request/response';
-import { AnyData, EnvelopeMessagePort, EventType, Transmitter } from '../types';
+import { AnyData, EnvelopeMessagePort, Transmitter } from '../types';
 import { noop } from '../utils/common';
 import { lock, onUnlock } from '../utils/Locks';
 import { getFirstRouteCheckpoint } from '../utils/route';
@@ -24,15 +25,17 @@ export function supportChannel(
     return new Promise(async (resolve, reject) => {
         response(target, envelope, messageChannel.port1, [messageChannel.port1]);
 
-        const unlockChannel = await lock('supportChannel'+channelId);
+        const unlockChannel = await lock('supportChannel' + channelId);
         const localChannel = createEnvelopeChannel();
-        const disconnect = connectTransmitters(messageChannel.port2 as Transmitter, localChannel.port1);
+        const disconnect = connectTransmitters(messageChannel.port2 as Transmitter, localChannel.port1, ['message', 'close']);
         const abortController = new AbortController();
-        const close = () => {
+        const close = (reason?: unknown) => {
+            post(localChannel.port1, 'close', { reason, source: 'supportChannel' });
+            post(localChannel.port2, 'close', { reason, source: 'supportChannel' });
             disconnect();
             abortController.abort();
-            localChannel.port1.destroy();
-            localChannel.port2.destroy();
+            localChannel.port1.close();
+            localChannel.port2.close();
             messageChannel.port1.close();
             messageChannel.port2.close();
             messageChannel.port2.removeEventListener('message', handshake);
@@ -46,12 +49,11 @@ export function supportChannel(
                 close
             } as ChannelTransmitter);
         }
-        
+
         messageChannel.port2.addEventListener('message', handshake, { once: true });
-        
-        onUnlock('openChannel'+channelId, abortController.signal).then(() => {
-            post(localChannel.port1, EventType.Error, new Error('Lose Channel'));
-            close();
-        }).catch(noop);
+
+        onUnlock('openChannel' + channelId, abortController.signal)
+            .then(() => close(Reason.LostChannel))
+            .catch(noop);
     });
 };

@@ -1,8 +1,9 @@
-import { Envelope, EnvelopeTransferable } from "./envelope";
+import { Envelope, EnvelopeTransferable, EnvelopeType } from "./envelope";
 
 export type ValueOf<T> = T[keyof T];
 
 export const EventType = {
+    // Exit: 'exit', add support native node worker
     Error: 'error',
     Message: 'message',
     MessageError: 'messageerror'
@@ -25,49 +26,53 @@ export interface PostLike<T> {
     postMessage: PostMessageLike<T>
 }
 
-export interface ListenerLike<T, E> {
-    (type: typeof EventType.Error, callback: (event: E) => unknown): void
-    (type: typeof EventType.Message, callback: (event: T) => unknown): void
-    (type: typeof EventType.MessageError, callback: (event: E) => unknown): void
-}
-
 // EVENT LIKE
+export interface EventListener<T> {
+    (type: typeof EventType.Error, callback: (event: ErrorEvent) => unknown): void
+    (type: typeof EventType.Message, callback: (event: MessageEvent<T>) => unknown): void
+    (type: typeof EventType.MessageError, callback: (event: MessageEvent<Error>) => unknown): void
+}
 export interface EventListenerLike<T extends Message> {
     start?: () => void;
-    addEventListener: ListenerLike<MessageEvent<T>, MessageEvent<Error> | ErrorEvent>
-    removeEventListener: ListenerLike<MessageEvent<T>, MessageEvent<Error> | ErrorEvent>
+    addEventListener: EventListener<T>
+    removeEventListener: EventListener<T>
 }
-export interface EventTargetLike<T extends Message> extends PostLike<T> {};
-export interface EventSourceLike<T extends Message> extends EventListenerLike<T> {};
-export interface EventMessagePortLike<T extends Message> extends EventTargetLike<T>, EventSourceLike<T> {};
+export interface EventTargetLike<T extends Message> extends PostLike<T> { };
+export interface EventSourceLike<T extends Message> extends EventListenerLike<T> { };
+export interface EventMessagePortLike<T extends Message> extends EventTargetLike<T>, EventSourceLike<T> { };
 
 // ENVELOPE LIKE
+export interface EnvelopeListener<T> {
+    (type: typeof EnvelopeType.Close, callback: (reason?: Envelope<string | Error>) => unknown): void
+    (type: typeof EnvelopeType.Message, callback: (envelope: Envelope<T>) => unknown): void
+}
 export interface EnvelopeListenerLike<T extends AnyData> {
     start?: () => void;
-    addEventListener: ListenerLike<Envelope<T>, Error | ErrorEvent>
-    removeEventListener: ListenerLike<Envelope<T>, Error | ErrorEvent>
+    addEventListener: EnvelopeListener<T>
+    removeEventListener: EnvelopeListener<T>
 }
-export interface EnvelopeTarget<T extends AnyData = AnyData> extends PostLike<T | Envelope<T>> {};
-export interface EnvelopeSource<T extends AnyData = AnyData> extends EnvelopeListenerLike<T> {};
-export interface EnvelopeMessagePort<T extends AnyData = AnyData> extends EnvelopeTarget<T>, EnvelopeSource<T> {};
+export interface EnvelopeTarget<T extends AnyData = AnyData> extends PostLike<T | Envelope<T>> { };
+export interface EnvelopeSource<T extends AnyData = AnyData> extends EnvelopeListenerLike<T> { };
+export interface EnvelopeMessagePort<T extends AnyData = AnyData> extends EnvelopeTarget<T>, EnvelopeSource<T> { };
 
 // ACTOR
 export interface EnvelopeEmitter<T extends AnyData = AnyData> extends EnvelopeMessagePort<T> {
-    destroy?: () => void;
+    close: () => void;
 };
 
 // Transmitter
 export type TransmitterTarget<T extends AnyData = AnyData> = EventTargetLike<T> | EnvelopeTarget<T>;
 export type TransmitterSource<T extends AnyData = AnyData> = EventSourceLike<T> | EnvelopeSource<T>;
-export type Transmitter<T extends AnyData = AnyData> =  EventMessagePortLike<T> | EnvelopeMessagePort<T>;
+export type Transmitter<T extends AnyData = AnyData> = EventMessagePortLike<T> | EnvelopeMessagePort<T>;
 
 
 export type Actor<T extends AnyData = AnyData> = EnvelopeEmitter<T> & {
     name: string;
+    close: (reason?: unknown) => void;
     launch: () => void;
-    destroy: () => void;
 };
 
 export type ActorContext<T extends AnyData = AnyData> = EnvelopeEmitter<T> & {
     name: string;
+    close: (reason?: unknown) => void;
 };

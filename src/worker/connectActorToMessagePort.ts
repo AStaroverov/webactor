@@ -1,7 +1,7 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { type Actor, type EventMessagePortLike, type Message } from '../types';
 
-export function connectActorToMessagePort<A extends Actor, P extends EventMessagePortLike<Message>>(
+export function connectActorToMessagePort<A extends Actor, P extends MessagePort | EventMessagePortLike<Message>>(
     actor: A,
     port: P,
 ): VoidFunction {

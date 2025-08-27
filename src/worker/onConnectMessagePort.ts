@@ -7,10 +7,11 @@ const dependencies = <const>{
 };
 
 export function onConnectMessagePort(
-    context: DedicatedWorkerGlobalScope | SharedWorkerGlobalScope,
     onConnect: (port: MessagePort) => unknown,
     { isDedicatedWorkerScope, isSharedWorkerScope } = dependencies,
 ): VoidFunction {
+    const context = globalThis as unknown;
+
     if (isDedicatedWorkerScope(context) || isMessagePortLike(context)) {
         const port = context as unknown as MessagePort;
         onConnect(port);

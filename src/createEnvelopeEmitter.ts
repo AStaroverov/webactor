@@ -1,43 +1,26 @@
-import { createEnvelope, Envelope, EnvelopeTransferable, isEnvelope } from "./envelope";
-import { AnyData, EnvelopeEmitter, EventType, EventTypes } from "./types";
+import { AnyEnvelope, createEnvelope, Envelope, EnvelopeTransferable, EnvelopeTypes, isEnvelope } from "./envelope";
+import { AnyData, EnvelopeEmitter, EventType } from "./types";
 
 export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
-    const callbacksRecord = {
-        [EventType.Error]: new Set<(event: Error | ErrorEvent) => unknown>(),
-        [EventType.Message]: new Set<(event: Envelope<T>) => unknown>(),
-        [EventType.MessageError]: new Set<(event: Error | ErrorEvent) => unknown>(),
-    }
+    const callbacksRecord: Map<EnvelopeTypes, Set<(event: any) => unknown>> = new Map();
 
-    function addEventListener(type: 'error', callback: (event: Error | ErrorEvent) => unknown): void
-    function addEventListener(type: 'message', callback: (event: Envelope<T>) => unknown): void
-    function addEventListener(type: 'messageerror', callback: (event: Error | ErrorEvent) => unknown): void;
-    function addEventListener(type: EventTypes, callback: (event: any) => unknown): void {
-        const callbacks = callbacksRecord[type];
-        if (callbacks == null) {
-            throw new Error(`Unsupported event type: ${type}`);
+    function addEventListener(type: EnvelopeTypes, callback: (event: any) => unknown): void {
+        if (!callbacksRecord.has(type)) {
+            callbacksRecord.set(type, new Set());
         }
-        callbacks.add(callback);
+        callbacksRecord.get(type)!.add(callback);
     }
 
-    function removeEventListener(type: 'error', callback: (event: Error | ErrorEvent) => unknown): void
-    function removeEventListener(type: 'message', callback: (event: Envelope<T>) => unknown): void
-    function removeEventListener(type: 'messageerror', callback: (event: Error | ErrorEvent) => unknown): void;
-    function removeEventListener(type: EventTypes, callback: (event: any) => unknown): void {
-        const callbacks = callbacksRecord[type];
-        if (callbacks == null) {
-            throw new Error(`Unsupported event type: ${type}`);
+    function removeEventListener(type: EnvelopeTypes, callback: (event: any) => unknown): void {
+        if (callbacksRecord.has(type)) {
+            callbacksRecord.get(type)!.delete(callback);
         }
-        callbacks.delete(callback);
     }
 
-    function callBacks(type: EventTypes, message: unknown): void {
+    function callCallbacks(envelope: AnyEnvelope): void {
         void Promise.resolve().then(() => {
-            if (callbacksRecord[type] == null) {
-                throw new Error(`Unsupported event type: ${type}`);
-            }
-            const callbacks = callbacksRecord[type];
-            
-            for (let callback of callbacks) {
+            if (!callbacksRecord.has(envelope.type)) return;
+            for (let callback of callbacksRecord.get(envelope.type)!) {
                 // @ts-ignore
                 callback(message);
             }
@@ -45,27 +28,23 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<T> {
     }
 
     return {
-        destroy() {
+        close() {
             void Promise.resolve().then(() => {
-                callbacksRecord[EventType.Error].clear();
-                callbacksRecord[EventType.Message].clear();
-                callbacksRecord[EventType.MessageError].clear();
+                callbacksRecord.clear();
             });
         },
-        postMessage(message: Error | ErrorEvent | T | Envelope<T | Error | ErrorEvent>, transferable?: EnvelopeTransferable): void {
-            const type = isEnvelope(message) ? message.type : EventType.Message;
-
-            if (isEnvelope(message) && message.type !== EventType.Message) {
-                callBacks(message.type, message.data as Error | ErrorEvent);
-            } else {
-                const envelope = isEnvelope(message) ? message : createEnvelope(
-                    EventType.Message,
-                    message,
-                    transferable
-                );
-                
-                callBacks(type, envelope);
+        postMessage(message: T | Envelope<T>, transferable?: EnvelopeTransferable): void {
+            if (isEnvelope(message) && transferable != null) {
+                throw new Error('Cannot use transferable with envelope message');
             }
+
+            const envelope = isEnvelope(message) ? message : createEnvelope(
+                EventType.Message,
+                message,
+                transferable
+            );
+
+            callCallbacks(envelope);
         },
         addEventListener,
         removeEventListener,

@@ -7,7 +7,7 @@ import {
 } from '../types';
 import { createShortRandomString } from '../utils/common';
 import { createRoute, Route } from '../utils/route';
-import { listen, post } from '../utils/transmitter';
+import { on, post } from '../utils/transmitter';
 import { reasonToError } from '../worker/error';
 
 export async function request(
@@ -32,26 +32,22 @@ export async function request(
             message,
             options?.transferable,
         );
-        envelope.__checkpoints =  createRoute(chnanelId);
+        envelope.__checkpoints = createRoute(chnanelId);
 
         const retryIntervalId = intervalProvider.setInterval(
             () => post(target, envelope.type, envelope),
             options?.retryDelay ?? 500
         );
-        const onError = (_type: string, error: Error | ErrorEvent) => {
-            reject(error);
-            onFinally();
-        };
-        const onResponse = (_type: string, envelope: AnyData) => {
+        const off = on(target, 'message', (envelope: AnyData) => {
             if (!isEnvelope(envelope)) throw new Error('Non-envelope message received');
             if (envelope.__route !== chnanelId) return;
-            resolve(envelope);
+            if (envelope.data instanceof Error) reject(envelope.data);
+            else resolve(envelope);
             onFinally();
-        };
-        const unlisten = listen(target, onError, onResponse);
+        });
         const onFinally = () => {
             intervalProvider.clearInterval(retryIntervalId);
-            unlisten();
+            off();
         }
 
         post(target, envelope.type, envelope);
