@@ -16,10 +16,15 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
     const launchWorker = () => {
         const worker = WorkerConstructor();
         const errorOff = on<ErrorEvent>(worker, 'error', async (error) => {
-            const shouldRestart = await shouldRetry(error);
-            if (!shouldRestart) return;
-            close();
-            launchWorker();
+            try {
+                const shouldRestart = await shouldRetry(error);
+                if (!shouldRestart) return;
+                close();
+                launchWorker();
+            } catch (err) {
+                // If shouldRetry throws, treat as false (don't restart)
+                return;
+            }
         });
 
         const abortController = new AbortController();
@@ -29,10 +34,15 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
             if (workerPortCheckpoint.length === 0) return;
             off();
             onUnlock(workerPortCheckpoint, abortController.signal).catch(noop).then(async () => {
-                const shouldRestart = await shouldRetry(ReasonReacord.LostWorker);
-                if (!shouldRestart) return;
-                close();
-                launchWorker();
+                try {
+                    const shouldRestart = await shouldRetry(ReasonReacord.LostWorker);
+                    if (!shouldRestart) return;
+                    close();
+                    launchWorker();
+                } catch (err) {
+                    // If shouldRetry throws, treat as false (don't restart)
+                    return;
+                }
             });
         });
         const disconnectTransmitters = connectActorToWorker(proxy.port1 as Actor, worker as Worker | SharedWorker);
@@ -43,7 +53,6 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
             worker.terminate();
         }
 
-        actor.launch();
         return close;
     }
 

@@ -1,7 +1,6 @@
 import { Reason } from "./def";
 import { AnyData, ValueOf } from "./types";
 import { Route } from "./utils/route";
-import { threadId } from "./utils/thread";
 
 export const EnvelopeType = {
     Error: 'error',
@@ -16,7 +15,6 @@ export type Envelope<T> = {
     readonly data: T;
     readonly transferable?: EnvelopeTransferable;
 
-    __threadId: string;
     // Internal routing information
     __route: undefined | Route;
     __checkpoints: undefined | Route;
@@ -40,7 +38,6 @@ export function createEnvelope<T>(type: EnvelopeTypes, data: T, transferable?: E
         transferable,
         __route: options?.route,
         __checkpoints: options?.checkpoints,
-        __threadId: threadId,
     };
 }
 
