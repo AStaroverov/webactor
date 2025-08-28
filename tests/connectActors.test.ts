@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { connectActors } from '../src/connectActors';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';
@@ -7,12 +8,12 @@ describe('connectActors', () => {
     let createActorFromFactory: ReturnType<typeof createActorFactory>;
 
     beforeEach(() => {
-        const mockCreateChannel = jest.fn().mockImplementation(() => createEnvelopeChannel());
+        const mockCreateChannel = vi.fn().mockImplementation(() => createEnvelopeChannel());
         createActorFromFactory = createActorFactory({ createChannel: mockCreateChannel });
     });
 
     afterEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
     describe('function signature and basic behavior', () => {
@@ -21,8 +22,8 @@ describe('connectActors', () => {
         });
 
         it('should return a disconnect function', () => {
-            const actor1 = createActorFromFactory('actor1', jest.fn());
-            const actor2 = createActorFromFactory('actor2', jest.fn());
+            const actor1 = createActorFromFactory('actor1', vi.fn());
+            const actor2 = createActorFromFactory('actor2', vi.fn());
 
             const disconnect = connectActors(actor1, actor2);
 
@@ -116,8 +117,8 @@ describe('connectActors', () => {
 
     describe('message passing between connected actors', () => {
         it('should relay messages bidirectionally', async () => {
-            const actor1Handler = jest.fn();
-            const actor2Handler = jest.fn();
+            const actor1Handler = vi.fn();
+            const actor2Handler = vi.fn();
             let actor1Context: ActorContext | null = null;
             let actor2Context: ActorContext | null = null;
 
@@ -159,7 +160,7 @@ describe('connectActors', () => {
         });
 
         it('should handle complex message types', async () => {
-            const actor2Handler = jest.fn();
+            const actor2Handler = vi.fn();
             let actor1Context: ActorContext | null = null;
 
             const actor1 = createActorFromFactory('actor1', (context: ActorContext) => {
@@ -198,8 +199,8 @@ describe('connectActors', () => {
 
     describe('connection lifecycle and cleanup', () => {
         it('should stop message relay after disconnect', async () => {
-            const actor1Handler = jest.fn();
-            const actor2Handler = jest.fn();
+            const actor1Handler = vi.fn();
+            const actor2Handler = vi.fn();
             let actor1Context: ActorContext | null = null;
 
             const actor1 = createActorFromFactory('actor1', (context: ActorContext) => {
@@ -242,8 +243,8 @@ describe('connectActors', () => {
         });
 
         it('should handle actor destruction gracefully', async () => {
-            const actor1Handler = jest.fn();
-            const actor2Handler = jest.fn();
+            const actor1Handler = vi.fn();
+            const actor2Handler = vi.fn();
 
             const actor1 = createActorFromFactory('actor1', (context: ActorContext) => {
                 context.addEventListener('message', actor1Handler);
@@ -271,8 +272,8 @@ describe('connectActors', () => {
         });
 
         it('should handle multiple disconnect calls gracefully', () => {
-            const actor1 = createActorFromFactory('actor1', jest.fn());
-            const actor2 = createActorFromFactory('actor2', jest.fn());
+            const actor1 = createActorFromFactory('actor1', vi.fn());
+            const actor2 = createActorFromFactory('actor2', vi.fn());
 
             actor1.launch();
             actor2.launch();
@@ -292,7 +293,7 @@ describe('connectActors', () => {
 
     describe('edge cases and error handling', () => {
         it('should handle same actor connection', async () => {
-            const selfHandler = jest.fn();
+            const selfHandler = vi.fn();
             let actorContext: ActorContext | null = null;
 
             const actor = createActorFromFactory('self-actor', (context: ActorContext) => {

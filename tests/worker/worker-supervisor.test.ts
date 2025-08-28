@@ -1,3 +1,4 @@
+import { describe, it, expect, afterEach } from 'vitest';
 import { Worker } from '@apacheli/web-workers';
 import '../locks';
 
@@ -113,19 +114,23 @@ describe('Worker Supervisor Tests with Real Workers', () => {
                 }
             });
 
-            // Capture any unhandled rejections
-            const originalHandler = process.listeners('unhandledRejection');
-            process.removeAllListeners('unhandledRejection');
-            process.on('unhandledRejection', () => {
-                errorCaught = true;
-            });
+            // Capture any unhandled rejections (vitest compatible)
+            const originalHandler = globalThis.process?.listeners?.('unhandledRejection') || [];
+            if (globalThis.process) {
+                globalThis.process.removeAllListeners('unhandledRejection');
+                globalThis.process.on('unhandledRejection', () => {
+                    errorCaught = true;
+                });
+            }
 
             supervisedActor.launch();
             await new Promise(resolve => setTimeout(resolve, 300));
 
             // Restore original handlers
-            process.removeAllListeners('unhandledRejection');
-            originalHandler.forEach(handler => process.on('unhandledRejection', handler as any));
+            if (globalThis.process) {
+                globalThis.process.removeAllListeners('unhandledRejection');
+                originalHandler.forEach(handler => globalThis.process!.on('unhandledRejection', handler as any));
+            }
 
             expect(createCount).toBe(1);
             expect(errorCaught).toBe(false); // Error should be handled gracefully

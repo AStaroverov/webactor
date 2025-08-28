@@ -1,3 +1,4 @@
+import { describe, it, expect, afterEach } from 'vitest';
 import { ActorContext, createActor, createDenseNetwork } from '../src/index';
 
 describe('Dense Network Tests', () => {

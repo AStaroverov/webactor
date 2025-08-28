@@ -1,3 +1,4 @@
+import { describe, it, expect, afterEach } from 'vitest';
 import { ActorContext, connectActors, createActor, createRetranslator } from '../src/index';
 
 describe('Retranslator Tests', () => {

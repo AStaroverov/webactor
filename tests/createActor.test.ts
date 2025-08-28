@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeEmitter } from '../src/createEnvelopeEmitter';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';
@@ -16,7 +17,7 @@ describe('createEnvelopeEmitter', () => {
     });
 
     it('should add and trigger message event listeners', async () => {
-        const mockCallback = jest.fn();
+        const mockCallback = vi.fn();
         const testMessage = { type: 'test', payload: 'data' };
 
         envelopeEmitter.addEventListener('message', mockCallback);
@@ -33,7 +34,7 @@ describe('createEnvelopeEmitter', () => {
     });
 
     it('should remove event listeners', () => {
-        const mockCallback = jest.fn();
+        const mockCallback = vi.fn();
         const testMessage = { type: 'test' };
 
         envelopeEmitter.addEventListener('message', mockCallback);
@@ -44,8 +45,8 @@ describe('createEnvelopeEmitter', () => {
     });
 
     it('should support multiple listeners for same event type', async () => {
-        const mockCallback1 = jest.fn();
-        const mockCallback2 = jest.fn();
+        const mockCallback1 = vi.fn();
+        const mockCallback2 = vi.fn();
         const testMessage = { type: 'test' };
 
         envelopeEmitter.addEventListener('message', mockCallback1);
@@ -59,7 +60,7 @@ describe('createEnvelopeEmitter', () => {
     });
 
     it('should clear all callbacks on close', () => {
-        const mockMessageCallback = jest.fn();
+        const mockMessageCallback = vi.fn();
 
         envelopeEmitter.addEventListener('message', mockMessageCallback);
 
@@ -78,21 +79,21 @@ describe('createEnvelopeEmitter', () => {
 });
 
 describe('createActorFactory', () => {
-    let mockCreateChannel: jest.Mock;
+    let mockCreateChannel: vi.Mock;
     let createActorFromFactory: ReturnType<typeof createActorFactory>;
 
     beforeEach(() => {
-        mockCreateChannel = jest.fn().mockImplementation(() => createEnvelopeChannel());
+        mockCreateChannel = vi.fn().mockImplementation(() => createEnvelopeChannel());
         createActorFromFactory = createActorFactory({ createChannel: mockCreateChannel });
     });
 
     afterEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
     describe('actor creation', () => {
         it('should create actor with given name and constructor', () => {
-            const mockConstructor = jest.fn();
+            const mockConstructor = vi.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             expect(actor.name).toBe('test-actor');
@@ -107,7 +108,7 @@ describe('createActorFactory', () => {
 
     describe('actor lifecycle', () => {
         it('should call constructor on launch with correct context', () => {
-            const mockConstructor = jest.fn();
+            const mockConstructor = vi.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.launch();
@@ -124,8 +125,8 @@ describe('createActorFactory', () => {
         });
 
         it('should call dispose function on close if constructor returns function', () => {
-            const mockDispose = jest.fn();
-            const mockConstructor = jest.fn().mockReturnValue(mockDispose);
+            const mockDispose = vi.fn();
+            const mockConstructor = vi.fn().mockReturnValue(mockDispose);
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.launch();
@@ -135,7 +136,7 @@ describe('createActorFactory', () => {
         });
 
         it('should not call dispose if constructor returns non-function', () => {
-            const mockConstructor = jest.fn().mockReturnValue('not-a-function');
+            const mockConstructor = vi.fn().mockReturnValue('not-a-function');
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.launch();
@@ -144,7 +145,7 @@ describe('createActorFactory', () => {
         });
 
         it('should close mailboxes on close', () => {
-            const mockclose = jest.fn();
+            const mockclose = vi.fn();
             const mockCreateEnvelopeChannel = () => {
                 const { port1, port2 } = createEnvelopeChannel()
                 port1.close = mockclose
@@ -156,7 +157,7 @@ describe('createActorFactory', () => {
                 .mockReturnValueOnce(mockCreateEnvelopeChannel())
                 .mockReturnValueOnce(mockCreateEnvelopeChannel());
 
-            const actor = createActorFromFactory('test-actor', jest.fn());
+            const actor = createActorFromFactory('test-actor', vi.fn());
             actor.close();
 
             expect(mockclose).toHaveBeenCalledTimes(2);
@@ -165,14 +166,14 @@ describe('createActorFactory', () => {
 
     describe('message passing system', () => {
         it('should enable bidirectional message passing between actors', async () => {
-            const actor1Constructor = jest.fn((context: ActorContext<any>) => {
+            const actor1Constructor = vi.fn((context: ActorContext<any>) => {
                 context.addEventListener('message', (event) => {
                     if (event.data.type === 'ping') {
                         context.postMessage({ type: 'pong', payload: event.data.payload });
                     }
                 });
             });
-            const actor2MessageHandler = jest.fn();
+            const actor2MessageHandler = vi.fn();
             const actor2Constructor = (context: ActorContext) => {
                 context.addEventListener('message', actor2MessageHandler);
             }
@@ -211,7 +212,7 @@ describe('createActorFactory', () => {
 
     describe('edge cases', () => {
         it('should throw error on multiple launch calls', () => {
-            const mockConstructor = jest.fn();
+            const mockConstructor = vi.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.launch();
@@ -224,14 +225,14 @@ describe('createActorFactory', () => {
         });
 
         it('should handle close before launch', () => {
-            const mockConstructor = jest.fn();
+            const mockConstructor = vi.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             expect(() => actor.close()).not.toThrow();
         });
 
         it('should throw error on multiple close calls', () => {
-            const mockConstructor = jest.fn();
+            const mockConstructor = vi.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.launch();
@@ -241,7 +242,7 @@ describe('createActorFactory', () => {
         });
 
         it('should throw error on multiple close calls even without launch', () => {
-            const mockConstructor = jest.fn();
+            const mockConstructor = vi.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.close();
@@ -250,7 +251,7 @@ describe('createActorFactory', () => {
         });
 
         it('should not allow launch after close', () => {
-            const mockConstructor = jest.fn();
+            const mockConstructor = vi.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             actor.close();
@@ -261,7 +262,7 @@ describe('createActorFactory', () => {
         });
 
         it('should handle constructor throwing error', () => {
-            const errorConstructor = jest.fn().mockImplementation(() => {
+            const errorConstructor = vi.fn().mockImplementation(() => {
                 throw new Error('Constructor error');
             });
 
@@ -275,8 +276,8 @@ describe('createActorFactory', () => {
 
     describe('error handling', () => {
         it('should handle invalid message data', () => {
-            const messageHandler = jest.fn();
-            const mockConstructor = jest.fn((context) => {
+            const messageHandler = vi.fn();
+            const mockConstructor = vi.fn((context) => {
                 context.addEventListener('message', messageHandler);
             });
 

@@ -1,3 +1,4 @@
+import { describe, it, expect, afterEach } from 'vitest';
 import { applyActorSupervisor } from '../src/applyActorSupervisor';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';

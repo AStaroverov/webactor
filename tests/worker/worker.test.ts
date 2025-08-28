@@ -1,3 +1,4 @@
+import { describe, it, expect, afterEach } from 'vitest';
 import { Worker } from '@apacheli/web-workers';
 import '../locks';
 
