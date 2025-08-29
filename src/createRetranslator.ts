@@ -12,15 +12,13 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
     const { port1, port2 } = createEnvelopeChannel();
 
     let launched = false;
-    let destroyed = false;
+    let closed = false;
 
     const postToPort2 = port2.postMessage.bind(port2);
 
     const close = () => {
-        if (destroyed) {
-            throw new Error(`Retranslator "${name}" is already closed`);
-        }
-        destroyed = true;
+        if (closed) return;
+        closed = true;
         // @ts-ignore
         port1.removeEventListener(EnvelopeType.Close, postToPort2);
         // @ts-ignore
@@ -30,9 +28,7 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
     };
 
     const launch = () => {
-        if (launched) {
-            throw new Error(`Retranslator "${name}" is already launched`);
-        }
+        if (launched) return
         launched = true;
 
         // @ts-ignore

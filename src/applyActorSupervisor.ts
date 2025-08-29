@@ -1,7 +1,7 @@
 import { connectTransmitters } from "./connectTransmitters";
 import { createEnvelopeChannel } from "./createEnvelopePort";
-import { Reason, ReasonReacord } from "./def";
 import { CloseEnvelope, ErrorEnvelope } from "./envelope";
+import { Reason } from "./reason";
 import { Actor } from "./types";
 import { createShortRandomString } from "./utils/common";
 import { on } from "./utils/transmitter";
@@ -14,29 +14,33 @@ export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetr
     const launchActor = () => {
         const actor = ActorConstructor();
         const closeOff = on<CloseEnvelope>(actor, 'close', async (envelope) => {
-            const shouldRestart = await shouldRetry(envelope.data.reason);
-            if (!shouldRestart) return;
-            launchActor();
+            close();
+            if (await shouldRetry(envelope.data.reason)) {
+                launchActor();
+            }
         });
         const errorOff = on<ErrorEnvelope>(actor, 'error', async (envelope) => {
-            const shouldRestart = await shouldRetry(envelope.data);
-            if (!shouldRestart) return;
-            close(ReasonReacord.Restart);
-            launchActor();
+            close();
+            if (await shouldRetry(envelope.data)) {
+                launchActor();
+            }
         });
         const disconnectTransmitters = connectTransmitters(actor, proxy.port1, ['message']);
-        const close = (reason?: Reason) => {
+        let closed = false;
+        const close = () => {
+            if (closed) return;
+            closed = true;
+            disconnectTransmitters();
+            actor.close();
             closeOff();
             errorOff();
-            actor.close(reason);
-            disconnectTransmitters();
         }
 
         actor.launch();
         return close;
     }
 
-    const disposes: ((reason?: Reason) => void)[] = [];
+    const disposes: (() => void)[] = [];
 
     const launchProxy = () => {
         disposes.push(launchActor());
@@ -44,8 +48,8 @@ export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetr
         disposes.push(() => proxy.port2.close());
     }
 
-    const closeProxy = (reason?: Reason) => {
-        disposes.forEach(dispose => dispose(reason));
+    const closeProxy = () => {
+        disposes.forEach(dispose => dispose());
     }
 
     const actor = {

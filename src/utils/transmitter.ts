@@ -22,7 +22,7 @@ export function post<T extends EnvelopeTypes, V extends AnyData>(
     target.postMessage(message as V, transferable as any);
 }
 
-export function on<T extends AnyData>(
+export function on<T>(
     source: TransmitterSource,
     type: EventTypes | EnvelopeTypes,
     callback: (value: T) => unknown | Promise<unknown>,

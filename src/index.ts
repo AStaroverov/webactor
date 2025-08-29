@@ -4,6 +4,7 @@ export { createActor } from './createActor';
 export { createActorFactory } from './createActorFactory';
 export { createDenseNetwork } from './createDenseNetwork';
 export { createRetranslator } from './createRetranslator';
+export * from './reason';
 export * from './types';
 
 export * from './connectActors';

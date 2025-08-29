@@ -1,18 +1,18 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
-import { Reason, ReasonReacord } from '../def';
 import { Envelope, EnvelopeType } from '../envelope';
+import { Reason, Reasons } from '../reason';
 import { response } from '../request/response';
-import { AnyData, EnvelopeMessagePort, EventType, Transmitter } from '../types';
-import { noop } from '../utils/common';
-import { lock, onUnlock } from '../utils/Locks';
+import { AnyData, EventType, Transmitter } from '../types';
+import { catchAbortToSymbol } from '../utils/common';
+import { lock, onUnlock } from '../utils/lock';
 import { getFirstRouteCheckpoint } from '../utils/route';
 import { post } from '../utils/transmitter';
 import { HANDSHAKE } from './defs';
 import type { ChannelTransmitter } from './types';
 
 export function supportChannel(
-    target: EnvelopeMessagePort,
+    target: Transmitter,
     envelope: Envelope<AnyData>,
 ): Promise<ChannelTransmitter> {
     const checkpoints = envelope.__checkpoints;
@@ -53,7 +53,7 @@ export function supportChannel(
         messageChannel.port2.addEventListener(EventType.Message, handshake, { once: true });
 
         onUnlock('openChannel' + channelId, abortController.signal)
-            .then(() => close(ReasonReacord.LostChannel))
-            .catch(noop);
+            .then(() => close(Reasons.LostConnection))
+            .catch(catchAbortToSymbol);
     });
 };

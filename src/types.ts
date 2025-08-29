@@ -1,5 +1,5 @@
-import { Reason } from "./def";
-import { AnyEnvelope, CloseEnvelope, Envelope, EnvelopeTransferable, EnvelopeType, ErrorEnvelope } from "./envelope";
+import { AnyEnvelope, CloseEnvelope, Envelope, EnvelopeType, ErrorEnvelope } from "./envelope";
+import { Reason } from "./reason";
 
 export type ValueOf<T> = T[keyof T];
 
@@ -15,11 +15,12 @@ export type ErrorEventTypes = typeof EventType.Error | typeof EventType.MessageE
 
 export type AnyData = Error | Transferable | number | string | boolean | null | undefined | AnyData[] | { [key: string]: AnyData };
 export type Message = AnyData;
+export type TransferableOptions = undefined | Transferable[] | StructuredSerializeOptions;
 
 export interface PostMessageLike<T> {
     (mssg: T): unknown
     (mssg: T, none?: undefined): unknown
-    (mssg: T, options: EnvelopeTransferable): unknown
+    (mssg: T, options: TransferableOptions): unknown
 }
 
 export interface PostLike<T> {
@@ -70,11 +71,11 @@ export type Transmitter<T extends AnyData = AnyData> = EventMessagePortLike<T> |
 
 export type Actor<T extends AnyEnvelope = AnyEnvelope> = EnvelopeEmitter<T> & {
     name: string;
-    close: (reason?: Reason) => void;
+    close: (reason?: unknown | Reason) => void;
     launch: () => void;
 };
 
 export type ActorContext<T extends AnyEnvelope = AnyEnvelope> = EnvelopeEmitter<T> & {
     name: string;
-    close: (reason?: Reason) => void;
+    close: (reason?: unknown | Reason) => void;
 };

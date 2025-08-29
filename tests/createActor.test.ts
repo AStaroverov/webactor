@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeEmitter } from '../src/createEnvelopeEmitter';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';
@@ -211,43 +211,11 @@ describe('createActorFactory', () => {
     });
 
     describe('edge cases', () => {
-        it('should throw error on multiple launch calls', () => {
-            const mockConstructor = vi.fn();
-            const actor = createActorFromFactory('test-actor', mockConstructor);
-
-            actor.launch();
-            expect(mockConstructor).toHaveBeenCalledTimes(1);
-
-            expect(() => actor.launch()).toThrow('Actor "test-actor" is already launched');
-            expect(mockConstructor).toHaveBeenCalledTimes(1); // Should not call constructor again
-
-            actor.close();
-        });
-
         it('should handle close before launch', () => {
             const mockConstructor = vi.fn();
             const actor = createActorFromFactory('test-actor', mockConstructor);
 
             expect(() => actor.close()).not.toThrow();
-        });
-
-        it('should throw error on multiple close calls', () => {
-            const mockConstructor = vi.fn();
-            const actor = createActorFromFactory('test-actor', mockConstructor);
-
-            actor.launch();
-            actor.close();
-
-            expect(() => actor.close()).toThrow('Actor "test-actor" is already closed');
-        });
-
-        it('should throw error on multiple close calls even without launch', () => {
-            const mockConstructor = vi.fn();
-            const actor = createActorFromFactory('test-actor', mockConstructor);
-
-            actor.close();
-
-            expect(() => actor.close()).toThrow('Actor "test-actor" is already closed');
         });
 
         it('should not allow launch after close', () => {

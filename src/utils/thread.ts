@@ -8,4 +8,4 @@ const threadName = isSharedWorkerScope(globalThis)
         : isWindowScope(globalThis)
             ? 'window'
             : 'unknown';
-export const threadId = `${threadName}[${createShortRandomString()}]`;
+export const threadId = `${threadName}<${createShortRandomString()}>`;

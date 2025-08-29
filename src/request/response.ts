@@ -1,13 +1,13 @@
-import { createEnvelope, Envelope, EnvelopeTransferable, isEnvelope } from '../envelope';
-import { AnyData, EventType, type EnvelopeMessagePort, type Message } from '../types';
+import { createEnvelope, Envelope, isEnvelope } from '../envelope';
+import { AnyData, EventType, type Message, type TransferableOptions, type Transmitter } from '../types';
 import { getFirstRouteCheckpoint } from '../utils/route';
 import { post } from '../utils/transmitter';
 
 export function response(
-    target: EnvelopeMessagePort,
+    target: Transmitter,
     request: Envelope<Message>,
     response: AnyData,
-    transferable?: EnvelopeTransferable,
+    transferable?: TransferableOptions,
 ) {
     if (request.__checkpoints == null) throw new Error('Missing checkpoints');
 

@@ -146,29 +146,4 @@ describe('Dense Network Tests', () => {
             createDenseNetwork();
         }).toThrow('At least one transmitter is required to create dense network');
     });
-
-    it('should throw error when launching already launched network', () => {
-        const actor = createActor('test', () => { });
-        actors = [actor];
-
-        network = createDenseNetwork(actor);
-        network.launch();
-
-        expect(() => {
-            network.launch();
-        }).toThrow('Dense network is already launched');
-    });
-
-    it('should throw error when closing already closed network', () => {
-        const actor = createActor('test', () => { });
-        actors = [actor];
-
-        network = createDenseNetwork(actor);
-        network.launch();
-        network.close();
-
-        expect(() => {
-            network.close();
-        }).toThrow('Dense network is already closed');
-    });
 });

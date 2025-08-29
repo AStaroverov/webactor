@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { Reason, Reasons } from '../dist';
 import { applyActorSupervisor } from '../src/applyActorSupervisor';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';
-import { Reason, ReasonReacord } from '../src/def';
 import { Actor, ActorContext } from '../src/types';
 
 const createActor = createActorFactory({ createChannel: createEnvelopeChannel });
@@ -163,7 +163,7 @@ describe('Actor Supervisors', () => {
                     if (launchCount === 1) {
                         setTimeout(() => testActor.close('custom-reason'), 10);
                     } else if (launchCount === 2) {
-                        setTimeout(() => testActor.close(ReasonReacord.Restart), 10);
+                        setTimeout(() => testActor.close(Reasons.Close), 10);
                     }
                 });
                 return testActor;

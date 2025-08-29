@@ -1,5 +1,5 @@
-import { AnyEnvelope, createEnvelope, Envelope, EnvelopeTransferable, EnvelopeTypes, isEnvelope } from "./envelope";
-import { AnyData, EnvelopeEmitter, EventType } from "./types";
+import { AnyEnvelope, createEnvelope, Envelope, EnvelopeTypes, isEnvelope } from "./envelope";
+import { AnyData, EnvelopeEmitter, EventType, TransferableOptions } from "./types";
 
 export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<Envelope<T>> {
     const callbacksRecord: Map<EnvelopeTypes, Set<(event: any) => unknown>> = new Map();
@@ -33,7 +33,7 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<Enve
                 callbacksRecord.clear();
             });
         },
-        postMessage(message: T | Envelope<T>, transferable?: EnvelopeTransferable): void {
+        postMessage(message: T | Envelope<T>, transferable?: TransferableOptions): void {
             const envelope = isEnvelope(message) ? message : createEnvelope(
                 EventType.Message,
                 message,

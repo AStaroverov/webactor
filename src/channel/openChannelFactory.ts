@@ -1,12 +1,12 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
-import { Reason, ReasonReacord } from '../def';
-import { EnvelopeTransferable, EnvelopeType } from '../envelope';
+import { EnvelopeType } from '../envelope';
 import { timeoutProvider } from '../providers';
+import { Reason, Reasons } from '../reason';
 import { request } from '../request/request';
-import { AnyData, EnvelopeMessagePort, EventType, Transmitter } from '../types';
-import { createShortRandomString, noop } from '../utils/common';
-import { lock, onUnlock } from '../utils/Locks';
+import { AnyData, EventType, TransferableOptions, Transmitter } from '../types';
+import { catchAbortToSymbol, createShortRandomString } from '../utils/common';
+import { lock, onUnlock } from '../utils/lock';
 import { createRoute } from '../utils/route';
 import { post } from '../utils/transmitter';
 import { isMessagePortLike } from '../worker/detect';
@@ -14,11 +14,11 @@ import { HANDSHAKE } from './defs';
 import { ChannelTransmitter } from './types';
 
 export function openChannel(
-    target: EnvelopeMessagePort,
+    target: Transmitter,
     message: AnyData,
     options?: {
         abortSignal?: AbortSignal;
-        transferable?: EnvelopeTransferable;
+        transferable?: TransferableOptions;
     },
 ): Promise<ChannelTransmitter> {
     const channelId = createShortRandomString();
@@ -62,8 +62,8 @@ export function openChannel(
         const cleanupController = new AbortController();
 
         onUnlock('supportChannel' + channelId, cleanupController.signal)
-            .then(() => close(ReasonReacord.LostChannel))
-            .catch(noop);
+            .then(() => close(Reasons.LostConnection))
+            .catch(catchAbortToSymbol);
     }).catch((err) => {
         unlockChannelPromise.then((unlock) => unlock());
         throw err;

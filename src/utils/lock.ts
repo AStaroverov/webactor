@@ -1,10 +1,4 @@
-
-import { locksProvider, loggerProvider } from '../providers';
-const webLocksSupported = globalThis.navigator !== undefined && globalThis.navigator.locks !== undefined;
-
-if (!webLocksSupported && process.env.NODE_ENV !== 'test') {
-    loggerProvider.error('navigator.locks is not implemented');
-}
+import { locksProvider } from '../providers';
 
 export function lock(key: string): Promise<VoidFunction> {
     return new Promise<VoidFunction>((exResolve, exReject) => {

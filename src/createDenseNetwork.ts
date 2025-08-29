@@ -4,7 +4,7 @@ import { connectWorkerToActor } from './worker';
 import { isSharedWorker, isWorkerLike } from './worker/detect';
 
 export interface DenseNetwork {
-    launch(): DenseNetwork;
+    launch(): void;
     close(): void;
 }
 
@@ -18,13 +18,7 @@ export function createDenseNetwork(...transmitters: (Worker | SharedWorker | Tra
     let disconnectFunctions: VoidFunction[] = [];
 
     const launch = () => {
-        if (closed) {
-            throw new Error('Dense network is already closed');
-        }
-        if (launched) {
-            throw new Error('Dense network is already launched');
-        }
-
+        if (launched) return;
         launched = true;
 
         for (let i = 0; i < transmitters.length; i++) {
@@ -47,15 +41,11 @@ export function createDenseNetwork(...transmitters: (Worker | SharedWorker | Tra
             }
         });
 
-
         return network;
     };
 
     const close = () => {
-        if (closed) {
-            throw new Error('Dense network is already closed');
-        }
-
+        if (closed) return;
         closed = true;
 
         disconnectFunctions.forEach(disconnect => {

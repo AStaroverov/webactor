@@ -1,7 +1,7 @@
 import { createEnvelopeChannel } from './createEnvelopePort';
-import { Reason } from './def';
 import { AnyEnvelope, EnvelopeType } from './envelope';
-import { Actor, ActorContext } from './types';
+import { Reason } from './reason';
+import { Actor, ActorContext, AnyData } from './types';
 import { post } from './utils/transmitter';
 
 type ActorConstructor = (context: ActorContext<AnyEnvelope>) => unknown | Function;
@@ -14,26 +14,22 @@ export function createActorFactory(options: { createChannel: () => ReturnType<ty
         const { port1, port2 } = options.createChannel();
 
         let launched = false;
-        let destroyed = false;
+        let closed = false;
         let dispose: unknown | Function;
 
-        const close = (reason?: Reason) => {
-            if (destroyed) {
-                throw new Error(`Actor "${name}" is already closed`);
-            }
+        const close = (reason?: unknown | Reason) => {
+            if (closed) return
+            closed = true;
 
-            post(port1, EnvelopeType.Close, { reason });
+            post(port1, EnvelopeType.Close, { reason: reason as AnyData });
 
-            destroyed = true;
             port1.close?.();
             port2.close?.();
             typeof dispose === 'function' && dispose();
         };
 
         const launch = () => {
-            if (launched) {
-                throw new Error(`Actor "${name}" is already launched`);
-            }
+            if (launched) return;
             dispose = constructor({
                 name,
                 close,

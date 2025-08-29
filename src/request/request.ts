@@ -1,30 +1,32 @@
-import { AnyEnvelope, createEnvelope, EnvelopeTransferable, isEnvelope } from '../envelope';
+import { AnyEnvelope, createEnvelope, isEnvelope } from '../envelope';
 import { intervalProvider } from '../providers';
+import { Reasons } from '../reason';
 import {
     EventType,
+    Transmitter,
     type AnyData,
-    type EnvelopeMessagePort,
+    type TransferableOptions
 } from '../types';
-import { createShortRandomString } from '../utils/common';
+import { createShortRandomString, reasonToError } from '../utils/common';
 import { createRoute, Route } from '../utils/route';
 import { on, post } from '../utils/transmitter';
-import { reasonToError } from '../worker/error';
 
 export async function request(
-    target: EnvelopeMessagePort,
+    target: Transmitter,
     message: AnyData,
     options?: {
         retryDelay?: number;
         channelId?: Route;
         abortSignal?: AbortSignal;
-        transferable?: EnvelopeTransferable;
+        transferable?: TransferableOptions;
     }
 ): Promise<AnyEnvelope> {
     return new Promise((resolve, reject) => {
-        options?.abortSignal?.addEventListener('abort', () => {
-            reject(reasonToError(options?.abortSignal?.reason, 'Request aborted'));
+        const onAbort = () => {
+            reject(reasonToError(options?.abortSignal?.reason, Reasons.Abort));
             onFinally();
-        }, { once: true });
+        };
+        options?.abortSignal?.addEventListener('abort', onAbort);
 
         const chnanelId = options?.channelId ?? createShortRandomString()
         const envelope = isEnvelope(message) ? message : createEnvelope(
@@ -38,14 +40,15 @@ export async function request(
             () => post(target, envelope.type, envelope),
             options?.retryDelay ?? 500
         );
-        const off = on(target, 'message', (envelope: AnyData) => {
-            if (!isEnvelope(envelope)) throw new Error('Non-envelope message received');
+        const off = on(target, 'message', (envelope) => {
+            if (!isEnvelope(envelope)) return;
             if (envelope.__route !== chnanelId) return;
             if (envelope.data instanceof Error) reject(envelope.data);
             else resolve(envelope);
             onFinally();
         });
         const onFinally = () => {
+            options?.abortSignal?.removeEventListener('abort', onAbort);
             intervalProvider.clearInterval(retryIntervalId);
             off();
         }
