@@ -33,8 +33,8 @@ async function bootstrap() {
     
     try {
       disconnect();
-      uiActor.destroy();
-      businessActor.destroy();
+      uiActor.close();
+      businessActor.close();
     } catch (error) {
       console.warn('Cleanup error:', error);
     }

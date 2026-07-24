@@ -57,7 +57,7 @@ export function createBusinessActor() {
 
     // Handle incoming messages
     context.addEventListener('message', (event) => {
-      const message: BusinessMessage = event.data;
+      const message = event.data as BusinessMessage;
 
       switch (message.type) {
         case 'USER_ACTION':
