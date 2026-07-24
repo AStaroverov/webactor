@@ -3,7 +3,7 @@ import { createEnvelopeChannel } from "../createEnvelopePort";
 import { Reason, Reasons } from "../reason";
 import { request } from "../request/request";
 import { Actor } from "../types";
-import { catchAbortToSymbol, createShortRandomString, isObject, isStringField } from "../utils/common";
+import { catchAbortToSymbol, createShortRandomString, isObject, isStringField, safeShouldRetry } from "../utils/common";
 import { onUnlock } from "../utils/lock";
 import { on } from "../utils/transmitter";
 import { THREAD_ID_REQUEST } from "./defs";
@@ -14,6 +14,8 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
 }): Actor {
     const proxy = createEnvelopeChannel();
 
+    const shouldRestartFor = safeShouldRetry(shouldRetry, false);
+
     const launchWorker = () => {
         const worker = WorkerConstructor();
         const messagePort = getWorkerMessagePort(worker);
@@ -21,7 +23,7 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
         const onUnlockThreadId = (threadId: string) => {
             onUnlock(threadId, abortController.signal)
                 .finally(close)
-                .then(() => shouldRetry(Reasons.LostConnection))
+                .then(() => shouldRestartFor(Reasons.LostConnection))
                 .then((shouldRestart) => shouldRestart && launchWorker())
                 .catch(catchAbortToSymbol)
         }
@@ -36,7 +38,7 @@ export function applyWorkerSupervisor(WorkerConstructor: () => Worker, { shouldR
 
         const errorOff = on(worker, 'error', async (error) => {
             close();
-            if (await shouldRetry(error)) {
+            if (await shouldRestartFor(error)) {
                 launchWorker()
             }
         });

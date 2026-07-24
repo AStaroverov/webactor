@@ -3,7 +3,7 @@ import { createEnvelopeChannel } from "./createEnvelopePort";
 import { CloseEnvelope, ErrorEnvelope } from "./envelope";
 import { Reason } from "./reason";
 import { Actor } from "./types";
-import { createShortRandomString } from "./utils/common";
+import { createShortRandomString, safeShouldRetry } from "./utils/common";
 import { on } from "./utils/transmitter";
 
 export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetry }: {
@@ -11,17 +11,19 @@ export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetr
 }): Actor {
     const proxy = createEnvelopeChannel();
 
+    const shouldRestartFor = safeShouldRetry(shouldRetry, false);
+
     const launchActor = () => {
         const actor = ActorConstructor();
         const closeOff = on<CloseEnvelope>(actor, 'close', async (envelope) => {
             close();
-            if (await shouldRetry(envelope.data.reason)) {
+            if (await shouldRestartFor(envelope.data.reason)) {
                 launchActor();
             }
         });
         const errorOff = on<ErrorEnvelope>(actor, 'error', async (envelope) => {
             close();
-            if (await shouldRetry(envelope.data)) {
+            if (await shouldRestartFor(envelope.data)) {
                 launchActor();
             }
         });

@@ -27,12 +27,20 @@ export function isAbort(v: unknown): boolean {
     if (v === Reasons.Abort) return true;
     if (v instanceof Event && v.type === 'abort') return true;
     if (v instanceof Error && v.message === Reasons.Abort) return true;
+    if (isObject(v) && v.name === 'AbortError') return true;
     return false;
 }
 
 export function catchAbortToSymbol<T>(v: unknown): Promise<typeof $Aborted | T> {
     if (isAbort(v)) return Promise.resolve($Aborted);
     return Promise.reject(v as T);
+}
+
+export function safeShouldRetry<A extends unknown[]>(
+    shouldRetry: (...args: A) => boolean | Promise<boolean>,
+    fallback: boolean,
+): (...args: A) => Promise<boolean> {
+    return (...args: A) => Promise.resolve().then(() => shouldRetry(...args)).catch(() => fallback);
 }
 
 export function reasonToError(reason: unknown, fallback: string): Error {
