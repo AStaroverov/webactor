@@ -166,6 +166,33 @@ describe('Request/Response System', () => {
         });
     });
 
+    describe('error responses', () => {
+        it('should reject when responder replies with an Error', async () => {
+            let requesterContext: ActorContext<any> | null = null;
+
+            const requesterActor = createActor('requester', (context: ActorContext) => {
+                requesterContext = context;
+            });
+
+            const responderActor = createActor('responder', (context: ActorContext) => {
+                context.addEventListener('message', (event) => {
+                    response(context, event, new Error('processing failed'));
+                });
+            });
+
+            const disconnect = connectActors(requesterActor, responderActor);
+
+            requesterActor.launch();
+            responderActor.launch();
+
+            await expect(request(requesterContext!, { type: 'doomed' })).rejects.toThrow('processing failed');
+
+            disconnect();
+            requesterActor.close();
+            responderActor.close();
+        });
+    });
+
     describe('complex scenarios', () => {
         it('should handle multiple concurrent requests', async () => {
             let requesterContext: ActorContext<any> | null = null;

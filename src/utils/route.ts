@@ -18,7 +18,8 @@ export function reduceRoute(route: Route, ...checkpoints: [Checkpoint, Checkpoin
 }
 
 export function getFirstRouteCheckpoint(route: Route) {
-    return route.substring(0, route.indexOf(PATH_SEPARATOR));
+    const index = route.indexOf(PATH_SEPARATOR);
+    return index === -1 ? route : route.substring(0, index);
 }
 
 export function getLastRouteCheckpoint(route: Route) {

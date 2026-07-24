@@ -3,12 +3,16 @@ import { AnyData, EventType, Transmitter } from './types';
 import { createRoute, extendRoute, isRoutedEnvelope, reduceRoute, routeEndsWith } from './utils/route';
 import { getTransmitterName, on, post } from './utils/transmitter';
 
-type Type = (typeof EventType.Message | typeof EnvelopeType.Message | typeof EnvelopeType.Close | typeof EnvelopeType.Error);
+type Type =
+    | typeof EventType.Message
+    | typeof EnvelopeType.Message
+    | typeof EnvelopeType.Close
+    | typeof EnvelopeType.Error;
 
 export function connectTransmitters<T1 extends Transmitter, T2 extends Transmitter>(
     transmitter1: T1,
     transmitter2: T2,
-    types: Type[] = [EnvelopeType.Message]
+    types: Type[] = [EnvelopeType.Message],
 ): VoidFunction {
     const unsub1 = resubscribe(transmitter1, transmitter2, types);
     const unsub2 = resubscribe(transmitter2, transmitter1, types);
@@ -19,24 +23,23 @@ export function connectTransmitters<T1 extends Transmitter, T2 extends Transmitt
     };
 }
 
-function resubscribe(
-    source: Transmitter,
-    target: Transmitter,
-    types: Type[]
-) {
-    const disposes = types.map(type => on(source, type, createReposter(type, source, target)));
-    return () => disposes.forEach(off => off());
+function resubscribe(source: Transmitter, target: Transmitter, connectedTypes: Type[]) {
+    const disposes = connectedTypes.map((subscribedType) =>
+        on(source, subscribedType, createReposter(subscribedType, connectedTypes, source, target)),
+    );
+    return () => disposes.forEach((off) => off());
 }
 
-function createReposter(type: Type, source: Transmitter, target: Transmitter) {
+function createReposter(subscribedType: Type, connectedTypes: Type[], source: Transmitter, target: Transmitter) {
     const sourceName = getTransmitterName(source);
     const targetName = getTransmitterName(target);
     return function repost(data: AnyData) {
         if (isEnvelope(data)) {
+            if (!connectedTypes.includes(data.type as Type)) return;
             const envelope = processEnvelope(data, sourceName, targetName);
-            if (envelope) post(target, type, envelope);
+            if (envelope) post(target, envelope.type, envelope);
         } else {
-            post(target, type, data);
+            post(target, subscribedType, data);
         }
     };
 }

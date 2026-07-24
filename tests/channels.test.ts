@@ -17,6 +17,28 @@ const testEnvironments = [
     }
 ];
 
+describe('openChannel abort handling', () => {
+    it('should reject when aborted before anyone responds', async () => {
+        let requesterContext: ActorContext<any> | null = null;
+
+        const requesterActor = createActor('lonely-requester', (context: ActorContext) => {
+            requesterContext = context;
+        });
+        requesterActor.launch();
+
+        const abortController = new AbortController();
+        setTimeout(() => abortController.abort('nobody answered'), 50);
+
+        await expect(
+            openChannel(requesterContext!, { type: 'request-channel' }, {
+                abortSignal: abortController.signal,
+            })
+        ).rejects.toThrow('nobody answered');
+
+        requesterActor.close();
+    });
+});
+
 describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) => {
     beforeEach(setup);
     afterEach(teardown);

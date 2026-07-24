@@ -7,10 +7,7 @@ import { post } from './utils/transmitter';
 type ActorConstructor = (context: ActorContext<AnyEnvelope>) => unknown | Function;
 
 export function createActorFactory(options: { createChannel: () => ReturnType<typeof createEnvelopeChannel> }) {
-    return function createActor(
-        name: string,
-        constructor: ActorConstructor,
-    ): Actor {
+    return function createActor(name: string, constructor: ActorConstructor): Actor {
         const { port1, port2 } = options.createChannel();
 
         let launched = false;
@@ -18,18 +15,18 @@ export function createActorFactory(options: { createChannel: () => ReturnType<ty
         let dispose: unknown | Function;
 
         const close = (reason?: unknown | Reason) => {
-            if (closed) return
+            if (closed) return;
             closed = true;
 
             post(port1, EnvelopeType.Close, { reason: reason as AnyData });
 
             port1.close?.();
             port2.close?.();
-            typeof dispose === 'function' && dispose();
+            if (typeof dispose === 'function') dispose();
         };
 
         const launch = () => {
-            if (launched) return;
+            if (launched || closed) return;
             dispose = constructor({
                 name,
                 close,

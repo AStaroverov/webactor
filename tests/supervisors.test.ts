@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Reason, Reasons } from '../dist';
+import { Reason, Reasons } from '../src/reason';
 import { applyActorSupervisor } from '../src/applyActorSupervisor';
 import { createActorFactory } from '../src/createActorFactory';
 import { createEnvelopeChannel } from '../src/createEnvelopePort';
+import { createEnvelope, EnvelopeType } from '../src/envelope';
 import { Actor, ActorContext } from '../src/types';
 
 const createActor = createActorFactory({ createChannel: createEnvelopeChannel });
@@ -263,6 +264,166 @@ describe('Actor Supervisors', () => {
 
             expect(launchCount).toBe(3);
             expect(retryDecisions).toEqual([true, true, false]);
+        });
+
+        it('should close the current actor when supervisor is closed after a restart', async () => {
+            const disposed: number[] = [];
+            let launchCount = 0;
+            let testActor: Actor;
+
+            const actorConstructor = () => {
+                launchCount++;
+                const launchIndex = launchCount;
+                testActor = createActor('test-actor', () => {
+                    if (launchIndex === 1) {
+                        setTimeout(() => testActor.close('restart-me'), 10);
+                    }
+                    return () => {
+                        disposed.push(launchIndex);
+                    };
+                });
+                return testActor;
+            };
+
+            supervisedActor = applyActorSupervisor(actorConstructor, {
+                shouldRetry: (reason) => reason === 'restart-me' && launchCount < 2,
+            });
+
+            supervisedActor.launch();
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(launchCount).toBe(2);
+            expect(disposed).toEqual([1]);
+
+            supervisedActor.close();
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            expect(disposed).toEqual([1, 2]);
+        });
+
+        it('should not relaunch actor when supervisor is closed while shouldRetry is pending', async () => {
+            let launchCount = 0;
+            let resolveRetry: (value: boolean) => void;
+            const retryPromise = new Promise<boolean>(resolve => { resolveRetry = resolve; });
+            let testActor: Actor;
+
+            const actorConstructor = () => {
+                launchCount++;
+                testActor = createActor('test-actor', () => {
+                    if (launchCount === 1) {
+                        setTimeout(() => testActor.close('restart-me'), 10);
+                    }
+                });
+                return testActor;
+            };
+
+            supervisedActor = applyActorSupervisor(actorConstructor, {
+                shouldRetry: () => retryPromise,
+            });
+
+            supervisedActor.launch();
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            supervisedActor.close();
+            resolveRetry!(true);
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            expect(launchCount).toBe(1);
+        });
+
+        it('should restart actor when it emits an error envelope', async () => {
+            const reasons: any[] = [];
+            let launchCount = 0;
+
+            const actorConstructor = () => {
+                launchCount++;
+                return createActor('test-actor', (context: ActorContext) => {
+                    if (launchCount === 1) {
+                        setTimeout(() => {
+                            context.postMessage(createEnvelope(EnvelopeType.Error, 'actor blew up'));
+                        }, 10);
+                    }
+                });
+            };
+
+            supervisedActor = applyActorSupervisor(actorConstructor, {
+                shouldRetry: (reason) => {
+                    reasons.push(reason);
+                    return reason === 'actor blew up' && launchCount < 2;
+                },
+            });
+
+            supervisedActor.launch();
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(launchCount).toBe(2);
+            expect(reasons).toContain('actor blew up');
+        });
+
+        it('should make at most one restart decision per actor instance', async () => {
+            let launchCount = 0;
+            let retryCalls = 0;
+            let testActor: Actor;
+
+            const actorConstructor = () => {
+                launchCount++;
+                testActor = createActor('test-actor', (context: ActorContext) => {
+                    if (launchCount === 1) {
+                        setTimeout(() => {
+                            context.postMessage(createEnvelope(EnvelopeType.Error, 'boom'));
+                            testActor.close('boom');
+                        }, 10);
+                    }
+                });
+                return testActor;
+            };
+
+            supervisedActor = applyActorSupervisor(actorConstructor, {
+                shouldRetry: () => {
+                    retryCalls++;
+                    return launchCount < 2;
+                },
+            });
+
+            supervisedActor.launch();
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            expect(retryCalls).toBe(1);
+            expect(launchCount).toBe(2);
+        });
+
+        it('should forward messages to the restarted actor', async () => {
+            const receivedByInstance: Record<number, any[]> = { 1: [], 2: [] };
+            let launchCount = 0;
+            let testActor: Actor;
+
+            const actorConstructor = () => {
+                launchCount++;
+                const launchIndex = launchCount;
+                testActor = createActor('test-actor', (context: ActorContext) => {
+                    context.addEventListener('message', (envelope) => {
+                        receivedByInstance[launchIndex].push(envelope.data);
+                    });
+                    if (launchIndex === 1) {
+                        setTimeout(() => testActor.close('restart-me'), 10);
+                    }
+                });
+                return testActor;
+            };
+
+            supervisedActor = applyActorSupervisor(actorConstructor, {
+                shouldRetry: () => launchCount < 2,
+            });
+
+            supervisedActor.launch();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            expect(launchCount).toBe(2);
+
+            supervisedActor.postMessage({ to: 'restarted' });
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            expect(receivedByInstance[1]).toHaveLength(0);
+            expect(receivedByInstance[2]).toEqual([{ to: 'restarted' }]);
         });
     });
 });

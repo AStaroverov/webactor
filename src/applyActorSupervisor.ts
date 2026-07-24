@@ -1,32 +1,39 @@
-import { connectTransmitters } from "./connectTransmitters";
-import { createEnvelopeChannel } from "./createEnvelopePort";
-import { CloseEnvelope, ErrorEnvelope } from "./envelope";
-import { Reason } from "./reason";
-import { Actor } from "./types";
-import { createShortRandomString, safeShouldRetry } from "./utils/common";
-import { on } from "./utils/transmitter";
+import { connectTransmitters } from './connectTransmitters';
+import { createEnvelopeChannel } from './createEnvelopePort';
+import { CloseEnvelope, ErrorEnvelope } from './envelope';
+import { Reason } from './reason';
+import { Actor } from './types';
+import { createShortRandomString, noop, safeShouldRetry } from './utils/common';
+import { on } from './utils/transmitter';
 
-export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetry }: {
-    shouldRetry: (reason?: unknown | Reason) => boolean | Promise<boolean>;
-}): Actor {
+export function applyActorSupervisor(
+    ActorConstructor: () => Actor,
+    {
+        shouldRetry,
+    }: {
+        shouldRetry: (reason?: unknown | Reason) => boolean | Promise<boolean>;
+    },
+): Actor {
     const proxy = createEnvelopeChannel();
 
     const shouldRestartFor = safeShouldRetry(shouldRetry, false);
 
+    let supervisorClosed = false;
+    let closeCurrentActor: VoidFunction = noop;
+
     const launchActor = () => {
         const actor = ActorConstructor();
-        const closeOff = on<CloseEnvelope>(actor, 'close', async (envelope) => {
+        let decided = false;
+        const decide = async (reason: unknown) => {
+            if (decided) return;
+            decided = true;
             close();
-            if (await shouldRestartFor(envelope.data.reason)) {
+            if ((await shouldRestartFor(reason)) && !supervisorClosed) {
                 launchActor();
             }
-        });
-        const errorOff = on<ErrorEnvelope>(actor, 'error', async (envelope) => {
-            close();
-            if (await shouldRestartFor(envelope.data)) {
-                launchActor();
-            }
-        });
+        };
+        const closeOff = on<CloseEnvelope>(actor, 'close', (envelope) => decide(envelope.data.reason));
+        const errorOff = on<ErrorEnvelope>(actor, 'error', (envelope) => decide(envelope.data));
         const disconnectTransmitters = connectTransmitters(actor, proxy.port1, ['message']);
         let closed = false;
         const close = () => {
@@ -36,23 +43,25 @@ export function applyActorSupervisor(ActorConstructor: () => Actor, { shouldRetr
             actor.close();
             closeOff();
             errorOff();
-        }
+        };
 
+        closeCurrentActor = close;
         actor.launch();
-        return close;
-    }
+    };
 
     const disposes: (() => void)[] = [];
 
     const launchProxy = () => {
-        disposes.push(launchActor());
+        launchActor();
+        disposes.push(() => closeCurrentActor());
         disposes.push(() => proxy.port1.close());
         disposes.push(() => proxy.port2.close());
-    }
+    };
 
     const closeProxy = () => {
-        disposes.forEach(dispose => dispose());
-    }
+        supervisorClosed = true;
+        disposes.forEach((dispose) => dispose());
+    };
 
     const actor = {
         ...proxy.port2,
