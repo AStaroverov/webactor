@@ -22,6 +22,11 @@ export async function request(
     }
 ): Promise<AnyEnvelope> {
     return new Promise((resolve, reject) => {
+        if (options?.abortSignal?.aborted) {
+            reject(reasonToError(options.abortSignal.reason, Reasons.Abort));
+            return;
+        }
+
         const onAbort = () => {
             reject(reasonToError(options?.abortSignal?.reason, Reasons.Abort));
             onFinally();

@@ -5,7 +5,8 @@ import { timeoutProvider } from '../providers';
 import { Reason, Reasons } from '../reason';
 import { request } from '../request/request';
 import { AnyData, EventType, TransferableOptions, Transmitter } from '../types';
-import { catchAbortToSymbol, createShortRandomString, noop } from '../utils/common';
+import { raceWithAbort } from '../utils/abort';
+import { catchAbortToSymbol, createShortRandomString, noop, reasonToError } from '../utils/common';
 import { lock, onUnlock } from '../utils/lock';
 import { createRoute } from '../utils/route';
 import { post } from '../utils/transmitter';
@@ -39,6 +40,7 @@ export async function openChannel(
             EnvelopeType.Close,
         ]);
         const cleanupController = new AbortController();
+        const handshake = Promise.withResolvers<void>();
         let offHandshake: VoidFunction = noop;
         let closed = false;
         const close = (reason?: Reason) => {
@@ -52,17 +54,16 @@ export async function openChannel(
             localChannel.port2.close();
             messagePort.close();
             unlockChannel();
+            handshake.reject(reasonToError(reason, Reasons.Close));
         };
 
-        const handshakePromise = new Promise<void>((resolve) => {
-            const resolveHandshake = (event: MessageEvent) => {
-                if (event.data !== HANDSHAKE) return;
-                offHandshake();
-                resolve();
-            };
-            offHandshake = () => messagePort.removeEventListener(EventType.Message, resolveHandshake);
-            messagePort.addEventListener(EventType.Message, resolveHandshake);
-        });
+        const onHandshake = (event: MessageEvent) => {
+            if (event.data !== HANDSHAKE) return;
+            offHandshake();
+            handshake.resolve();
+        };
+        offHandshake = () => messagePort.removeEventListener(EventType.Message, onHandshake);
+        messagePort.addEventListener(EventType.Message, onHandshake);
 
         timeoutProvider.setTimeout(() => messagePort.postMessage(HANDSHAKE));
 
@@ -70,7 +71,10 @@ export async function openChannel(
             .then(() => close(Reasons.LostConnection))
             .catch(catchAbortToSymbol);
 
-        await handshakePromise;
+        await raceWithAbort(handshake.promise, options?.abortSignal).catch((error) => {
+            close(Reasons.Abort);
+            throw error;
+        });
 
         return {
             ...localChannel.port2,

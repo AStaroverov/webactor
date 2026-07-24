@@ -20,6 +20,7 @@ export { response } from './request/response';
 
 export { openChannel } from './channel/openChannelFactory';
 export { supportChannel } from './channel/supportChannelFactory';
+export { getChannelId } from './channel/getChannelId';
 export * from './channel/types';
 
 export * from './envelope';

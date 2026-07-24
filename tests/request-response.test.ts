@@ -164,6 +164,43 @@ describe('Request/Response System', () => {
             requesterActor.close();
             responderActor.close();
         });
+
+        it('should reject immediately when signal is already aborted', async () => {
+            let requesterContext: ActorContext<any> | null = null;
+            let responderReceived = 0;
+
+            const requesterActor = createActor('requester', (context: ActorContext) => {
+                requesterContext = context;
+            });
+
+            const responderActor = createActor('responder', (context: ActorContext) => {
+                context.addEventListener('message', (event) => {
+                    responderReceived += 1;
+                    response(context, event, { type: 'pong' });
+                });
+            });
+
+            const disconnect = connectActors(requesterActor, responderActor);
+
+            requesterActor.launch();
+            responderActor.launch();
+
+            const abortController = new AbortController();
+            abortController.abort('aborted before request');
+
+            await expect(
+                request(requesterContext!, { test: 'pre-aborted' }, {
+                    abortSignal: abortController.signal,
+                })
+            ).rejects.toThrow('aborted before request');
+
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            expect(responderReceived).toBe(0);
+
+            disconnect();
+            requesterActor.close();
+            responderActor.close();
+        });
     });
 
     describe('error responses', () => {

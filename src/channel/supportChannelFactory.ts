@@ -4,30 +4,33 @@ import { Envelope, EnvelopeType } from '../envelope';
 import { Reason, Reasons } from '../reason';
 import { response } from '../request/response';
 import { AnyData, EventType, Transmitter } from '../types';
-import { catchAbortToSymbol, noop } from '../utils/common';
-import { lock, onUnlock } from '../utils/lock';
-import { getFirstRouteCheckpoint } from '../utils/route';
+import { catchAbortToSymbol, noop, reasonToError } from '../utils/common';
+import { lockIfAvailable, onUnlock } from '../utils/lock';
 import { post } from '../utils/transmitter';
+import { getChannelId } from './getChannelId';
 import { HANDSHAKE } from './defs';
 import type { ChannelTransmitter } from './types';
 
 export async function supportChannel(target: Transmitter, envelope: Envelope<AnyData>): Promise<ChannelTransmitter> {
-    const checkpoints = envelope.__checkpoints;
-    if (!checkpoints) {
+    const channelId = getChannelId(envelope);
+    if (channelId === undefined) {
         throw new Error('Invalid envelope: missing checkpoints');
     }
-    const channelId = getFirstRouteCheckpoint(checkpoints);
+
+    const unlockChannel = await lockIfAvailable('supportChannel' + channelId);
+    if (unlockChannel === null) {
+        throw new Error(`Channel is already supported: ${channelId}`);
+    }
+
     const messageChannel = new MessageChannel();
-
     response(target, envelope, messageChannel.port1, [messageChannel.port1]);
-
-    const unlockChannel = await lock('supportChannel' + channelId);
     const localChannel = createEnvelopeChannel();
     const disconnect = connectTransmitters(messageChannel.port2 as Transmitter, localChannel.port1, [
         EnvelopeType.Message,
         EnvelopeType.Close,
     ]);
     const abortController = new AbortController();
+    const handshake = Promise.withResolvers<void>();
     let offHandshake: VoidFunction = noop;
     let closed = false;
     const close = (reason?: Reason) => {
@@ -43,22 +46,21 @@ export async function supportChannel(target: Transmitter, envelope: Envelope<Any
         messageChannel.port2.close();
         offHandshake();
         unlockChannel();
+        handshake.reject(reasonToError(reason, Reasons.Close));
     };
 
-    const handshakePromise = new Promise<void>((resolve) => {
-        const handshake = () => {
-            messageChannel.port2.postMessage(HANDSHAKE);
-            resolve();
-        };
-        offHandshake = () => messageChannel.port2.removeEventListener(EventType.Message, handshake);
-        messageChannel.port2.addEventListener(EventType.Message, handshake, { once: true });
-    });
+    const onHandshake = () => {
+        messageChannel.port2.postMessage(HANDSHAKE);
+        handshake.resolve();
+    };
+    offHandshake = () => messageChannel.port2.removeEventListener(EventType.Message, onHandshake);
+    messageChannel.port2.addEventListener(EventType.Message, onHandshake, { once: true });
 
     onUnlock('openChannel' + channelId, abortController.signal)
         .then(() => close(Reasons.LostConnection))
         .catch(catchAbortToSymbol);
 
-    await handshakePromise;
+    await handshake.promise;
 
     return {
         ...localChannel.port2,

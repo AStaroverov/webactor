@@ -295,7 +295,7 @@ function request(
 
 - Sends the message tagged with a `channelId`, then **re-sends it every `retryDelay` ms until a matching response arrives.** This makes requests robust to a responder that isn't wired up yet — but see the note below.
 - Resolves with the **response envelope** (read `res.data`).
-- **Rejects** if the response payload is an `Error`, or when `abortSignal` aborts.
+- **Rejects** if the response payload is an `Error`, or when `abortSignal` aborts — including a signal that is **already aborted** at call time (the request is then never sent).
 
 ```ts
 const res = await request(server, { type: 'getUser', id: 42 });
@@ -374,12 +374,39 @@ channel.addEventListener('message', (e) => console.log('server said', e.data));
 // responder side (e.g. server actor)
 ctx.addEventListener('message', async (e) => {
   if (e.data.type === 'open-session') {
-    const channel = await supportChannel(ctx, e);
-    channel.addEventListener('message', (m) => {/* handle this client */});
-    channel.postMessage({ type: 'welcome' });
+    try {
+      const channel = await supportChannel(ctx, e);
+      channel.addEventListener('message', (m) => {/* handle this client */});
+      channel.postMessage({ type: 'welcome' });
+    } catch {
+      // duplicate request, or the opener vanished before the handshake
+    }
   }
 });
 ```
+
+Use `getChannelId(envelope)` to correlate an incoming open request with your own session bookkeeping:
+
+```ts
+function getChannelId(envelope: Envelope<AnyData>): string | undefined;
+```
+
+### Failure semantics
+
+Both functions settle deterministically — they never leave a forever-pending promise:
+
+- `openChannel` **rejects** when `abortSignal` aborts (including a signal already aborted at call time), and when the supporter disappears before the handshake completes (`Reasons.LostConnection`). An aborted open never resolves with a working channel.
+- The `abortSignal` covers **only the opening**. Once the channel is open the signal is inert — the only way to close a channel is `channel.close()`. This makes `AbortSignal.timeout(...)` a safe open-timeout, same as with `request`:
+
+  ```ts
+  const channel = await openChannel(ctx, { type: 'open-session' }, {
+    abortSignal: AbortSignal.timeout(5000),
+  });
+  ```
+- `supportChannel` **rejects** with `Channel is already supported: <id>` on duplicate requests. Since `request` re-sends the open envelope every `retryDelay`, a slow responder can legitimately receive the same envelope twice — the library dedupes it, no bookkeeping is needed on your side.
+- `supportChannel` **rejects** with `Reasons.LostConnection` when the opener disappears (aborted, tab closed) before the handshake completes.
+
+Always `catch` rejections on the supporting side — under load (retries, aborts, dying tabs) they are a normal part of the protocol, not an exceptional situation.
 
 ### Liveness / disconnect detection
 
@@ -654,6 +681,7 @@ Standard close/abort reasons. `LostConnection` is emitted by channels and the wo
 | `response` | `(target, request, response, transferable?) => void` |
 | `openChannel` | `(target, message, options?) => Promise<ChannelTransmitter>` |
 | `supportChannel` | `(target, envelope) => Promise<ChannelTransmitter>` |
+| `getChannelId` | `(envelope) => string \| undefined` |
 
 ### Workers
 | Export | Signature |

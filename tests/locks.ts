@@ -16,17 +16,34 @@ function adaptSignal(signal: AbortSignal) {
     };
 }
 
+// web-locks does not implement `ifAvailable`, emulate it by tracking held names
+const heldNames = new Set<string>();
+
+function trackHeld(name: string, callback: (lock: unknown) => unknown) {
+    return async (lock: unknown) => {
+        heldNames.add(name);
+        try {
+            return await callback(lock);
+        } finally {
+            heldNames.delete(name);
+        }
+    };
+}
+
 locksProvider.delegate = {
     query: () => locks.query(),
     request(name: string, optionsOrCallback: any, callback?: any) {
         if (typeof optionsOrCallback === 'function') {
-            return locks.request(name, optionsOrCallback);
+            return locks.request(name, trackHeld(name, optionsOrCallback));
         }
-        const { signal, ...options } = optionsOrCallback ?? {};
+        const { signal, ifAvailable, ...options } = optionsOrCallback ?? {};
+        if (ifAvailable && heldNames.has(name)) {
+            return Promise.resolve(callback(null));
+        }
         return locks.request(
             name,
             signal ? { ...options, signal: adaptSignal(signal) } : options,
-            callback,
+            trackHeld(name, callback),
         );
     },
 } as unknown as LockManager;

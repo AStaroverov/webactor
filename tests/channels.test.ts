@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import './locks';
 
+import { getChannelId } from '../src/channel/getChannelId';
 import { openChannel } from '../src/channel/openChannelFactory';
 import { supportChannel } from '../src/channel/supportChannelFactory';
 import { connectActors } from '../src/connectActors';
 import { createActor } from '../src/createActor';
+import { Reasons } from '../src/reason';
+import { response } from '../src/request/response';
+import { lock } from '../src/utils/lock';
 import { ActorContext } from '../src/types';
 import { restoreMessageChannel, setupMessageChannelMock } from './message-channel-mock';
 
@@ -36,6 +40,221 @@ describe('openChannel abort handling', () => {
         ).rejects.toThrow('nobody answered');
 
         requesterActor.close();
+    });
+
+    it('should reject when signal is already aborted even if supporter would respond', async () => {
+        let requesterContext: ActorContext<any> | null = null;
+        let supportRequests = 0;
+
+        const requesterActor = createActor('requester', (context: ActorContext) => {
+            requesterContext = context;
+        });
+
+        const supporterActor = createActor('supporter', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                if (event.data?.type === 'request-channel') {
+                    supportRequests += 1;
+                    supportChannel(context, event);
+                }
+            });
+        });
+
+        const disconnect = connectActors(requesterActor, supporterActor);
+
+        requesterActor.launch();
+        supporterActor.launch();
+
+        const abortController = new AbortController();
+        abortController.abort('aborted before open');
+
+        await expect(
+            openChannel(requesterContext!, { type: 'request-channel' }, {
+                abortSignal: abortController.signal,
+            })
+        ).rejects.toThrow('aborted before open');
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(supportRequests).toBe(0);
+
+        disconnect();
+        requesterActor.close();
+        supporterActor.close();
+    });
+});
+
+describe('abortSignal scope', () => {
+    it('should not affect an already opened channel when the signal aborts', async () => {
+        let requesterContext: ActorContext<any> | null = null;
+
+        const requesterActor = createActor('requester', (context: ActorContext) => {
+            requesterContext = context;
+        });
+
+        const supporterActor = createActor('supporter', (context: ActorContext) => {
+            context.addEventListener('message', (event) => {
+                if (event.data?.type === 'request-channel') {
+                    supportChannel(context, event)
+                        .then((channel) => {
+                            channel.addEventListener('message', (reply: any) => channel.postMessage(reply.data));
+                        })
+                        .catch(() => {});
+                }
+            });
+        });
+
+        const disconnect = connectActors(requesterActor, supporterActor);
+
+        requesterActor.launch();
+        supporterActor.launch();
+
+        const abortController = new AbortController();
+        const channel = await openChannel(requesterContext!, { type: 'request-channel' }, {
+            abortSignal: abortController.signal,
+        });
+
+        let closed = false;
+        channel.addEventListener('close', () => {
+            closed = true;
+        });
+
+        abortController.abort('too late, channel is already open');
+        await new Promise((resolve) => setTimeout(resolve, 20));
+
+        const echoed = new Promise((resolve) => {
+            channel.addEventListener('message', (envelope: any) => resolve(envelope.data));
+        });
+        channel.postMessage({ still: 'alive' });
+        await expect(echoed).resolves.toEqual({ still: 'alive' });
+        expect(closed).toBe(false);
+
+        channel.close();
+        disconnect();
+        requesterActor.close();
+        supporterActor.close();
+    });
+});
+
+describe('handshake interruption', () => {
+    it('should reject supportChannel when the opener disappears before handshake', async () => {
+        let requesterContext: ActorContext<any> | null = null;
+        let supporterContext: ActorContext<any> | null = null;
+        let channelEnvelope: any = null;
+
+        const requesterActor = createActor('requester', (context: ActorContext) => {
+            requesterContext = context;
+        });
+
+        const supporterActor = createActor('supporter', (context: ActorContext) => {
+            supporterContext = context;
+            context.addEventListener('message', (event) => {
+                if (event.data?.type === 'request-channel') {
+                    channelEnvelope = event;
+                }
+            });
+        });
+
+        const disconnect = connectActors(requesterActor, supporterActor);
+
+        requesterActor.launch();
+        supporterActor.launch();
+
+        const abortController = new AbortController();
+        setTimeout(() => abortController.abort('opener gone'), 20);
+        await expect(
+            openChannel(requesterContext!, { type: 'request-channel' }, {
+                abortSignal: abortController.signal,
+            })
+        ).rejects.toThrow('opener gone');
+
+        expect(channelEnvelope).not.toBeNull();
+        await expect(supportChannel(supporterContext!, channelEnvelope)).rejects.toThrow(Reasons.LostConnection);
+
+        disconnect();
+        requesterActor.close();
+        supporterActor.close();
+    });
+
+    it('should reject openChannel when the supporter disappears before handshake', async () => {
+        let requesterContext: ActorContext<any> | null = null;
+
+        const requesterActor = createActor('requester', (context: ActorContext) => {
+            requesterContext = context;
+        });
+
+        const supporterActor = createActor('supporter', (context: ActorContext) => {
+            context.addEventListener('message', async (event) => {
+                if (event.data?.type !== 'request-channel') return;
+                const channelId = getChannelId(event)!;
+                const unlock = await lock('supportChannel' + channelId);
+                const messageChannel = new MessageChannel();
+                response(context, event, messageChannel.port1, [messageChannel.port1]);
+                setTimeout(() => unlock(), 50);
+            });
+        });
+
+        const disconnect = connectActors(requesterActor, supporterActor);
+
+        requesterActor.launch();
+        supporterActor.launch();
+
+        await expect(openChannel(requesterContext!, { type: 'request-channel' })).rejects.toThrow(
+            Reasons.LostConnection,
+        );
+
+        disconnect();
+        requesterActor.close();
+        supporterActor.close();
+    });
+});
+
+describe('supportChannel duplicate handling', () => {
+    it('should reject a duplicate supportChannel and keep the first channel alive', async () => {
+        let requesterContext: ActorContext<any> | null = null;
+        let supporterContext: ActorContext<any> | null = null;
+        let channelEnvelope: any = null;
+        let supporterChannelPromise: Promise<any> | null = null;
+
+        const requesterActor = createActor('requester', (context: ActorContext) => {
+            requesterContext = context;
+        });
+
+        const supporterActor = createActor('supporter', (context: ActorContext) => {
+            supporterContext = context;
+            context.addEventListener('message', (event) => {
+                if (event.data?.type === 'request-channel') {
+                    channelEnvelope = event;
+                    supporterChannelPromise = supportChannel(context, event);
+                    supporterChannelPromise.then((channel) => {
+                        channel.addEventListener('message', (reply: any) => channel.postMessage(reply.data));
+                    });
+                }
+            });
+        });
+
+        const disconnect = connectActors(requesterActor, supporterActor);
+
+        requesterActor.launch();
+        supporterActor.launch();
+
+        const requesterChannel = await openChannel(requesterContext!, { type: 'request-channel' });
+        await supporterChannelPromise;
+
+        expect(getChannelId(channelEnvelope)).toBeTypeOf('string');
+
+        await expect(supportChannel(supporterContext!, channelEnvelope)).rejects.toThrow(
+            `Channel is already supported: ${getChannelId(channelEnvelope)}`,
+        );
+
+        const echoed = new Promise((resolve) => {
+            requesterChannel.addEventListener('message', (envelope: any) => resolve(envelope.data));
+        });
+        requesterChannel.postMessage({ still: 'alive' });
+        await expect(echoed).resolves.toEqual({ still: 'alive' });
+
+        requesterChannel.close();
+        disconnect();
+        requesterActor.close();
+        supporterActor.close();
     });
 });
 
