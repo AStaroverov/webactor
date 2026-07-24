@@ -6,9 +6,9 @@
 import { createActor, request, response } from 'webactor';
 
 const math = createActor('math', (ctx) => {
-  ctx.addEventListener('message', (e) => {
-    if (e.data.type === 'sum') response(ctx, e, e.data.a + e.data.b);
-  });
+    ctx.addEventListener('message', (e) => {
+        if (e.data.type === 'sum') response(ctx, e, e.data.a + e.data.b);
+    });
 });
 
 math.launch();
@@ -23,7 +23,11 @@ console.log(res.data); // 5
 
 For a decade the frontend default was one big shared-memory blob: a global store, synchronous function calls, everything reaching into everything. It works until the app gets big — then coupling, race conditions, and "who mutated this?" take over.
 
-The backend solved this long ago by going **distributed**: small services that own their state and talk only through messages. That model is having a second life in the **AI era** — an app is increasingly a swarm of semi-independent units (agents, workers, streams, tabs) that run concurrently, fail independently, and must be supervised. Shared-memory thinking doesn't survive that. Message passing does.
+The backend solved this long ago by going **distributed**: small services that own their state and talk only through messages. That model is getting a second life in the **AI era**, for two reasons.
+
+At runtime, an app is increasingly a swarm of semi-independent units (agents, workers, streams, tabs) that run concurrently, fail independently, and must be supervised. Shared-memory thinking doesn't survive that. Message passing does.
+
+But the deeper shift is in _who writes the code_. When agents author it, an architecture of independent modules is far more robust — and lets you move faster and more safely. Each actor can be understood, built, and changed in isolation; the blast radius of a mistake stops at its mailbox; and the contract between units is an explicit message, not an implicit reach into shared state. Strong boundaries are exactly what let humans and agents work in parallel without breaking everything.
 
 The browser already ships the primitives for it — Web Workers, `SharedWorker`, `MessagePort`, `postMessage` — but they're low-level, inconsistent, and painful to wire up. **webactor is the missing layer on top:** it gives you one uniform actor model whether two units live in the same thread, two tabs, or two threads.
 
@@ -43,21 +47,17 @@ npm install webactor
 # or: pnpm add webactor
 ```
 
-Zero runtime dependencies. Ships ESM + TypeScript types.
-
-> Some features use browser APIs that need a polyfill outside the browser (Node/tests): the **Web Locks API** (`navigator.locks`) for channels & worker supervisors. See [documentation.md → Environments & providers](./documentation.md#environments--providers).
-
 ---
 
 ## Core idea in one picture
 
 An **actor** is an isolated unit with a mailbox. You never call it — you send it an **envelope** (a typed message). Actors are wired together with **connections**. Once connected, three communication patterns cover almost everything:
 
-| Pattern | Function | Use it for |
-|---|---|---|
-| **Fire-and-forget** | `postMessage` | events, notifications, state broadcasts |
-| **Request / response** | `request` / `response` | "ask and await an answer", RPC-style calls |
-| **Channel** | `openChannel` / `supportChannel` | a dedicated, disconnect-aware session between two actors |
+| Pattern                | Function                         | Use it for                                               |
+| ---------------------- | -------------------------------- | -------------------------------------------------------- |
+| **Fire-and-forget**    | `postMessage`                    | events, notifications, state broadcasts                  |
+| **Request / response** | `request` / `response`           | "ask and await an answer", RPC-style calls               |
+| **Channel**            | `openChannel` / `supportChannel` | a dedicated, disconnect-aware session between two actors |
 
 The same three patterns work identically across a Worker boundary.
 
@@ -72,22 +72,20 @@ import { createActor, connectActors, ActorContext } from 'webactor';
 
 // A stateful business actor — owns the counter, no one else can touch it.
 const counter = createActor('counter', (ctx: ActorContext) => {
-  let value = 0;
-  ctx.addEventListener('message', (e) => {
-    if (e.data.type === 'inc') value++;
-    if (e.data.type === 'dec') value--;
-    ctx.postMessage({ type: 'value', value }); // broadcast new state
-  });
+    let value = 0;
+    ctx.addEventListener('message', (e) => {
+        if (e.data.type === 'inc') value++;
+        if (e.data.type === 'dec') value--;
+        ctx.postMessage({ type: 'value', value }); // broadcast new state
+    });
 });
 
 // A UI actor — renders, never owns business state.
 const ui = createActor('ui', (ctx: ActorContext) => {
-  ctx.addEventListener('message', (e) => {
-    if (e.data.type === 'value') render(e.data.value);
-  });
-  document.querySelector('#inc')!.addEventListener('click', () =>
-    ctx.postMessage({ type: 'inc' })
-  );
+    ctx.addEventListener('message', (e) => {
+        if (e.data.type === 'value') render(e.data.value);
+    });
+    document.querySelector('#inc')!.addEventListener('click', () => ctx.postMessage({ type: 'inc' }));
 });
 
 const disconnect = connectActors(ui, counter);
@@ -127,8 +125,8 @@ The UI actor's `request(...)` / `postMessage(...)` calls are unchanged. Routing 
 import { applyActorSupervisor, Reasons } from 'webactor';
 
 const supervised = applyActorSupervisor(
-  () => createCounterActor(),
-  { shouldRetry: (reason) => reason !== Reasons.Close } // restart on crash, not on intentional close
+    () => createCounterActor(),
+    { shouldRetry: (reason) => reason !== Reasons.Close }, // restart on crash, not on intentional close
 );
 supervised.launch(); // if the inner actor throws/closes unexpectedly, it's rebuilt
 ```
@@ -167,20 +165,20 @@ Full API, internals, routing model, and patterns: **[documentation.md](./documen
 - "Call one function in a worker and get a result." Reach for [Comlink](https://github.com/GoogleChromeLabs/comlink) — it's a thinner RPC wrapper.
 - Small apps where a component tree + a state manager already fit comfortably.
 
-webactor is a *model*, not just an RPC shim: you adopt actors, envelopes, and supervision. That's a real mental investment — worth it when the payoff (isolation, fault tolerance, location transparency) matters.
+webactor is a _model_, not just an RPC shim: you adopt actors, envelopes, and supervision. That's a real mental investment — worth it when the payoff (isolation, fault tolerance, location transparency) matters.
 
 ### vs. Comlink
 
-| | webactor | Comlink |
-|---|---|---|
-| Model | Actor / message passing | Proxy-based RPC |
-| In-thread + cross-worker with one API | ✅ | Worker-focused |
-| Request/response | ✅ | ✅ (as proxied calls) |
-| Fire-and-forget broadcasts | ✅ | Awkward |
-| Dedicated sessions (channels) | ✅ | Manual |
-| Supervision / restart | ✅ | ❌ |
-| Multi-node topologies (mesh, relay) | ✅ | ❌ |
-| Bundle / surface | Larger, opinionated | Tiny, minimal |
+|                                       | webactor                | Comlink               |
+| ------------------------------------- | ----------------------- | --------------------- |
+| Model                                 | Actor / message passing | Proxy-based RPC       |
+| In-thread + cross-worker with one API | ✅                      | Worker-focused        |
+| Request/response                      | ✅                      | ✅ (as proxied calls) |
+| Fire-and-forget broadcasts            | ✅                      | Awkward               |
+| Dedicated sessions (channels)         | ✅                      | Manual                |
+| Supervision / restart                 | ✅                      | ❌                    |
+| Multi-node topologies (mesh, relay)   | ✅                      | ❌                    |
+| Bundle / surface                      | Larger, opinionated     | Tiny, minimal         |
 
 ---
 
