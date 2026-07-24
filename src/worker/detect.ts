@@ -3,7 +3,7 @@ import { AnyData, EventListenerLike, Message, PostLike } from '../types';
 const tryCheck = (fn: () => boolean) => {
     try {
         return fn();
-    } catch (error) {
+    } catch {
         return false;
     }
 };

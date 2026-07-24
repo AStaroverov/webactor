@@ -9,7 +9,7 @@ setTimeout(() => {
 }, 100);
 
 // Also listen for messages and respond with errors
-self.addEventListener('message', (event) => {
+self.addEventListener('message', () => {
     console.log('Error Worker: Received message, responding with error');
     throw new Error('Worker failed to process message');
 });

@@ -20,13 +20,13 @@ describe('Actor Supervisors', () => {
             actors.forEach((actor) => {
                 try {
                     actor.close();
-                } catch (error) {
+                } catch {
                     // Ignore cleanup errors
                 }
             });
             actors = [];
             await new Promise((resolve) => setTimeout(resolve, 50));
-        } catch (error) {
+        } catch {
             // Ignore cleanup errors
         }
     });

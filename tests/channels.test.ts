@@ -281,7 +281,6 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
     describe('basic channel functionality', () => {
         it('should establish channel connection between two actors', async () => {
             let requesterContext: ActorContext<any> | null = null;
-            let supporterContext: ActorContext<any> | null = null;
             let channelTransmitterPromise: any = null;
 
             // Create requester actor
@@ -291,7 +290,6 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
 
             // Create supporter actor that handles channel requests
             const supporterActor = createActor('supporter', (context: ActorContext) => {
-                supporterContext = context;
                 context.addEventListener('message', async (event) => {
                     if (event.data.type === 'request-channel') {
                         // Support the channel request
@@ -407,7 +405,6 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
 
         it('should isolate channel communication from main actor messages', async () => {
             let requesterContext: ActorContext<any> | null = null;
-            let supporterContext: ActorContext<any> | null = null;
             let channelTransmitter: any = null;
 
             const mainActorMessages: any[] = [];
@@ -421,7 +418,6 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             });
 
             const supporterActor = createActor('supporter', (context: ActorContext) => {
-                supporterContext = context;
                 context.addEventListener('message', async (event) => {
                     mainActorMessages.push({ actor: 'supporter', data: event.data });
 
@@ -481,7 +477,6 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
 
         it('should prevent channel message leakage to third party actors', async () => {
             let actor1Context: ActorContext<any> | null = null;
-            let actor2Context: ActorContext<any> | null = null;
             let actor3Context: ActorContext<any> | null = null;
             let channelTransmitterPromise: any = null;
 
@@ -498,7 +493,6 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             });
 
             const actor2 = createActor('actor2', (context: ActorContext) => {
-                actor2Context = context;
                 context.addEventListener('message', async (event) => {
                     actor2Messages.push({ source: 'actor2-main', data: event.data });
 
@@ -602,9 +596,7 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
 
         it('should handle multiple independent channels between different actor pairs', async () => {
             let actor1Context: ActorContext<any> | null = null;
-            let actor2Context: ActorContext<any> | null = null;
             let actor3Context: ActorContext<any> | null = null;
-            let actor4Context: ActorContext<any> | null = null;
 
             let channel12TransmitterPromise: any = null;
             let channel34TransmitterPromise: any = null;
@@ -614,7 +606,6 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
                 actor1Context = context;
             });
             const actor2 = createActor('actor2', (context: ActorContext) => {
-                actor2Context = context;
                 context.addEventListener('message', async (event) => {
                     if (event.data.channelId === '1-2') {
                         channel12TransmitterPromise = supportChannel(context, event);
@@ -625,7 +616,6 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
                 actor3Context = context;
             });
             const actor4 = createActor('actor4', (context: ActorContext) => {
-                actor4Context = context;
                 context.addEventListener('message', async (event) => {
                     if (event.data.channelId === '3-4') {
                         channel34TransmitterPromise = supportChannel(context, event);

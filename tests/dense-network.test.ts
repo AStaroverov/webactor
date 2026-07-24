@@ -3,7 +3,6 @@ import { ActorContext, createActor, createDenseNetwork } from '../src/index';
 
 describe('Dense Network Tests', () => {
     let network: any;
-    let actors: any[] = [];
 
     afterEach(async () => {
         try {
@@ -11,8 +10,6 @@ describe('Dense Network Tests', () => {
                 network.close();
                 network = null;
             }
-
-            actors = [];
         } catch (error) {
             console.warn('Cleanup error (ignoring):', error);
         }
@@ -43,8 +40,6 @@ describe('Dense Network Tests', () => {
             });
             context.postMessage({ type: 'hello', from: 'node3', message: 'Hello from node3!' });
         });
-
-        actors = [actor1, actor2, actor3];
 
         network = createDenseNetwork(actor1, actor2, actor3);
         network.launch();
@@ -83,8 +78,6 @@ describe('Dense Network Tests', () => {
             context.postMessage({ type: 'pong', from: 'peer2' });
         });
 
-        actors = [node1, node2];
-
         network = createDenseNetwork(node1, node2);
         network.launch();
 
@@ -111,8 +104,6 @@ describe('Dense Network Tests', () => {
         const sender = createActor('sender', (context: ActorContext) => {
             senderContext = context;
         });
-
-        actors = [listener, sender];
 
         network = createDenseNetwork(listener, sender);
         network.launch();
