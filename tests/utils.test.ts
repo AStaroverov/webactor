@@ -85,7 +85,11 @@ describe('safeShouldRetry', () => {
     });
 
     it('should return fallback when shouldRetry throws or rejects', async () => {
-        await expect(safeShouldRetry(() => { throw new Error('sync'); }, false)()).resolves.toBe(false);
+        await expect(
+            safeShouldRetry(() => {
+                throw new Error('sync');
+            }, false)(),
+        ).resolves.toBe(false);
         await expect(safeShouldRetry(() => Promise.reject(new Error('async')), true)()).resolves.toBe(true);
     });
 });

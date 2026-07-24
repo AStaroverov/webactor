@@ -7,8 +7,8 @@ import { ActorContext } from '../../src/types';
 import { connectActorToWorker } from '../../src/worker/connectActorToWorker';
 
 function createWorker() {
-    return new Worker(new URL("./worker.mjs", import.meta.url), {
-        type: "module",
+    return new Worker(new URL('./worker.mjs', import.meta.url), {
+        type: 'module',
     });
 }
 
@@ -31,7 +31,7 @@ describe('Worker Communication Tests', () => {
                 worker.terminate();
                 worker = null as any;
                 // Give worker time to clean up
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise((resolve) => setTimeout(resolve, 50));
             }
         } catch (error) {
             console.warn('Cleanup error (ignoring):', error);
@@ -61,22 +61,22 @@ describe('Worker Communication Tests', () => {
         mainThreadActor.launch();
 
         // Wait a bit for connection to establish
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Send message from main actor to worker
         mainActorContext!.postMessage({
             type: 'echo',
             message: 'Hello from main thread actor!',
-            timestamp: Date.now()
+            timestamp: Date.now(),
         });
 
         // Wait for worker to process and respond
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
         // Verify actor received response from worker
         expect(mainActorMessages.length).toBeGreaterThan(0);
 
-        const echoResponse = mainActorMessages.find(msg => msg.type === 'echo-response');
+        const echoResponse = mainActorMessages.find((msg) => msg.type === 'echo-response');
         expect(echoResponse).toBeDefined();
         expect(echoResponse?.echoed).toBe('Hello from main thread actor!');
     }, 10000);
@@ -100,7 +100,7 @@ describe('Worker Communication Tests', () => {
         mainThreadActor.launch();
 
         // Wait for connection
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Record start time to verify non-blocking behavior
         const startTime = Date.now();
@@ -108,7 +108,7 @@ describe('Worker Communication Tests', () => {
         // Request heavy computation
         mainActorContext!.postMessage({
             type: 'compute',
-            iterations: 5000000
+            iterations: 5000000,
         });
 
         // Do some work on main thread while worker computes
@@ -120,7 +120,7 @@ describe('Worker Communication Tests', () => {
         // Wait for computation result
         await new Promise((resolve) => {
             const checkResult = () => {
-                const result = mainActorMessages.find(msg => msg.type === 'computation-result');
+                const result = mainActorMessages.find((msg) => msg.type === 'computation-result');
                 if (result) {
                     clearInterval(mainThreadInterval);
                     resolve(result);
@@ -132,7 +132,7 @@ describe('Worker Communication Tests', () => {
         });
 
         const totalTime = Date.now() - startTime;
-        const computationResult = mainActorMessages.find(msg => msg.type === 'computation-result');
+        const computationResult = mainActorMessages.find((msg) => msg.type === 'computation-result');
 
         // Verify computation completed
         expect(computationResult).toBeDefined();
@@ -145,7 +145,6 @@ describe('Worker Communication Tests', () => {
         console.log(`Computation took ${computationResult.duration}ms in worker`);
         console.log(`Main thread did ${mainThreadWork} work units during computation`);
         console.log(`Total test time: ${totalTime}ms`);
-
     }, 15000);
 
     it('should handle multiple workers simultaneously', async () => {
@@ -182,44 +181,44 @@ describe('Worker Communication Tests', () => {
         actor2.launch();
 
         // Wait for connections
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         // Send different messages to each worker
         actor1Context!.postMessage({
             type: 'echo',
             message: 'Message to worker 1',
-            sender: 'actor1'
+            sender: 'actor1',
         });
 
         actor2Context!.postMessage({
             type: 'echo',
             message: 'Message to worker 2',
-            sender: 'actor2'
+            sender: 'actor2',
         });
 
         // Wait for responses
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 300));
 
         // Verify each actor got its own response
         expect(actor1Messages).toContainEqual(
             expect.objectContaining({
                 type: 'echo-response',
                 echoed: 'Message to worker 1',
-                receivedBy: 'actor1'
-            })
+                receivedBy: 'actor1',
+            }),
         );
 
         expect(actor2Messages).toContainEqual(
             expect.objectContaining({
                 type: 'echo-response',
                 echoed: 'Message to worker 2',
-                receivedBy: 'actor2'
-            })
+                receivedBy: 'actor2',
+            }),
         );
 
         // Verify no cross-contamination
-        expect(actor1Messages.find(msg => msg.echoed === 'Message to worker 2')).toBeUndefined();
-        expect(actor2Messages.find(msg => msg.echoed === 'Message to worker 1')).toBeUndefined();
+        expect(actor1Messages.find((msg) => msg.echoed === 'Message to worker 2')).toBeUndefined();
+        expect(actor2Messages.find((msg) => msg.echoed === 'Message to worker 1')).toBeUndefined();
 
         // Cleanup
         disconnect1();
@@ -230,6 +229,6 @@ describe('Worker Communication Tests', () => {
         worker2.terminate();
 
         // Give workers time to clean up
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
     }, 15000);
 });

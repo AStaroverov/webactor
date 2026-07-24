@@ -110,7 +110,7 @@ describe('Lock/Unlock System', () => {
             });
 
             // Give onUnlock a moment to register
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             expect(unlockResolved).toBe(false);
 
@@ -185,7 +185,7 @@ describe('Lock/Unlock System', () => {
                 'lock1-released',
                 'onUnlock-resolved',
                 'lock2-acquired',
-                'lock2-released'
+                'lock2-released',
             ]);
         });
 
@@ -220,7 +220,7 @@ describe('Lock/Unlock System', () => {
                     lock(lockKey).then((unlock) => {
                         results.push(i);
                         setTimeout(() => unlock(), 5);
-                    })
+                    }),
                 );
             }
 
@@ -235,7 +235,7 @@ describe('Lock/Unlock System', () => {
             // Mock lock manager that throws errors
             const errorLockManager = {
                 query: () => Promise.reject(new Error('Query failed')),
-                request: () => Promise.reject(new Error('Request failed'))
+                request: () => Promise.reject(new Error('Request failed')),
             };
 
             locksProvider.delegate = errorLockManager as any;

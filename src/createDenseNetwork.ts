@@ -35,7 +35,7 @@ export function createDenseNetwork(...transmitters: (Worker | SharedWorker | Tra
             }
         }
 
-        transmitters.forEach(transmitter => {
+        transmitters.forEach((transmitter) => {
             if ('launch' in transmitter && typeof transmitter.launch === 'function') {
                 transmitter.launch();
             }
@@ -48,7 +48,7 @@ export function createDenseNetwork(...transmitters: (Worker | SharedWorker | Tra
         if (closed) return;
         closed = true;
 
-        disconnectFunctions.forEach(disconnect => {
+        disconnectFunctions.forEach((disconnect) => {
             try {
                 disconnect();
             } catch (error) {
@@ -57,7 +57,7 @@ export function createDenseNetwork(...transmitters: (Worker | SharedWorker | Tra
         });
         disconnectFunctions = [];
 
-        transmitters.forEach(transmitter => {
+        transmitters.forEach((transmitter) => {
             try {
                 if ('close' in transmitter && typeof transmitter.close === 'function') {
                     transmitter.close();
@@ -76,7 +76,7 @@ export function createDenseNetwork(...transmitters: (Worker | SharedWorker | Tra
 
     const network: DenseNetwork = {
         launch,
-        close
+        close,
     };
 
     return network;

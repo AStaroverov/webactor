@@ -17,7 +17,7 @@ describe('Actor Supervisors', () => {
             if (supervisedActor) {
                 supervisedActor.close();
             }
-            actors.forEach(actor => {
+            actors.forEach((actor) => {
                 try {
                     actor.close();
                 } catch (error) {
@@ -25,7 +25,7 @@ describe('Actor Supervisors', () => {
                 }
             });
             actors = [];
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
         } catch (error) {
             // Ignore cleanup errors
         }
@@ -34,38 +34,40 @@ describe('Actor Supervisors', () => {
     describe('applyActorSupervisor', () => {
         it('should create a supervised actor that launches successfully', async () => {
             let launched = false;
-            const actorConstructor = () => createActor('test-actor', () => {
-                launched = true;
-            });
+            const actorConstructor = () =>
+                createActor('test-actor', () => {
+                    launched = true;
+                });
 
             supervisedActor = applyActorSupervisor(actorConstructor, {
-                shouldRetry: () => false
+                shouldRetry: () => false,
             });
 
             expect(supervisedActor.name).toMatch(/^ActorSupervisor</);
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             expect(launched).toBe(true);
         });
 
         it('should forward messages to the supervised actor', async () => {
             const receivedMessages: any[] = [];
-            const actorConstructor = () => createActor('test-actor', (context: ActorContext) => {
-                context.addEventListener('message', (event) => {
-                    receivedMessages.push(event.data);
+            const actorConstructor = () =>
+                createActor('test-actor', (context: ActorContext) => {
+                    context.addEventListener('message', (event) => {
+                        receivedMessages.push(event.data);
+                    });
                 });
-            });
 
             supervisedActor = applyActorSupervisor(actorConstructor, {
-                shouldRetry: () => false
+                shouldRetry: () => false,
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             supervisedActor.postMessage({ type: 'test', payload: 'hello' });
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(receivedMessages).toHaveLength(1);
             expect(receivedMessages[0]).toEqual({ type: 'test', payload: 'hello' });
@@ -90,11 +92,11 @@ describe('Actor Supervisors', () => {
             supervisedActor = applyActorSupervisor(actorConstructor, {
                 shouldRetry: (reason: unknown | Reason) => {
                     return reason instanceof Error && launchCount < 3;
-                }
+                },
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             expect(launchCount).toBeGreaterThan(1);
         });
@@ -116,11 +118,11 @@ describe('Actor Supervisors', () => {
             supervisedActor = applyActorSupervisor(actorConstructor, {
                 shouldRetry: (reason: unknown | Reason) => {
                     return !(reason instanceof Error);
-                }
+                },
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(launchCount).toBe(1);
         });
@@ -144,11 +146,11 @@ describe('Actor Supervisors', () => {
             supervisedActor = applyActorSupervisor(actorConstructor, {
                 shouldRetry: (reason: unknown | Reason) => {
                     return reason === 'manual close' && launchCount < 3;
-                }
+                },
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             expect(launchCount).toBeGreaterThan(1);
         });
@@ -174,37 +176,38 @@ describe('Actor Supervisors', () => {
                 shouldRetry: (reason: any) => {
                     reasons.push(reason);
                     return launchCount < 3;
-                }
+                },
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
             expect(reasons.length).toBeGreaterThan(0);
             expect(launchCount).toBe(3);
 
             // Check that we received the custom reason in some form
-            const hasCustomReason = reasons.some(r => r === 'custom-reason');
+            const hasCustomReason = reasons.some((r) => r === 'custom-reason');
             expect(hasCustomReason).toBe(true);
         });
 
         it('should properly clean up resources when supervisor is closed', async () => {
             let cleaned = false;
-            const actorConstructor = () => createActor('test-actor', () => {
-                return () => {
-                    cleaned = true;
-                };
-            });
+            const actorConstructor = () =>
+                createActor('test-actor', () => {
+                    return () => {
+                        cleaned = true;
+                    };
+                });
 
             supervisedActor = applyActorSupervisor(actorConstructor, {
-                shouldRetry: () => false
+                shouldRetry: () => false,
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             supervisedActor.close();
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             expect(cleaned).toBe(true);
         });
@@ -222,11 +225,11 @@ describe('Actor Supervisors', () => {
             };
 
             supervisedActor = applyActorSupervisor(actorConstructor, {
-                shouldRetry: () => launchCount < 5
+                shouldRetry: () => launchCount < 5,
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 500));
 
             expect(launchCount).toBe(5);
         });
@@ -251,16 +254,16 @@ describe('Actor Supervisors', () => {
             supervisedActor = applyActorSupervisor(actorConstructor, {
                 shouldRetry: async (reason: unknown | Reason) => {
                     // Simulate async decision making (e.g., checking external service)
-                    await new Promise(resolve => setTimeout(resolve, 50));
+                    await new Promise((resolve) => setTimeout(resolve, 50));
 
                     const shouldRestart = reason instanceof Error && launchCount < 3;
                     retryDecisions.push(shouldRestart);
                     return shouldRestart;
-                }
+                },
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 500));
 
             expect(launchCount).toBe(3);
             expect(retryDecisions).toEqual([true, true, false]);
@@ -290,13 +293,13 @@ describe('Actor Supervisors', () => {
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(launchCount).toBe(2);
             expect(disposed).toEqual([1]);
 
             supervisedActor.close();
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             expect(disposed).toEqual([1, 2]);
         });
@@ -304,7 +307,9 @@ describe('Actor Supervisors', () => {
         it('should not relaunch actor when supervisor is closed while shouldRetry is pending', async () => {
             let launchCount = 0;
             let resolveRetry: (value: boolean) => void;
-            const retryPromise = new Promise<boolean>(resolve => { resolveRetry = resolve; });
+            const retryPromise = new Promise<boolean>((resolve) => {
+                resolveRetry = resolve;
+            });
             let testActor: Actor;
 
             const actorConstructor = () => {
@@ -322,11 +327,11 @@ describe('Actor Supervisors', () => {
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             supervisedActor.close();
             resolveRetry!(true);
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             expect(launchCount).toBe(1);
         });
@@ -354,7 +359,7 @@ describe('Actor Supervisors', () => {
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(launchCount).toBe(2);
             expect(reasons).toContain('actor blew up');
@@ -386,7 +391,7 @@ describe('Actor Supervisors', () => {
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(retryCalls).toBe(1);
             expect(launchCount).toBe(2);
@@ -416,11 +421,11 @@ describe('Actor Supervisors', () => {
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             expect(launchCount).toBe(2);
 
             supervisedActor.postMessage({ to: 'restarted' });
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             expect(receivedByInstance[1]).toHaveLength(0);
             expect(receivedByInstance[2]).toEqual([{ to: 'restarted' }]);

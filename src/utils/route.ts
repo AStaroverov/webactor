@@ -1,4 +1,4 @@
-import { AnyEnvelope } from "../envelope";
+import { AnyEnvelope } from '../envelope';
 
 export type Route = string;
 export type Checkpoint = string;

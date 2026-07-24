@@ -6,7 +6,7 @@ import { createEnvelope, EnvelopeType } from '../src/envelope';
 import { Transmitter } from '../src/types';
 import { MockMessageChannel } from './message-channel-mock';
 
-const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('connectTransmitters over native-like ports', () => {
     it('should preserve envelope type when it crosses a native message port', async () => {

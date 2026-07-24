@@ -49,32 +49,20 @@ describe('Dense Network Tests', () => {
         network = createDenseNetwork(actor1, actor2, actor3);
         network.launch();
 
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
         expect(actor1Messages).toHaveLength(2);
         expect(actor2Messages).toHaveLength(2);
         expect(actor3Messages).toHaveLength(2);
 
-        expect(actor1Messages).toContainEqual(
-            expect.objectContaining({ from: 'node2', receivedBy: 'node1' })
-        );
-        expect(actor1Messages).toContainEqual(
-            expect.objectContaining({ from: 'node3', receivedBy: 'node1' })
-        );
+        expect(actor1Messages).toContainEqual(expect.objectContaining({ from: 'node2', receivedBy: 'node1' }));
+        expect(actor1Messages).toContainEqual(expect.objectContaining({ from: 'node3', receivedBy: 'node1' }));
 
-        expect(actor2Messages).toContainEqual(
-            expect.objectContaining({ from: 'node1', receivedBy: 'node2' })
-        );
-        expect(actor2Messages).toContainEqual(
-            expect.objectContaining({ from: 'node3', receivedBy: 'node2' })
-        );
+        expect(actor2Messages).toContainEqual(expect.objectContaining({ from: 'node1', receivedBy: 'node2' }));
+        expect(actor2Messages).toContainEqual(expect.objectContaining({ from: 'node3', receivedBy: 'node2' }));
 
-        expect(actor3Messages).toContainEqual(
-            expect.objectContaining({ from: 'node1', receivedBy: 'node3' })
-        );
-        expect(actor3Messages).toContainEqual(
-            expect.objectContaining({ from: 'node2', receivedBy: 'node3' })
-        );
+        expect(actor3Messages).toContainEqual(expect.objectContaining({ from: 'node1', receivedBy: 'node3' }));
+        expect(actor3Messages).toContainEqual(expect.objectContaining({ from: 'node2', receivedBy: 'node3' }));
     });
 
     it('should handle two-node network', async () => {
@@ -100,7 +88,7 @@ describe('Dense Network Tests', () => {
         network = createDenseNetwork(node1, node2);
         network.launch();
 
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise((resolve) => setTimeout(resolve, 150));
 
         expect(node1Messages).toHaveLength(1);
         expect(node2Messages).toHaveLength(1);
@@ -129,12 +117,12 @@ describe('Dense Network Tests', () => {
         network = createDenseNetwork(listener, sender);
         network.launch();
 
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
         senderContext!.postMessage({ type: 'runtime', message: 'Runtime message 1' });
         senderContext!.postMessage({ type: 'runtime', message: 'Runtime message 2' });
 
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         expect(receivedMessages).toHaveLength(2);
         expect(receivedMessages[0]).toEqual({ type: 'runtime', message: 'Runtime message 1' });

@@ -26,7 +26,7 @@ class FakeWorker {
     };
 
     emit(type: string, value: unknown) {
-        this.handlers.get(type)?.forEach(callback => callback(value));
+        this.handlers.get(type)?.forEach((callback) => callback(value));
     }
 }
 
@@ -36,7 +36,7 @@ describe('applyWorkerSupervisor (unit, fake worker)', () => {
     afterEach(async () => {
         supervisedActor?.close();
         supervisedActor = null;
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 20));
     });
 
     it('should terminate the current worker when supervisor is closed after a restart', async () => {
@@ -53,7 +53,7 @@ describe('applyWorkerSupervisor (unit, fake worker)', () => {
 
         supervisedActor.launch();
         created[0].emit('error', new Error('worker crashed'));
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 20));
 
         expect(created).toHaveLength(2);
         expect(created[0].terminated).toBe(true);
@@ -85,7 +85,7 @@ describe('applyWorkerSupervisor (unit, fake worker)', () => {
         supervisedActor.launch();
         created[0].emit('error', new Error('first'));
         created[0].emit('error', new Error('second'));
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 20));
 
         expect(retryCalls).toBe(1);
         expect(created).toHaveLength(2);
@@ -94,7 +94,9 @@ describe('applyWorkerSupervisor (unit, fake worker)', () => {
     it('should not relaunch worker when supervisor is closed while shouldRetry is pending', async () => {
         const created: FakeWorker[] = [];
         let resolveRetry: (value: boolean) => void;
-        const retryPromise = new Promise<boolean>(resolve => { resolveRetry = resolve; });
+        const retryPromise = new Promise<boolean>((resolve) => {
+            resolveRetry = resolve;
+        });
 
         const workerConstructor = () => {
             const worker = new FakeWorker();
@@ -108,12 +110,12 @@ describe('applyWorkerSupervisor (unit, fake worker)', () => {
 
         supervisedActor.launch();
         created[0].emit('error', new Error('worker crashed'));
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 20));
 
         supervisedActor.close();
         supervisedActor = null;
         resolveRetry!(true);
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 20));
 
         expect(created).toHaveLength(1);
     });
@@ -135,7 +137,7 @@ describe('applyWorkerSupervisor (unit, fake worker)', () => {
 
         supervisedActor.launch();
         created[0].emit('error', new Error('worker crashed'));
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, 20));
 
         expect(created).toHaveLength(1);
         expect(created[0].terminated).toBe(true);

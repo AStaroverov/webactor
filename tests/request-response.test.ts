@@ -155,9 +155,13 @@ describe('Request/Response System', () => {
             setTimeout(() => abortController.abort('Request timed out'), 100);
 
             await expect(
-                request(requesterContext!, { test: 'timeout' }, {
-                    abortSignal: abortController.signal,
-                })
+                request(
+                    requesterContext!,
+                    { test: 'timeout' },
+                    {
+                        abortSignal: abortController.signal,
+                    },
+                ),
             ).rejects.toThrow('Request timed out');
 
             disconnect();
@@ -189,9 +193,13 @@ describe('Request/Response System', () => {
             abortController.abort('aborted before request');
 
             await expect(
-                request(requesterContext!, { test: 'pre-aborted' }, {
-                    abortSignal: abortController.signal,
-                })
+                request(
+                    requesterContext!,
+                    { test: 'pre-aborted' },
+                    {
+                        abortSignal: abortController.signal,
+                    },
+                ),
             ).rejects.toThrow('aborted before request');
 
             await new Promise((resolve) => setTimeout(resolve, 10));
@@ -246,7 +254,7 @@ describe('Request/Response System', () => {
                     requestCounter++;
                     response(responderContext!, event, {
                         requestId: event.data.id,
-                        processed: requestCounter
+                        processed: requestCounter,
                     });
                 });
             });

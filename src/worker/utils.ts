@@ -1,5 +1,5 @@
-import { EventMessagePortLike, AnyData } from "../types";
-import { isMessagePortLike } from "./detect";
+import { EventMessagePortLike, AnyData } from '../types';
+import { isMessagePortLike } from './detect';
 
 export function getWorkerMessagePort(worker: unknown): EventMessagePortLike<AnyData> {
     if (isMessagePortLike(worker)) {

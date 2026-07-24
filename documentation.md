@@ -68,12 +68,12 @@ npm install webactor
 - **Zero runtime dependencies.**
 - Targets modern browsers. In-thread messaging works everywhere. Some features need platform APIs:
 
-| Feature | Requires |
-|---|---|
-| In-thread actors, connections, request/response | nothing special |
-| `openChannel` / `supportChannel` | `MessageChannel` + **Web Locks API** (`navigator.locks`) |
-| `applyWorkerSupervisor` liveness | **Web Locks API** |
-| Workers | `Worker` / `SharedWorker` |
+| Feature                                         | Requires                                                 |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| In-thread actors, connections, request/response | nothing special                                          |
+| `openChannel` / `supportChannel`                | `MessageChannel` + **Web Locks API** (`navigator.locks`) |
+| `applyWorkerSupervisor` liveness                | **Web Locks API**                                        |
+| Workers                                         | `Worker` / `SharedWorker`                                |
 
 To run outside the browser (Node, Vitest) inject polyfills via [providers](#13-environments--providers).
 
@@ -87,13 +87,13 @@ Every message is wrapped in an **Envelope**:
 type EnvelopeTypes = 'error' | 'close' | 'message';
 
 type Envelope<T> = {
-  readonly type: EnvelopeTypes;
-  readonly data: T;
-  readonly transferable?: Transferable[] | StructuredSerializeOptions;
+    readonly type: EnvelopeTypes;
+    readonly data: T;
+    readonly transferable?: Transferable[] | StructuredSerializeOptions;
 
-  // internal routing metadata — set/maintained by the library
-  __route: undefined | string;
-  __checkpoints: undefined | string;
+    // internal routing metadata — set/maintained by the library
+    __route: undefined | string;
+    __checkpoints: undefined | string;
 };
 ```
 
@@ -106,10 +106,10 @@ type Envelope<T> = {
 
 ```ts
 function createEnvelope<T>(
-  type: EnvelopeTypes,
-  data: T,
-  transferable?: Transferable[] | StructuredSerializeOptions,
-  options?: { route?: string; checkpoints?: string }
+    type: EnvelopeTypes,
+    data: T,
+    transferable?: Transferable[] | StructuredSerializeOptions,
+    options?: { route?: string; checkpoints?: string },
 ): Envelope<T>;
 
 function isEnvelope(v: unknown): v is Envelope<AnyData>;
@@ -128,45 +128,47 @@ An actor is an isolated unit created from a name and a constructor.
 import { createActor, ActorContext } from 'webactor';
 
 const actor = createActor('my-actor', (ctx: ActorContext) => {
-  // setup: state, listeners, timers…
-  ctx.addEventListener('message', (envelope) => {
-    // handle incoming messages
-  });
+    // setup: state, listeners, timers…
+    ctx.addEventListener('message', (envelope) => {
+        // handle incoming messages
+    });
 
-  // optional: return a dispose function, called on close()
-  return () => {/* cleanup timers, subscriptions… */};
+    // optional: return a dispose function, called on close()
+    return () => {
+        /* cleanup timers, subscriptions… */
+    };
 });
 
 actor.launch(); // runs the constructor
 // …
-actor.close();  // stops the actor and runs the dispose fn
+actor.close(); // stops the actor and runs the dispose fn
 ```
 
 ### Types
 
 ```ts
 type Actor = {
-  name: string;
-  launch: () => void;
-  close: (reason?: unknown | Reason) => void;
-  postMessage(msg, transferable?): void;
-  addEventListener(type, cb): void;
-  removeEventListener(type, cb): void;
+    name: string;
+    launch: () => void;
+    close: (reason?: unknown | Reason) => void;
+    postMessage(msg, transferable?): void;
+    addEventListener(type, cb): void;
+    removeEventListener(type, cb): void;
 };
 
 // what the constructor receives — an Actor without `launch`
 type ActorContext = {
-  name: string;
-  close: (reason?: unknown | Reason) => void;
-  postMessage(msg, transferable?): void;
-  addEventListener(type, cb): void;
-  removeEventListener(type, cb): void;
+    name: string;
+    close: (reason?: unknown | Reason) => void;
+    postMessage(msg, transferable?): void;
+    addEventListener(type, cb): void;
+    removeEventListener(type, cb): void;
 };
 ```
 
 ### The two sides of an actor
 
-An actor is internally a **pair of crossed mailboxes**. There is an *inside* (the `ActorContext` your constructor gets) and an *outside* (the `Actor` handle everyone else holds).
+An actor is internally a **pair of crossed mailboxes**. There is an _inside_ (the `ActorContext` your constructor gets) and an _outside_ (the `Actor` handle everyone else holds).
 
 - Whatever the **outside** posts arrives at the **inside**'s `'message'` listeners.
 - Whatever the **inside** (`ctx`) posts is emitted on the **outside** for connected transmitters to pick up.
@@ -175,9 +177,9 @@ That's why in the counter example the UI's messages reach the counter's `ctx.add
 
 ### Lifecycle
 
-| Method | Behavior |
-|---|---|
-| `launch()` | Runs the constructor exactly once. Idempotent — a second call is a no-op. |
+| Method           | Behavior                                                                                                                                           |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `launch()`       | Runs the constructor exactly once. Idempotent — a second call is a no-op.                                                                          |
 | `close(reason?)` | Idempotent. Emits a `close` envelope (`{ data: { reason } }`) on the outside, closes both mailboxes, and calls the constructor's dispose function. |
 
 `reason` flows to supervisors and to any `'close'` listener. Use a value from [`Reasons`](#reasons) or your own.
@@ -187,9 +189,15 @@ That's why in the counter example the UI's messages reach the counter's `ctx.add
 ### Listening
 
 ```ts
-ctx.addEventListener('message', (envelope) => { envelope.data; });
-ctx.addEventListener('close',   (envelope) => { envelope.data.reason; });
-ctx.addEventListener('error',   (envelope) => { envelope.data; });
+ctx.addEventListener('message', (envelope) => {
+    envelope.data;
+});
+ctx.addEventListener('close', (envelope) => {
+    envelope.data.reason;
+});
+ctx.addEventListener('error', (envelope) => {
+    envelope.data;
+});
 ```
 
 Callbacks receive the **Envelope**, not a DOM event. Read the payload from `envelope.data`.
@@ -202,14 +210,14 @@ Understand these three rules — they prevent 90% of "why didn't my message arri
 
 1. **Delivery is always asynchronous.** The in-memory mailbox dispatches callbacks on a microtask (`Promise.resolve().then(...)`), even in the same thread. So right after `postMessage`, listeners have **not** run yet:
 
-   ```ts
-   ctx.postMessage({ type: 'x' });
-   // listeners run later, on the next microtask — not on this line
-   ```
+    ```ts
+    ctx.postMessage({ type: 'x' });
+    // listeners run later, on the next microtask — not on this line
+    ```
 
-   This intentionally matches the async nature of real `postMessage` across workers, so your code behaves the same in-thread and cross-thread.
+    This intentionally matches the async nature of real `postMessage` across workers, so your code behaves the same in-thread and cross-thread.
 
-2. **In-thread messages are passed by reference; cross-worker messages are structured-cloned.** Two actors in the same thread share the *same* object you posted (mutating it after posting is a bug). The moment a message crosses a `Worker`/`SharedWorker` boundary the platform structured-clones it. Design payloads to be plain, cloneable data.
+2. **In-thread messages are passed by reference; cross-worker messages are structured-cloned.** Two actors in the same thread share the _same_ object you posted (mutating it after posting is a bug). The moment a message crosses a `Worker`/`SharedWorker` boundary the platform structured-clones it. Design payloads to be plain, cloneable data.
 
 3. **Order is preserved per connection.** Messages sent over one connection arrive in the order they were sent.
 
@@ -233,15 +241,15 @@ disconnect();
 
 ### connectTransmitters (general form)
 
-`connectActors` is a thin wrapper over the general primitive, which works on *any* transmitters and lets you choose which envelope types to bridge:
+`connectActors` is a thin wrapper over the general primitive, which works on _any_ transmitters and lets you choose which envelope types to bridge:
 
 ```ts
 import { connectTransmitters, EnvelopeType } from 'webactor';
 
 const disconnect = connectTransmitters(a, b, [
-  EnvelopeType.Message,
-  EnvelopeType.Close,   // also propagate close across this link
-  EnvelopeType.Error,
+    EnvelopeType.Message,
+    EnvelopeType.Close, // also propagate close across this link
+    EnvelopeType.Error,
 ]);
 ```
 
@@ -282,14 +290,14 @@ RPC-style "ask and await a reply", built on routing.
 
 ```ts
 function request(
-  target: Transmitter,
-  message: AnyData | Envelope<AnyData>,
-  options?: {
-    retryDelay?: number;      // default 500ms
-    channelId?: string;       // correlation id; auto-generated if omitted
-    abortSignal?: AbortSignal;
-    transferable?: Transferable[] | StructuredSerializeOptions;
-  }
+    target: Transmitter,
+    message: AnyData | Envelope<AnyData>,
+    options?: {
+        retryDelay?: number; // default 500ms
+        channelId?: string; // correlation id; auto-generated if omitted
+        abortSignal?: AbortSignal;
+        transferable?: Transferable[] | StructuredSerializeOptions;
+    },
 ): Promise<Envelope<AnyData>>;
 ```
 
@@ -303,9 +311,11 @@ console.log(res.data); // the responder's payload
 ```
 
 > ⚠️ **There is no built-in timeout.** Without an `abortSignal`, `request` retries forever. Always bound it:
+>
 > ```ts
 > await request(server, msg, { abortSignal: AbortSignal.timeout(5000) });
 > ```
+>
 > Tune `retryDelay` up for expensive handlers so you don't re-trigger work.
 
 Who is `target`? Any transmitter connected to the responder — commonly an actor's `ctx` (to ask across the actor's connections) or a responder `Actor`/channel directly.
@@ -314,10 +324,10 @@ Who is `target`? Any transmitter connected to the responder — commonly an acto
 
 ```ts
 function response(
-  target: Transmitter,
-  request: Envelope<AnyData>,   // the incoming request envelope
-  response: AnyData | Envelope<AnyData>,
-  transferable?: Transferable[] | StructuredSerializeOptions
+    target: Transmitter,
+    request: Envelope<AnyData>, // the incoming request envelope
+    response: AnyData | Envelope<AnyData>,
+    transferable?: Transferable[] | StructuredSerializeOptions,
 ): void;
 ```
 
@@ -326,12 +336,12 @@ function response(
 
 ```ts
 const server = createActor('server', (ctx) => {
-  ctx.addEventListener('message', (e) => {
-    if (e.data.type === 'getUser') {
-      const user = db.get(e.data.id);
-      response(ctx, e, user ?? new Error('not found'));
-    }
-  });
+    ctx.addEventListener('message', (e) => {
+        if (e.data.type === 'getUser') {
+            const user = db.get(e.data.id);
+            response(ctx, e, user ?? new Error('not found'));
+        }
+    });
 });
 ```
 
@@ -345,21 +355,21 @@ A channel is a **dedicated, disconnect-aware pipe** between two actors, establis
 
 ```ts
 function openChannel(
-  target: Transmitter,
-  message: AnyData,
-  options?: { abortSignal?: AbortSignal; transferable?: Transferable[] | StructuredSerializeOptions }
+    target: Transmitter,
+    message: AnyData,
+    options?: { abortSignal?: AbortSignal; transferable?: Transferable[] | StructuredSerializeOptions },
 ): Promise<ChannelTransmitter>;
 
 function supportChannel(
-  target: Transmitter,
-  envelope: Envelope<AnyData>   // the incoming "please open a channel" request
+    target: Transmitter,
+    envelope: Envelope<AnyData>, // the incoming "please open a channel" request
 ): Promise<ChannelTransmitter>;
 
 type ChannelTransmitter = {
-  postMessage(msg, transferable?): void;
-  addEventListener(type, cb): void;
-  removeEventListener(type, cb): void;
-  close(reason?): void;
+    postMessage(msg, transferable?): void;
+    addEventListener(type, cb): void;
+    removeEventListener(type, cb): void;
+    close(reason?): void;
 };
 ```
 
@@ -373,15 +383,17 @@ channel.addEventListener('message', (e) => console.log('server said', e.data));
 
 // responder side (e.g. server actor)
 ctx.addEventListener('message', async (e) => {
-  if (e.data.type === 'open-session') {
-    try {
-      const channel = await supportChannel(ctx, e);
-      channel.addEventListener('message', (m) => {/* handle this client */});
-      channel.postMessage({ type: 'welcome' });
-    } catch {
-      // duplicate request, or the opener vanished before the handshake
+    if (e.data.type === 'open-session') {
+        try {
+            const channel = await supportChannel(ctx, e);
+            channel.addEventListener('message', (m) => {
+                /* handle this client */
+            });
+            channel.postMessage({ type: 'welcome' });
+        } catch {
+            // duplicate request, or the opener vanished before the handshake
+        }
     }
-  }
 });
 ```
 
@@ -398,11 +410,16 @@ Both functions settle deterministically — they never leave a forever-pending p
 - `openChannel` **rejects** when `abortSignal` aborts (including a signal already aborted at call time), and when the supporter disappears before the handshake completes (`Reasons.LostConnection`). An aborted open never resolves with a working channel.
 - The `abortSignal` covers **only the opening**. Once the channel is open the signal is inert — the only way to close a channel is `channel.close()`. This makes `AbortSignal.timeout(...)` a safe open-timeout, same as with `request`:
 
-  ```ts
-  const channel = await openChannel(ctx, { type: 'open-session' }, {
-    abortSignal: AbortSignal.timeout(5000),
-  });
-  ```
+    ```ts
+    const channel = await openChannel(
+        ctx,
+        { type: 'open-session' },
+        {
+            abortSignal: AbortSignal.timeout(5000),
+        },
+    );
+    ```
+
 - `supportChannel` **rejects** with `Channel is already supported: <id>` on duplicate requests. Since `request` re-sends the open envelope every `retryDelay`, a slow responder can legitimately receive the same envelope twice — the library dedupes it, no bookkeeping is needed on your side.
 - `supportChannel` **rejects** with `Reasons.LostConnection` when the opener disappears (aborted, tab closed) before the handshake completes.
 
@@ -414,7 +431,9 @@ Channels use the **Web Locks API** to notice when the other end vanishes. Each s
 
 ```ts
 channel.addEventListener('close', (e) => {
-  if (e.data.reason === Reasons.LostConnection) {/* peer gone */}
+    if (e.data.reason === Reasons.LostConnection) {
+        /* peer gone */
+    }
 });
 ```
 
@@ -429,16 +448,17 @@ Requires `navigator.locks` (polyfill in Node — see [providers](#13-environment
 Wire many actors and workers into a **full mesh** (every node connected to every other) in one call. Workers are auto-detected and connected via their message port.
 
 ```ts
-function createDenseNetwork(
-  ...transmitters: (Worker | SharedWorker | Actor | Transmitter)[]
-): { launch(): void; close(): void };
+function createDenseNetwork(...transmitters: (Worker | SharedWorker | Actor | Transmitter)[]): {
+    launch(): void;
+    close(): void;
+};
 ```
 
 ```ts
 const network = createDenseNetwork(uiActor, loggerActor, sharedWorker);
 network.launch(); // connects all pairs, then launches every node that has launch()
 // …
-network.close();  // disconnects all, closes/terminates every node
+network.close(); // disconnects all, closes/terminates every node
 ```
 
 - Requires at least one transmitter.
@@ -484,10 +504,8 @@ Or add the worker straight into a `createDenseNetwork(...)` — it's detected au
 ### Worker side
 
 ```ts
-function useContextMessagePort(): Actor;                    // recommended
-function onConnectMessagePort(                              // low-level
-  onConnect: (port: MessagePort) => unknown
-): VoidFunction;
+function useContextMessagePort(): Actor; // recommended
+function onConnectMessagePort(onConnect: (port: MessagePort) => unknown): VoidFunction; // low-level
 ```
 
 `useContextMessagePort()` returns an actor-like node representing this worker's connection(s) to the outside world. Use it as a node in the worker's own network:
@@ -512,24 +530,22 @@ It works for both dedicated `Worker` (single connection) and `SharedWorker` (one
 
 ```ts
 function applyActorSupervisor(
-  constructor: () => Actor,
-  options: { shouldRetry: (reason?: unknown | Reason) => boolean | Promise<boolean> }
+    constructor: () => Actor,
+    options: { shouldRetry: (reason?: unknown | Reason) => boolean | Promise<boolean> },
 ): Actor;
 ```
 
 Wraps a factory into a supervised actor. The returned actor behaves like a normal actor (connect/message it as usual), but internally it builds the real actor, and whenever that inner actor **closes or errors**, it asks `shouldRetry(reason)`; if `true`, it rebuilds and relaunches a fresh instance.
 
 ```ts
-const supervised = applyActorSupervisor(
-  () => createWorkerLogic(),
-  {
+const supervised = applyActorSupervisor(() => createWorkerLogic(), {
     shouldRetry: (reason) => reason !== Reasons.Close, // restart on crash, not on intentional close
-  }
-);
+});
 supervised.launch();
 ```
 
 Notes:
+
 - `shouldRetry` may be async (e.g. exponential backoff via `await delay(...)`).
 - Only `message` traffic is forwarded to/from the inner actor; its `close`/`error` are consumed by the supervisor, not re-emitted.
 - Messages sent to the supervisor while it's mid-restart go to whichever inner instance is current.
@@ -540,8 +556,8 @@ Notes:
 import { applyWorkerSupervisor } from 'webactor';
 
 function applyWorkerSupervisor(
-  WorkerConstructor: () => Worker,
-  options: { shouldRetry: (reason?: unknown | Reason | Error | ErrorEvent) => boolean | Promise<boolean> }
+    WorkerConstructor: () => Worker,
+    options: { shouldRetry: (reason?: unknown | Reason | Error | ErrorEvent) => boolean | Promise<boolean> },
 ): Actor;
 ```
 
@@ -549,8 +565,8 @@ Same idea for a whole `Worker`. It spawns the worker, learns the worker's thread
 
 ```ts
 const supervised = applyWorkerSupervisor(
-  () => new Worker(new URL('./w.ts', import.meta.url), { type: 'module' }),
-  { shouldRetry: () => true } // always resurrect
+    () => new Worker(new URL('./w.ts', import.meta.url), { type: 'module' }),
+    { shouldRetry: () => true }, // always resurrect
 );
 supervised.launch();
 ```
@@ -566,7 +582,7 @@ To move (not copy) large binary data across a worker boundary, pass transferable
 ```ts
 const buf = new ArrayBuffer(1024 * 1024);
 
-ctx.postMessage({ type: 'frame', buf }, [buf]);           // second arg: transfer list
+ctx.postMessage({ type: 'frame', buf }, [buf]); // second arg: transfer list
 request(worker, { type: 'process', buf }, { transferable: [buf] });
 response(ctx, e, { type: 'done', buf }, [buf]);
 const channel = await openChannel(ctx, msg, { transferable: [buf] });
@@ -584,12 +600,12 @@ Every piece of ambient platform state the library touches goes through a **provi
 import { intervalProvider, timeoutProvider, loggerProvider, locksProvider } from 'webactor';
 ```
 
-| Provider | Shape | Override for |
-|---|---|---|
-| `intervalProvider` | `{ setInterval, clearInterval, delegate }` | `request` retries; fake timers in tests |
-| `timeoutProvider` | `{ setTimeout, clearTimeout, delegate }` | channel handshakes; fake timers |
-| `loggerProvider` | `{ info, warn, error, delegate }` | routing warnings; silence/capture logs |
-| `locksProvider` | `LockManager`-like `{ query, request, delegate }` | Web Locks in Node (channels, worker supervisor) |
+| Provider           | Shape                                             | Override for                                    |
+| ------------------ | ------------------------------------------------- | ----------------------------------------------- |
+| `intervalProvider` | `{ setInterval, clearInterval, delegate }`        | `request` retries; fake timers in tests         |
+| `timeoutProvider`  | `{ setTimeout, clearTimeout, delegate }`          | channel handshakes; fake timers                 |
+| `loggerProvider`   | `{ info, warn, error, delegate }`                 | routing warnings; silence/capture logs          |
+| `locksProvider`    | `LockManager`-like `{ query, request, delegate }` | Web Locks in Node (channels, worker supervisor) |
 
 **Node / Vitest example** — polyfill Web Locks and use fake timers:
 
@@ -623,8 +639,8 @@ const createActor = createActorFactory({ createChannel: createEnvelopeChannel })
 ### createEnvelopeChannel / createEnvelopeEmitter
 
 ```ts
-function createEnvelopeChannel(): { port1; port2 };  // a bidirectional in-memory pipe
-function createEnvelopeEmitter(): EnvelopeEmitter;    // a single mailbox
+function createEnvelopeChannel(): { port1; port2 }; // a bidirectional in-memory pipe
+function createEnvelopeEmitter(): EnvelopeEmitter; // a single mailbox
 ```
 
 - `createEnvelopeEmitter()` — one mailbox with `postMessage`, `addEventListener`, `removeEventListener`, `close`. Delivers on a microtask.
@@ -643,10 +659,10 @@ Bridge an actor to a raw `MessagePort` (or any object with `postMessage` + `add/
 
 ```ts
 const Reasons = {
-  Abort: 'Abort',
-  Close: 'Close',
-  Restart: 'Restart',
-  LostConnection: 'Lost connection',
+    Abort: 'Abort',
+    Close: 'Close',
+    Restart: 'Restart',
+    LostConnection: 'Lost connection',
 };
 const $Aborted: unique symbol;
 ```
@@ -658,51 +674,57 @@ Standard close/abort reasons. `LostConnection` is emitted by channels and the wo
 ## 15. Full API reference
 
 ### Actors & factories
-| Export | Signature (abbreviated) |
-|---|---|
-| `createActor` | `(name: string, ctor: (ctx: ActorContext) => unknown \| Function) => Actor` |
-| `createActorFactory` | `({ createChannel }) => typeof createActor` |
-| `createRetranslator` | `(options?: { name?: string }) => Actor` |
-| `applyActorSupervisor` | `(ctor: () => Actor, { shouldRetry }) => Actor` |
+
+| Export                 | Signature (abbreviated)                                                     |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `createActor`          | `(name: string, ctor: (ctx: ActorContext) => unknown \| Function) => Actor` |
+| `createActorFactory`   | `({ createChannel }) => typeof createActor`                                 |
+| `createRetranslator`   | `(options?: { name?: string }) => Actor`                                    |
+| `applyActorSupervisor` | `(ctor: () => Actor, { shouldRetry }) => Actor`                             |
 
 ### Connecting
-| Export | Signature |
-|---|---|
-| `connectActors` | `(a, b) => VoidFunction` |
-| `connectTransmitters` | `(a, b, types?: EnvelopeTypes[]) => VoidFunction` |
-| `connectActorToMessagePort` | `(actor, port) => VoidFunction` |
-| `connectMessagePortToActor` | `(port, actor) => VoidFunction` |
-| `createDenseNetwork` | `(...transmitters) => { launch(); close() }` |
+
+| Export                      | Signature                                         |
+| --------------------------- | ------------------------------------------------- |
+| `connectActors`             | `(a, b) => VoidFunction`                          |
+| `connectTransmitters`       | `(a, b, types?: EnvelopeTypes[]) => VoidFunction` |
+| `connectActorToMessagePort` | `(actor, port) => VoidFunction`                   |
+| `connectMessagePortToActor` | `(port, actor) => VoidFunction`                   |
+| `createDenseNetwork`        | `(...transmitters) => { launch(); close() }`      |
 
 ### Messaging
-| Export | Signature |
-|---|---|
-| `request` | `(target, message, options?) => Promise<Envelope>` |
-| `response` | `(target, request, response, transferable?) => void` |
-| `openChannel` | `(target, message, options?) => Promise<ChannelTransmitter>` |
-| `supportChannel` | `(target, envelope) => Promise<ChannelTransmitter>` |
-| `getChannelId` | `(envelope) => string \| undefined` |
+
+| Export           | Signature                                                    |
+| ---------------- | ------------------------------------------------------------ |
+| `request`        | `(target, message, options?) => Promise<Envelope>`           |
+| `response`       | `(target, request, response, transferable?) => void`         |
+| `openChannel`    | `(target, message, options?) => Promise<ChannelTransmitter>` |
+| `supportChannel` | `(target, envelope) => Promise<ChannelTransmitter>`          |
+| `getChannelId`   | `(envelope) => string \| undefined`                          |
 
 ### Workers
-| Export | Signature |
-|---|---|
-| `connectActorToWorker` | `(actor, worker) => VoidFunction` |
-| `connectWorkerToActor` | `(worker, actor) => VoidFunction` |
-| `useContextMessagePort` | `() => Actor` |
-| `onConnectMessagePort` | `(onConnect: (port) => unknown) => VoidFunction` |
+
+| Export                  | Signature                                              |
+| ----------------------- | ------------------------------------------------------ |
+| `connectActorToWorker`  | `(actor, worker) => VoidFunction`                      |
+| `connectWorkerToActor`  | `(worker, actor) => VoidFunction`                      |
+| `useContextMessagePort` | `() => Actor`                                          |
+| `onConnectMessagePort`  | `(onConnect: (port) => unknown) => VoidFunction`       |
 | `applyWorkerSupervisor` | `(WorkerCtor: () => Worker, { shouldRetry }) => Actor` |
 
 ### Envelopes & low-level
-| Export | Signature |
-|---|---|
-| `createEnvelope` | `(type, data, transferable?, options?) => Envelope` |
-| `isEnvelope` | `(v) => v is Envelope` |
-| `shallowCopyEnvelope` | `(v) => Envelope` |
-| `createEnvelopeChannel` | `() => { port1, port2 }` |
-| `createEnvelopeEmitter` | `() => EnvelopeEmitter` |
-| `EnvelopeType` | `{ Error, Close, Message }` |
+
+| Export                  | Signature                                           |
+| ----------------------- | --------------------------------------------------- |
+| `createEnvelope`        | `(type, data, transferable?, options?) => Envelope` |
+| `isEnvelope`            | `(v) => v is Envelope`                              |
+| `shallowCopyEnvelope`   | `(v) => Envelope`                                   |
+| `createEnvelopeChannel` | `() => { port1, port2 }`                            |
+| `createEnvelopeEmitter` | `() => EnvelopeEmitter`                             |
+| `EnvelopeType`          | `{ Error, Close, Message }`                         |
 
 ### Providers & constants
+
 `intervalProvider`, `timeoutProvider`, `loggerProvider`, `locksProvider`, `Reasons`, `$Aborted`, plus all TypeScript types (`Actor`, `ActorContext`, `Envelope`, `Transmitter`, `ChannelTransmitter`, `Reason`, …).
 
 ---
@@ -710,31 +732,36 @@ Standard close/abort reasons. `LostConnection` is emitted by channels and the wo
 ## 16. Patterns & recipes
 
 ### UI ↔ domain split
+
 Put all domain state in one actor, rendering in another, connect them. The UI can't accidentally mutate domain state — it can only ask. Move the domain actor into a worker later with zero logic changes.
 
 ### Multi-tab shared state (SharedWorker)
+
 Run the state actor in a `SharedWorker`; every tab's UI actor joins a `createDenseNetwork(uiActor, sharedWorker)`. Broadcasts from the server reach all tabs; use a per-tab **channel** for private request/streaming.
 
 ### RPC with timeout & retry
+
 ```ts
 async function call(target, msg, ms = 5000) {
-  return request(target, msg, { abortSignal: AbortSignal.timeout(ms), retryDelay: 1000 });
+    return request(target, msg, { abortSignal: AbortSignal.timeout(ms), retryDelay: 1000 });
 }
 ```
 
 ### Self-healing worker with backoff
+
 ```ts
 let attempt = 0;
 applyWorkerSupervisor(() => new Worker(url, { type: 'module' }), {
-  shouldRetry: async () => {
-    attempt++;
-    await new Promise(r => setTimeout(r, Math.min(1000 * 2 ** attempt, 30_000)));
-    return attempt < 6;
-  },
+    shouldRetry: async () => {
+        attempt++;
+        await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** attempt, 30_000)));
+        return attempt < 6;
+    },
 }).launch();
 ```
 
 ### Streaming over a channel
+
 Open a channel, then push many messages over it; close it (or let `LostConnection` fire) when done. Backpressure is your responsibility — the mailbox does not bound queue size.
 
 ---
@@ -757,4 +784,4 @@ Open a channel, then push many messages over it; close it (or let `LostConnectio
 
 ---
 
-*This document reflects the current source in `src/` and is exercised by the suite in `tests/`. Found a mismatch? It's a bug — please open an issue.*
+_This document reflects the current source in `src/` and is exercised by the suite in `tests/`. Found a mismatch? It's a bug — please open an issue._

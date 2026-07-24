@@ -7,17 +7,16 @@ import { Actor } from '../../src/types';
 import { applyWorkerSupervisor } from '../../src/worker/applyWorkerSupervisor';
 
 function createWorker() {
-    return new Worker(new URL("./worker.mjs", import.meta.url), {
-        type: "module",
+    return new Worker(new URL('./worker.mjs', import.meta.url), {
+        type: 'module',
     });
 }
 
 function createErrorWorker() {
-    return new Worker(new URL("./error-worker.mjs", import.meta.url), {
-        type: "module",
+    return new Worker(new URL('./error-worker.mjs', import.meta.url), {
+        type: 'module',
     });
 }
-
 
 describe('Worker Supervisor Tests with Real Workers', () => {
     let supervisedActor: Actor;
@@ -39,7 +38,7 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             }
             workers = [];
             // Give workers time to clean up
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
         } catch (error) {
             console.warn('Cleanup error (ignoring):', error);
         }
@@ -54,7 +53,7 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             };
 
             supervisedActor = applyWorkerSupervisor(workerConstructor, {
-                shouldRetry: () => false
+                shouldRetry: () => false,
             });
 
             expect(supervisedActor.name).toMatch(/^WorkerSupervisor</);
@@ -62,7 +61,7 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             expect(supervisedActor.close).toBeDefined();
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             // Worker should be created
             expect(workers).toHaveLength(1);
@@ -84,20 +83,20 @@ describe('Worker Supervisor Tests with Real Workers', () => {
                     console.log(`Async shouldRetry called with reason:`, reason, `attempt: ${createCount}`);
 
                     // Simulate async decision making (e.g., checking external service)
-                    await new Promise(resolve => setTimeout(resolve, 50));
+                    await new Promise((resolve) => setTimeout(resolve, 50));
 
                     const shouldRestart = false; // Don't restart for this test
                     retryDecisions.push(shouldRestart);
 
                     console.log(`Decision: ${shouldRestart ? 'RESTART' : 'STOP'}`);
                     return shouldRestart;
-                }
+                },
             });
 
             supervisedActor.launch();
 
             // Wait for initialization
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
             expect(createCount).toBe(1); // Only original worker
             expect(workers.length).toBe(1);
@@ -117,15 +116,14 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             supervisedActor = applyWorkerSupervisor(workerConstructor, {
                 shouldRetry: async () => {
                     retryCount++;
-                    await new Promise(resolve => setTimeout(resolve, 50));
+                    await new Promise((resolve) => setTimeout(resolve, 50));
                     // If shouldRetry throws, it should be treated as false
                     throw new Error('Restart decision failed');
-                }
+                },
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 100));
-
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(retryCount).toBe(1);
             expect(createCount).toBe(1);
@@ -152,15 +150,15 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             };
 
             supervisedActor = applyWorkerSupervisor(workerConstructor, {
-                shouldRetry: () => false
+                shouldRetry: () => false,
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             // Close the supervisor
             supervisedActor.close();
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(createCount).toBe(1);
             expect(workerTerminated).toBe(true);
@@ -177,22 +175,22 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             };
 
             supervisedActor = applyWorkerSupervisor(workerConstructor, {
-                shouldRetry: () => false
+                shouldRetry: () => false,
             });
 
             supervisedActor.launch();
 
             // Wait for worker to initialize
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
             // Send a test message through the supervisor
             supervisedActor.postMessage({
                 type: 'test',
-                payload: { message: 'hello from supervisor test' }
+                payload: { message: 'hello from supervisor test' },
             });
 
             // Wait for potential processing
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             // Basic assertion - worker was created and supervisor works
             expect(createCount).toBe(1);
@@ -220,13 +218,13 @@ describe('Worker Supervisor Tests with Real Workers', () => {
                     const shouldRestart = createCount < 3;
                     console.log(`Decision: ${shouldRestart ? 'RESTART' : 'STOP'}`);
                     return shouldRestart;
-                }
+                },
             });
 
             supervisedActor.launch();
 
             // Wait for error worker to fail and restart cycles
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             console.log(`Final state: createCount=${createCount}, restartReasons:`, restartReasons);
 
@@ -266,13 +264,13 @@ describe('Worker Supervisor Tests with Real Workers', () => {
                     const shouldRestart = createCount < 2;
                     console.log(`Decision: ${shouldRestart ? 'RESTART' : 'STOP'}`);
                     return shouldRestart;
-                }
+                },
             });
 
             supervisedActor.launch();
 
             // Wait for termination and restart
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
             console.log(`Termination test result: createCount=${createCount}, restartReasons:`, restartReasons);
 
@@ -297,20 +295,20 @@ describe('Worker Supervisor Tests with Real Workers', () => {
                     messageErrorCount++;
                     console.log(`Message error restart decision:`, reason);
                     return messageErrorCount < 3;
-                }
+                },
             });
 
             supervisedActor.launch();
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 500));
 
             // Send message that will cause worker to throw
             supervisedActor.postMessage({
                 type: 'trigger-error',
-                data: 'This will cause error in worker'
+                data: 'This will cause error in worker',
             });
 
             // Wait for error processing
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             console.log(`Message error test: createCount=${createCount}, messageErrorCount=${messageErrorCount}`);
 
@@ -321,7 +319,7 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             const testCases = [
                 { shouldRetry: () => false, description: 'synchronous boolean' },
                 { shouldRetry: () => Promise.resolve(false), description: 'Promise<boolean>' },
-                { shouldRetry: async () => false, description: 'async boolean' }
+                { shouldRetry: async () => false, description: 'async boolean' },
             ];
 
             for (const testCase of testCases) {
@@ -335,19 +333,19 @@ describe('Worker Supervisor Tests with Real Workers', () => {
                 };
 
                 const testSupervisor = applyWorkerSupervisor(workerConstructor, {
-                    shouldRetry: testCase.shouldRetry
+                    shouldRetry: testCase.shouldRetry,
                 });
 
                 testSupervisor.launch();
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise((resolve) => setTimeout(resolve, 100));
 
                 expect(createCount).toBe(1);
 
                 testSupervisor.close();
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise((resolve) => setTimeout(resolve, 100));
             }
 
-            // All workers should be in our tracking array  
+            // All workers should be in our tracking array
             expect(workers.length).toBe(testCases.length);
         });
     });

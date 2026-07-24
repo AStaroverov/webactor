@@ -4,8 +4,8 @@ import { createShortRandomString } from './common';
 const threadName = isSharedWorkerScope(globalThis)
     ? `${self.name}(sharedWorker)`
     : isDedicatedWorkerScope(globalThis)
-        ? `${self.name}(dedicatedWorker)`
-        : isWindowScope(globalThis)
-            ? 'window'
-            : 'unknown';
+      ? `${self.name}(dedicatedWorker)`
+      : isWindowScope(globalThis)
+        ? 'window'
+        : 'unknown';
 export const threadId = `${threadName}<${createShortRandomString()}>`;

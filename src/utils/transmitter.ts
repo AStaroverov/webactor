@@ -1,7 +1,7 @@
-import { AnyEnvelope, createEnvelope, Envelope, EnvelopeTypes, isEnvelope } from "../envelope";
-import { AnyData, EventTypes, Transmitter, TransmitterSource, TransmitterTarget } from "../types";
-import { createPointerId } from "./createPointerId";
-import { threadId } from "./thread";
+import { AnyEnvelope, createEnvelope, Envelope, EnvelopeTypes, isEnvelope } from '../envelope';
+import { AnyData, EventTypes, Transmitter, TransmitterSource, TransmitterTarget } from '../types';
+import { createPointerId } from './createPointerId';
+import { threadId } from './thread';
 
 export function post<T extends EnvelopeTypes, V extends AnyData>(
     target: TransmitterTarget<V>,
@@ -9,13 +9,8 @@ export function post<T extends EnvelopeTypes, V extends AnyData>(
     value: V | Envelope<V> | MessageEvent<V> | MessageEvent<Envelope<V>>,
 ): void {
     const isEventMessage = value instanceof MessageEvent;
-    const data = (isEventMessage ? value.data : value);
-    const message = isEnvelope(data) && data.type === type
-        ? data
-        : createEnvelope(
-            type,
-            data
-        );
+    const data = isEventMessage ? value.data : value;
+    const message = isEnvelope(data) && data.type === type ? data : createEnvelope(type, data);
     const transferable = isEnvelope(message) ? message.transferable : undefined;
 
     // @ts-ignore
@@ -29,7 +24,9 @@ export function on<T>(
 ): VoidFunction {
     source.start?.();
 
-    const handler = (value: Error | ErrorEvent | AnyData | AnyEnvelope | MessageEvent<Error | AnyData | AnyEnvelope>) => {
+    const handler = (
+        value: Error | ErrorEvent | AnyData | AnyEnvelope | MessageEvent<Error | AnyData | AnyEnvelope>,
+    ) => {
         if (value instanceof MessageEvent) {
             value = value.data;
         }
@@ -43,7 +40,7 @@ export function on<T>(
 }
 
 export function getTransmitterName(transmitter: Transmitter): string {
-    const postfix = '<' + threadId + '-' + createPointerId(transmitter) + '>'
+    const postfix = '<' + threadId + '-' + createPointerId(transmitter) + '>';
     if ('name' in transmitter && typeof transmitter.name === 'string') {
         return transmitter.name + postfix;
     }

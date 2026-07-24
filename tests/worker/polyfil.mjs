@@ -23,10 +23,6 @@ locksProvider.delegate = {
             return locks.request(name, optionsOrCallback);
         }
         const { signal, ...options } = optionsOrCallback ?? {};
-        return locks.request(
-            name,
-            signal ? { ...options, signal: adaptSignal(signal) } : options,
-            callback,
-        );
+        return locks.request(name, signal ? { ...options, signal: adaptSignal(signal) } : options, callback);
     },
 };

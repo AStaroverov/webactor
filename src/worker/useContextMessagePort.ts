@@ -1,8 +1,8 @@
-import { connectTransmitters } from "../connectTransmitters";
-import { createEnvelopeChannel } from "../createEnvelopePort";
-import { Transmitter } from "../types";
-import { threadId } from "../utils/thread";
-import { onConnectMessagePort } from "./onConnectMessagePort";
+import { connectTransmitters } from '../connectTransmitters';
+import { createEnvelopeChannel } from '../createEnvelopePort';
+import { Transmitter } from '../types';
+import { threadId } from '../utils/thread';
+import { onConnectMessagePort } from './onConnectMessagePort';
 
 export function useContextMessagePort() {
     const channel = createEnvelopeChannel();

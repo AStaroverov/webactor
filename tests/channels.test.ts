@@ -13,12 +13,12 @@ import { ActorContext } from '../src/types';
 import { restoreMessageChannel, setupMessageChannelMock } from './message-channel-mock';
 
 const testEnvironments = [
-    { name: 'Native MessageChannel', setup: () => { }, teardown: () => { } },
+    { name: 'Native MessageChannel', setup: () => {}, teardown: () => {} },
     {
         name: 'Sync MessageChannel Mock',
         setup: setupMessageChannelMock,
-        teardown: restoreMessageChannel
-    }
+        teardown: restoreMessageChannel,
+    },
 ];
 
 describe('openChannel abort handling', () => {
@@ -34,9 +34,13 @@ describe('openChannel abort handling', () => {
         setTimeout(() => abortController.abort('nobody answered'), 50);
 
         await expect(
-            openChannel(requesterContext!, { type: 'request-channel' }, {
-                abortSignal: abortController.signal,
-            })
+            openChannel(
+                requesterContext!,
+                { type: 'request-channel' },
+                {
+                    abortSignal: abortController.signal,
+                },
+            ),
         ).rejects.toThrow('nobody answered');
 
         requesterActor.close();
@@ -68,9 +72,13 @@ describe('openChannel abort handling', () => {
         abortController.abort('aborted before open');
 
         await expect(
-            openChannel(requesterContext!, { type: 'request-channel' }, {
-                abortSignal: abortController.signal,
-            })
+            openChannel(
+                requesterContext!,
+                { type: 'request-channel' },
+                {
+                    abortSignal: abortController.signal,
+                },
+            ),
         ).rejects.toThrow('aborted before open');
 
         await new Promise((resolve) => setTimeout(resolve, 10));
@@ -108,9 +116,13 @@ describe('abortSignal scope', () => {
         supporterActor.launch();
 
         const abortController = new AbortController();
-        const channel = await openChannel(requesterContext!, { type: 'request-channel' }, {
-            abortSignal: abortController.signal,
-        });
+        const channel = await openChannel(
+            requesterContext!,
+            { type: 'request-channel' },
+            {
+                abortSignal: abortController.signal,
+            },
+        );
 
         let closed = false;
         channel.addEventListener('close', () => {
@@ -161,9 +173,13 @@ describe('handshake interruption', () => {
         const abortController = new AbortController();
         setTimeout(() => abortController.abort('opener gone'), 20);
         await expect(
-            openChannel(requesterContext!, { type: 'request-channel' }, {
-                abortSignal: abortController.signal,
-            })
+            openChannel(
+                requesterContext!,
+                { type: 'request-channel' },
+                {
+                    abortSignal: abortController.signal,
+                },
+            ),
         ).rejects.toThrow('opener gone');
 
         expect(channelEnvelope).not.toBeNull();
@@ -326,7 +342,7 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             channelTransmitter.postMessage({ from: 'supporter', message: 'Hello requester!' });
 
             // Allow messages to propagate
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             expect(messagesFromSupporter).toContainEqual({ from: 'supporter', message: 'Hello requester!' });
             expect(messagesFromRequester).toContainEqual({ from: 'requester', message: 'Hello supporter!' });
@@ -379,7 +395,7 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             channel.close();
 
             // Allow error events to propagate
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
 
             expect(channelClosed).toBe(true);
             expect(transmitterClosed).toBe(true);
@@ -436,29 +452,25 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             // Send message through channel (should be isolated)
             channel.postMessage({ type: 'channel-message', content: 'via channel' });
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             // Main actor should receive the main message
             expect(mainActorMessages).toContainEqual({
                 actor: 'supporter',
-                data: { type: 'main-message', content: 'via actor' }
+                data: { type: 'main-message', content: 'via actor' },
             });
 
             // Channel should receive the channel message
             expect(channelMessages).toContainEqual({
                 from: 'supporter-channel',
-                data: { type: 'channel-message', content: 'via channel' }
+                data: { type: 'channel-message', content: 'via channel' },
             });
 
             // Main actor should NOT receive the channel message
-            expect(mainActorMessages.find(msg =>
-                msg.data.type === 'channel-message'
-            )).toBeUndefined();
+            expect(mainActorMessages.find((msg) => msg.data.type === 'channel-message')).toBeUndefined();
 
             // Channel should NOT receive the main message
-            expect(channelMessages.find(msg =>
-                msg.data.type === 'main-message'
-            )).toBeUndefined();
+            expect(channelMessages.find((msg) => msg.data.type === 'main-message')).toBeUndefined();
 
             channel.close();
             channelTransmitter.close();
@@ -536,28 +548,46 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             channel.postMessage({ type: 'private', from: 'actor1', secret: 'Secret message from 1 to 2' });
             channelTransmitter.postMessage({ type: 'private', from: 'actor2', secret: 'Secret response from 2 to 1' });
 
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise((resolve) => setTimeout(resolve, 50));
 
             // Verify broadcast messages reached all connected actors
-            expect(actor2Messages).toContainEqual({ source: 'actor2-main', data: { type: 'broadcast', from: 'actor1', message: 'Hello everyone!' } });
-            expect(actor3Messages).toContainEqual({ source: 'actor3-main', data: { type: 'broadcast', from: 'actor1', message: 'Hello everyone!' } });
-            expect(actor1Messages).toContainEqual({ source: 'actor1-main', data: { type: 'broadcast', from: 'actor3', message: 'Hi from actor3!' } });
-            expect(actor2Messages).toContainEqual({ source: 'actor2-main', data: { type: 'broadcast', from: 'actor3', message: 'Hi from actor3!' } });
+            expect(actor2Messages).toContainEqual({
+                source: 'actor2-main',
+                data: { type: 'broadcast', from: 'actor1', message: 'Hello everyone!' },
+            });
+            expect(actor3Messages).toContainEqual({
+                source: 'actor3-main',
+                data: { type: 'broadcast', from: 'actor1', message: 'Hello everyone!' },
+            });
+            expect(actor1Messages).toContainEqual({
+                source: 'actor1-main',
+                data: { type: 'broadcast', from: 'actor3', message: 'Hi from actor3!' },
+            });
+            expect(actor2Messages).toContainEqual({
+                source: 'actor2-main',
+                data: { type: 'broadcast', from: 'actor3', message: 'Hi from actor3!' },
+            });
 
             // Verify channel messages only reached the channel participants
-            expect(channelMessagesAtActor1).toContainEqual({ source: 'actor1-channel', data: { type: 'private', from: 'actor2', secret: 'Secret response from 2 to 1' } });
-            expect(channelMessagesAtActor2).toContainEqual({ source: 'actor2-channel', data: { type: 'private', from: 'actor1', secret: 'Secret message from 1 to 2' } });
+            expect(channelMessagesAtActor1).toContainEqual({
+                source: 'actor1-channel',
+                data: { type: 'private', from: 'actor2', secret: 'Secret response from 2 to 1' },
+            });
+            expect(channelMessagesAtActor2).toContainEqual({
+                source: 'actor2-channel',
+                data: { type: 'private', from: 'actor1', secret: 'Secret message from 1 to 2' },
+            });
 
             // Verify channel messages DID NOT leak to actor3's main message system
-            expect(actor3Messages.find(msg => msg.data.type === 'private')).toBeUndefined();
+            expect(actor3Messages.find((msg) => msg.data.type === 'private')).toBeUndefined();
 
             // Verify channel messages DID NOT leak to actor1/actor2's main message systems
-            expect(actor1Messages.find(msg => msg.data.type === 'private')).toBeUndefined();
-            expect(actor2Messages.find(msg => msg.data.type === 'private')).toBeUndefined();
+            expect(actor1Messages.find((msg) => msg.data.type === 'private')).toBeUndefined();
+            expect(actor2Messages.find((msg) => msg.data.type === 'private')).toBeUndefined();
 
             // Verify main broadcast messages DID NOT leak to the channel
-            expect(channelMessagesAtActor1.find(msg => msg.data.type === 'broadcast')).toBeUndefined();
-            expect(channelMessagesAtActor2.find(msg => msg.data.type === 'broadcast')).toBeUndefined();
+            expect(channelMessagesAtActor1.find((msg) => msg.data.type === 'broadcast')).toBeUndefined();
+            expect(channelMessagesAtActor2.find((msg) => msg.data.type === 'broadcast')).toBeUndefined();
 
             // Cleanup
             channel.close();
@@ -580,7 +610,9 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             let channel34TransmitterPromise: any = null;
 
             // Create four actors
-            const actor1 = createActor('actor1', (context: ActorContext) => { actor1Context = context; });
+            const actor1 = createActor('actor1', (context: ActorContext) => {
+                actor1Context = context;
+            });
             const actor2 = createActor('actor2', (context: ActorContext) => {
                 actor2Context = context;
                 context.addEventListener('message', async (event) => {
@@ -589,7 +621,9 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
                     }
                 });
             });
-            const actor3 = createActor('actor3', (context: ActorContext) => { actor3Context = context; });
+            const actor3 = createActor('actor3', (context: ActorContext) => {
+                actor3Context = context;
+            });
             const actor4 = createActor('actor4', (context: ActorContext) => {
                 actor4Context = context;
                 context.addEventListener('message', async (event) => {
@@ -640,20 +674,32 @@ describe.each(testEnvironments)('Channel System - $name', ({ setup, teardown }) 
             channel34.postMessage({ channel: '3-4', message: 'Hello from 3 to 4' });
             channel34Transmitter.postMessage({ channel: '3-4', message: 'Hello from 4 to 3' });
 
-            await new Promise(resolve => setTimeout(resolve, 20));
+            await new Promise((resolve) => setTimeout(resolve, 20));
 
             // Verify each channel only receives its own messages
             expect(messages12).toHaveLength(2);
-            expect(messages12).toContainEqual({ from: 'actor1-channel', data: { channel: '1-2', message: 'Hello from 2 to 1' } });
-            expect(messages12).toContainEqual({ from: 'actor2-channel', data: { channel: '1-2', message: 'Hello from 1 to 2' } });
+            expect(messages12).toContainEqual({
+                from: 'actor1-channel',
+                data: { channel: '1-2', message: 'Hello from 2 to 1' },
+            });
+            expect(messages12).toContainEqual({
+                from: 'actor2-channel',
+                data: { channel: '1-2', message: 'Hello from 1 to 2' },
+            });
 
             expect(messages34).toHaveLength(2);
-            expect(messages34).toContainEqual({ from: 'actor3-channel', data: { channel: '3-4', message: 'Hello from 4 to 3' } });
-            expect(messages34).toContainEqual({ from: 'actor4-channel', data: { channel: '3-4', message: 'Hello from 3 to 4' } });
+            expect(messages34).toContainEqual({
+                from: 'actor3-channel',
+                data: { channel: '3-4', message: 'Hello from 4 to 3' },
+            });
+            expect(messages34).toContainEqual({
+                from: 'actor4-channel',
+                data: { channel: '3-4', message: 'Hello from 3 to 4' },
+            });
 
             // Verify no cross-channel message leakage
-            expect(messages12.find(msg => msg.data.channel === '3-4')).toBeUndefined();
-            expect(messages34.find(msg => msg.data.channel === '1-2')).toBeUndefined();
+            expect(messages12.find((msg) => msg.data.channel === '3-4')).toBeUndefined();
+            expect(messages34.find((msg) => msg.data.channel === '1-2')).toBeUndefined();
 
             // Cleanup
             channel12.close();

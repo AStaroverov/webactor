@@ -9,7 +9,7 @@ describe('Retranslator Tests', () => {
 
     afterEach(async () => {
         try {
-            disconnectFunctions.forEach(disconnect => {
+            disconnectFunctions.forEach((disconnect) => {
                 try {
                     disconnect();
                 } catch (e) {
@@ -46,7 +46,7 @@ describe('Retranslator Tests', () => {
         });
 
         retranslator = createRetranslator({
-            name: 'test-retranslator'
+            name: 'test-retranslator',
         });
 
         targetActor = createActor('target', (context: ActorContext) => {
@@ -63,7 +63,7 @@ describe('Retranslator Tests', () => {
         retranslator.launch();
         sourceActor.launch();
 
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         expect(receivedMessages).toHaveLength(2);
         expect(receivedMessages[0]).toEqual(testMessage1);
@@ -81,11 +81,11 @@ describe('Retranslator Tests', () => {
             null,
             undefined,
             true,
-            false
+            false,
         ];
 
         sourceActor = createActor('data-source', (context: ActorContext) => {
-            testData.forEach(data => {
+            testData.forEach((data) => {
                 context.postMessage(data);
             });
         });
@@ -106,7 +106,7 @@ describe('Retranslator Tests', () => {
         retranslator.launch();
         sourceActor.launch();
 
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         expect(receivedData).toHaveLength(testData.length);
         testData.forEach((expectedData, index) => {
@@ -139,7 +139,7 @@ describe('Retranslator Tests', () => {
         });
 
         retranslator = createRetranslator({
-            name: 'network-hub'
+            name: 'network-hub',
         });
 
         actor1.launch();
@@ -156,22 +156,22 @@ describe('Retranslator Tests', () => {
         actor1.postMessage({ type: 'ping', message: 'Hello from actor1', id: 1 });
         actor2.postMessage({ type: 'ping', message: 'Hello from actor2', id: 2 });
 
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
         expect(actor1Messages).toContainEqual(
             expect.objectContaining({
                 type: 'pong',
                 from: 'actor2',
-                receivedBy: 'actor1'
-            })
+                receivedBy: 'actor1',
+            }),
         );
 
         expect(actor2Messages).toContainEqual(
             expect.objectContaining({
                 type: 'pong',
                 from: 'actor1',
-                receivedBy: 'actor2'
-            })
+                receivedBy: 'actor2',
+            }),
         );
 
         actor1.close();

@@ -7,8 +7,6 @@ export function raceWithAbort<T>(promise: Promise<T>, signal?: AbortSignal): Pro
         const onAbort = () => reject(reasonToError(signal.reason, Reasons.Abort));
         if (signal.aborted) return onAbort();
         signal.addEventListener('abort', onAbort, { once: true });
-        promise
-            .then(resolve, reject)
-            .finally(() => signal.removeEventListener('abort', onAbort));
+        promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
     });
 }

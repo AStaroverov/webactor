@@ -24,7 +24,7 @@ class MockMessagePort {
             const event = new MessageEvent('message', { data });
             // Synchronous dispatch - this is the key difference!
             const handlers = this.otherPort.handlers.get('message') || [];
-            handlers.forEach(handler => {
+            handlers.forEach((handler) => {
                 try {
                     handler(event);
                 } catch (error) {
@@ -38,7 +38,7 @@ class MockMessagePort {
         if (!this.handlers.has(type)) {
             this.handlers.set(type, []);
         }
-        
+
         if (options?.once) {
             const onceHandler = (event: MessageEvent) => {
                 handler(event);
@@ -67,7 +67,7 @@ class MockMessagePort {
 
     dispatchEvent(event: Event): boolean {
         const handlers = this.handlers.get(event.type) || [];
-        handlers.forEach(handler => {
+        handlers.forEach((handler) => {
             try {
                 handler(event as MessageEvent);
             } catch (error) {
@@ -85,7 +85,7 @@ export class MockMessageChannel {
     constructor() {
         this.port1 = new MockMessagePort();
         this.port2 = new MockMessagePort();
-        
+
         this.port1.setOtherPort(this.port2);
         this.port2.setOtherPort(this.port1);
     }
@@ -99,7 +99,7 @@ export function setupMessageChannelMock() {
     Object.defineProperty(global, 'MessageChannel', {
         value: MockMessageChannel,
         writable: true,
-        configurable: true
+        configurable: true,
     });
 }
 
@@ -109,7 +109,7 @@ export function restoreMessageChannel() {
         Object.defineProperty(global, 'MessageChannel', {
             value: originalMessageChannel,
             writable: true,
-            configurable: true
+            configurable: true,
         });
     } else {
         delete (global as any).MessageChannel;

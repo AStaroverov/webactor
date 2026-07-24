@@ -28,7 +28,7 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
     };
 
     const launch = () => {
-        if (launched) return
+        if (launched) return;
         launched = true;
 
         // @ts-ignore

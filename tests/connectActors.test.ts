@@ -69,7 +69,7 @@ describe('connectActors', () => {
             actor2Context!.postMessage(message2);
 
             // Allow messages to propagate
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             expect(actor2Messages).toContainEqual({ type: 'ping', from: 'actor1' });
             expect(actor1Messages).toContainEqual({ type: 'pong', from: 'actor2' });
@@ -105,7 +105,7 @@ describe('connectActors', () => {
             // Отправляем сообщение через ActorContext и проверяем что оно дошло до Actor
             parentActor!.postMessage({ type: 'test', data: 'hello from context to actor' });
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             expect(messages).toContainEqual({ type: 'test', data: 'hello from context to actor' });
 
@@ -145,14 +145,10 @@ describe('connectActors', () => {
             actor1Context!.postMessage(message1);
             actor2Context!.postMessage(message2);
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
-            expect(actor2Handler).toHaveBeenCalledWith(
-                expect.objectContaining({ data: message1 })
-            );
-            expect(actor1Handler).toHaveBeenCalledWith(
-                expect.objectContaining({ data: message2 })
-            );
+            expect(actor2Handler).toHaveBeenCalledWith(expect.objectContaining({ data: message1 }));
+            expect(actor1Handler).toHaveBeenCalledWith(expect.objectContaining({ data: message2 }));
 
             disconnect();
             actor1.close();
@@ -180,16 +176,14 @@ describe('connectActors', () => {
                 type: 'complex',
                 nested: { deep: { value: 42 } },
                 array: [1, 2, 3],
-                metadata: { timestamp: Date.now() }
+                metadata: { timestamp: Date.now() },
             };
 
             actor1Context!.postMessage(complexMessage);
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
-            expect(actor2Handler).toHaveBeenCalledWith(
-                expect.objectContaining({ data: complexMessage })
-            );
+            expect(actor2Handler).toHaveBeenCalledWith(expect.objectContaining({ data: complexMessage }));
 
             disconnect();
             actor1.close();
@@ -220,7 +214,7 @@ describe('connectActors', () => {
             // Send message while connected
             actor1Context!.postMessage({ type: 'before-disconnect' });
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             expect(actor2Handler).toHaveBeenCalledTimes(1);
 
@@ -233,7 +227,7 @@ describe('connectActors', () => {
             // Send message after disconnect
             actor1Context!.postMessage({ type: 'after-disconnect' });
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             // Should not receive new messages
             expect(actor2Handler).not.toHaveBeenCalled();
@@ -307,12 +301,10 @@ describe('connectActors', () => {
 
             actorContext!.postMessage({ type: 'self-message' });
 
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
             // Should receive the message (self-connection)
-            expect(selfHandler).toHaveBeenCalledWith(
-                expect.objectContaining({ data: { type: 'self-message' } })
-            );
+            expect(selfHandler).toHaveBeenCalledWith(expect.objectContaining({ data: { type: 'self-message' } }));
 
             disconnect();
             actor.close();
@@ -342,15 +334,15 @@ describe('connectActors', () => {
                 { type: 'msg2', order: 2 },
                 { type: 'msg3', order: 3 },
                 { type: 'msg4', order: 4 },
-                { type: 'msg5', order: 5 }
+                { type: 'msg5', order: 5 },
             ];
 
-            messages.forEach(msg => actor1Context!.postMessage(msg));
+            messages.forEach((msg) => actor1Context!.postMessage(msg));
 
-            await new Promise(resolve => setTimeout(resolve, 20));
+            await new Promise((resolve) => setTimeout(resolve, 20));
 
             expect(receivedMessages).toHaveLength(5);
-            expect(receivedMessages.map(m => m.order)).toEqual([1, 2, 3, 4, 5]);
+            expect(receivedMessages.map((m) => m.order)).toEqual([1, 2, 3, 4, 5]);
 
             disconnect();
             actor1.close();

@@ -23,13 +23,13 @@ describe('createEnvelopeEmitter', () => {
         envelopeEmitter.addEventListener('message', mockCallback);
         envelopeEmitter.postMessage(testMessage);
 
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(mockCallback).toHaveBeenCalledWith(
             expect.objectContaining({
                 type: 'message',
-                data: testMessage
-            })
+                data: testMessage,
+            }),
         );
     });
 
@@ -53,7 +53,7 @@ describe('createEnvelopeEmitter', () => {
         envelopeEmitter.addEventListener('message', mockCallback2);
         envelopeEmitter.postMessage(testMessage);
 
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(mockCallback1).toHaveBeenCalled();
         expect(mockCallback2).toHaveBeenCalled();
@@ -147,11 +147,11 @@ describe('createActorFactory', () => {
         it('should close mailboxes on close', () => {
             const mockclose = vi.fn();
             const mockCreateEnvelopeChannel = () => {
-                const { port1, port2 } = createEnvelopeChannel()
-                port1.close = mockclose
-                port2.close = mockclose
-                return { port1, port2 }
-            }
+                const { port1, port2 } = createEnvelopeChannel();
+                port1.close = mockclose;
+                port2.close = mockclose;
+                return { port1, port2 };
+            };
 
             mockCreateChannel
                 .mockReturnValueOnce(mockCreateEnvelopeChannel())
@@ -176,7 +176,7 @@ describe('createActorFactory', () => {
             const actor2MessageHandler = vi.fn();
             const actor2Constructor = (context: ActorContext) => {
                 context.addEventListener('message', actor2MessageHandler);
-            }
+            };
 
             const actor1 = createActorFromFactory('actor1', actor1Constructor);
             const actor2 = createActorFromFactory('actor2', actor2Constructor);
@@ -197,12 +197,12 @@ describe('createActorFactory', () => {
             actor1.postMessage({ type: 'ping', payload: 'test' });
 
             // Give time for async message handling
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise((resolve) => setTimeout(resolve, 0));
 
             expect(actor2MessageHandler).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    data: { type: 'pong', payload: 'test' }
-                })
+                    data: { type: 'pong', payload: 'test' },
+                }),
             );
 
             actor1.close();

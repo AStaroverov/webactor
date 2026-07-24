@@ -1,5 +1,4 @@
-import { ValueOf } from "./types";
-
+import { ValueOf } from './types';
 
 export type Reason = ValueOf<typeof Reasons>;
 export const Reasons = {
@@ -9,4 +8,3 @@ export const Reasons = {
     LostConnection: 'Lost connection',
 };
 export const $Aborted = Symbol('Aborted');
-

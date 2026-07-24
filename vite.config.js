@@ -9,14 +9,16 @@ export default defineConfig({
             name: 'webactor',
         },
         rollupOptions: {
-            output: [{
-                format: 'es',
-                entryFileNames: '[name].js',
-                preserveModules: true,
-                preserveModulesRoot: './src',
-                inlineDynamicImports: false
-            }]
-        }
+            output: [
+                {
+                    format: 'es',
+                    entryFileNames: '[name].js',
+                    preserveModules: true,
+                    preserveModulesRoot: './src',
+                    inlineDynamicImports: false,
+                },
+            ],
+        },
     },
     plugins: [dts()],
 });

@@ -17,19 +17,19 @@ export function onConnectMessagePort(
     { isDedicatedWorkerScope, isSharedWorkerScope } = dependencies,
 ): VoidFunction {
     const context = globalThis as unknown;
-    const unlockThreadIdPromise = lock(threadId)
+    const unlockThreadIdPromise = lock(threadId);
     const responseWithThreadId = (port: MessagePort) => {
         return on(port, EventType.Message, (envelope) => {
             if (isEnvelope(envelope) && envelope.data === THREAD_ID_REQUEST) {
-                unlockThreadIdPromise.then(() => response(port as Transmitter, envelope, { threadId }))
+                unlockThreadIdPromise.then(() => response(port as Transmitter, envelope, { threadId }));
             }
-        })
+        });
     };
 
     if (isDedicatedWorkerScope(context) || isMessagePortLike(context)) {
         const port = context as unknown as MessagePort;
         onConnect(port);
-        return responseWithThreadId(port)
+        return responseWithThreadId(port);
     }
 
     if (isSharedWorkerScope(context)) {
@@ -44,7 +44,7 @@ export function onConnectMessagePort(
         context.addEventListener('connect', callback);
         return () => {
             context.removeEventListener('connect', callback);
-            disposes.forEach(fn => fn());
+            disposes.forEach((fn) => fn());
         };
     }
 
