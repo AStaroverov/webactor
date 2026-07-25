@@ -46,7 +46,7 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
         removeEventListener: port2.removeEventListener.bind(port2),
     };
 
-    devtools.register([actor, port1, port2], 'retranslator', name);
+    devtools.register(actor, undefined, 'retranslator', name);
 
     return actor;
 }

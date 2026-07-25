@@ -52,7 +52,7 @@ export function createActorFactory(options: { createChannel: () => ReturnType<ty
             removeEventListener: port2.removeEventListener.bind(port2),
         };
 
-        devtools.register([actor, context, port1, port2], 'actor', name);
+        devtools.register(actor, context, 'actor', name);
 
         return actor;
     };

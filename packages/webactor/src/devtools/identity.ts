@@ -5,18 +5,31 @@ import type { DevtoolsNodeKinds } from './types';
 type Descriptor = {
     kind: DevtoolsNodeKinds;
     name: string | undefined;
-    aliases: object[];
+    primary: object;
+    alias: object | undefined;
 };
 
 const identities = new WeakMap<object, string>();
 
-// The descriptor holds its own keys in `aliases`. WeakMap entries are ephemerons,
-// so that cycle still collects once the transmitters themselves are unreachable.
+/**
+ * Declared kinds, written whether or not anything is recording: a worker only ever activates after its
+ * actors exist, so without this every actor behind a thread boundary would report as `unknown`. One
+ * WeakMap write per transmitter is the whole cost of the recorder when it is switched off.
+ */
+const kinds = new WeakMap<object, DevtoolsNodeKinds>();
+
+// A descriptor holds its own keys. WeakMap entries are ephemerons, so that cycle still collects
+// once the transmitters themselves are unreachable.
 const descriptors = new WeakMap<object, Descriptor>();
 
-export function describe(aliases: object[], kind: DevtoolsNodeKinds, name?: string): void {
-    const descriptor: Descriptor = { kind, name, aliases };
-    for (const alias of aliases) descriptors.set(alias, descriptor);
+export function declareKind(transmitter: object, kind: DevtoolsNodeKinds): void {
+    kinds.set(transmitter, kind);
+}
+
+export function describe(primary: object, alias: object | undefined, kind: DevtoolsNodeKinds, name?: string): void {
+    const descriptor: Descriptor = { kind, name, primary, alias };
+    descriptors.set(primary, descriptor);
+    if (alias !== undefined) descriptors.set(alias, descriptor);
 }
 
 export function descriptorOf(transmitter: object): Descriptor | undefined {
@@ -28,11 +41,11 @@ export function identify(transmitter: object): string {
     if (known !== undefined) return known;
 
     const descriptor = descriptors.get(transmitter);
-    const primary = descriptor?.aliases[0] ?? transmitter;
+    const primary = descriptor?.primary ?? transmitter;
     const id = identities.get(primary) ?? getTransmitterName(primary as Transmitter);
 
-    if (descriptor === undefined) identities.set(transmitter, id);
-    else for (const alias of descriptor.aliases) identities.set(alias, id);
+    identities.set(primary, id);
+    if (descriptor?.alias !== undefined) identities.set(descriptor.alias, id);
 
     return id;
 }
@@ -43,6 +56,8 @@ export function displayName(id: string): string {
 }
 
 export function inferKind(transmitter: object): DevtoolsNodeKinds {
+    const declared = kinds.get(transmitter);
+    if (declared !== undefined) return declared;
     if (typeof MessagePort !== 'undefined' && transmitter instanceof MessagePort) return 'port';
     return 'unknown';
 }

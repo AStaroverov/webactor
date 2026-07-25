@@ -63,7 +63,7 @@ export function observeRemoteTransmitter(transmitter: Transmitter): void {
     if (!devtools.active) return;
     if (!isRemoteTransmitter(transmitter)) return;
     if (devtools.isExcludedFromBridge(transmitter)) return;
-    devtools.register([transmitter], 'port');
+    devtools.register(transmitter, undefined, 'port');
     attachToRemote(transmitter);
 }
 

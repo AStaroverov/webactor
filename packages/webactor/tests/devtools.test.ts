@@ -232,6 +232,33 @@ describe('devtools recorder', () => {
         expect(seen.filter((event) => event.type === 'message')).toHaveLength(1);
     });
 
+    it('still knows the kind of an actor created before it was enabled', async () => {
+        const early = createActor('created-early', (context: ActorContext) => {
+            context.addEventListener('message', () => {});
+        });
+        early.launch();
+
+        const session = record();
+        disable = session.disable;
+
+        const peer = createActor('created-late', (context: ActorContext) => {
+            context.postMessage({ hi: 1 });
+        });
+        connectActors(early, peer);
+        peer.launch();
+        await tick();
+        flushDevtools();
+
+        // Kinds are declared even while nothing records, because a worker only activates once its
+        // actors already exist. Everything else about a node is derived on demand.
+        const snapshot = getDevtoolsSnapshot();
+        expect(snapshot.nodes.find((node) => node.name === 'created-early')?.kind).toBe('actor');
+        expect(snapshot.nodes.find((node) => node.name === 'created-late')?.kind).toBe('actor');
+
+        early.close();
+        peer.close();
+    });
+
     it('remembers transmitters excluded from bridging', () => {
         const port = {};
         expect(devtools.isExcludedFromBridge(port)).toBe(false);

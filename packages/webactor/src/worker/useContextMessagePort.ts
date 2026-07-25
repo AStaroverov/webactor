@@ -19,7 +19,7 @@ export function useContextMessagePort() {
         name: threadId,
     };
 
-    devtools.register([contextPort, channel.port1, channel.port2], 'thread-port', threadId);
+    devtools.register(contextPort, channel.port1, 'thread-port', threadId);
 
     return contextPort;
 }

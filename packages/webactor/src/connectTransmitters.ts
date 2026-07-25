@@ -41,8 +41,10 @@ function createReposter(subscribedType: Type, connectedTypes: Type[], source: Tr
     const targetName = getTransmitterName(target);
     return function repost(data: AnyData) {
         if (isEnvelope(data)) {
-            if (isBridgeEnvelope(data)) return handleBridgeEnvelope(source, data);
-            if (!connectedTypes.includes(data.type as Type)) return;
+            if (!connectedTypes.includes(data.type as Type)) {
+                if (isBridgeEnvelope(data)) handleBridgeEnvelope(source, data);
+                return;
+            }
             const envelope = processEnvelope(data, sourceName, targetName);
             if (devtools.active) devtools.message(source, target, envelope ?? data, envelope !== undefined);
             if (envelope) post(target, envelope.type, envelope);

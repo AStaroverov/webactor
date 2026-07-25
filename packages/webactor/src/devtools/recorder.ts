@@ -3,7 +3,7 @@ import { threadId } from '../utils/thread';
 import { excludeFromBridge, isExcludedFromBridge } from './bridge-exclusions';
 import { DEVTOOLS_GLOBAL_KEY, DEVTOOLS_HOOK_KEY } from './defs';
 import * as state from './graph-state';
-import { describe, descriptorOf, displayName, identify, inferKind } from './identity';
+import { declareKind, describe, descriptorOf, displayName, identify, inferKind } from './identity';
 import { getOptions, option, setOptions } from './options';
 import { createPreview, estimateBytes } from './serialize';
 import * as sinks from './sinks';
@@ -86,11 +86,12 @@ export const devtools = {
         return sinks.isActive() ? identify(transmitter) : undefined;
     },
 
-    register(aliases: object[], kind: DevtoolsNodeKinds, name?: string): void {
-        describe(aliases, kind, name);
+    register(primary: object, alias: object | undefined, kind: DevtoolsNodeKinds, name?: string): void {
+        declareKind(primary, kind);
         if (!sinks.isActive()) return;
+        describe(primary, alias, kind, name);
 
-        const node = ensureNodeFor(aliases[0]);
+        const node = ensureNodeFor(primary);
         if (node.kind === kind && (name === undefined || node.name === name)) return;
         node.kind = kind;
         if (name !== undefined) node.name = name;
