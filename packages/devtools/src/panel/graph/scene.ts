@@ -14,36 +14,12 @@ export type SceneInput = {
     bodies: Bodies;
     edges: Edge[];
     particles: Particles;
-    threads: string[];
-    threadX: (thread: string) => number;
     nodeAt: (id: string) => DevtoolsNode | undefined;
     isVisible: (node: DevtoolsNode) => boolean;
     radiusOf: (node: DevtoolsNode) => number;
     selected: string | undefined;
     hovered: string | undefined;
 };
-
-function drawThreadBands(scene: SceneInput): void {
-    const { context, camera, theme, threads, threadX } = scene;
-    if (threads.length <= 1) return;
-
-    context.save();
-    context.font = '11px ui-monospace, monospace';
-    context.textAlign = 'center';
-    for (const thread of threads) {
-        const x = threadX(thread);
-        context.strokeStyle = theme.threadBand;
-        context.setLineDash([2, 6]);
-        context.beginPath();
-        context.moveTo(x, -camera.height / camera.scale);
-        context.lineTo(x, camera.height / camera.scale);
-        context.stroke();
-        context.setLineDash([]);
-        context.fillStyle = theme.threadLabel;
-        context.fillText(thread, x, -camera.height / (2 * camera.scale) + 16);
-    }
-    context.restore();
-}
 
 function drawEdges(scene: SceneInput): void {
     const { context, theme, bodies, edges, selected } = scene;
@@ -161,7 +137,6 @@ export function draw(scene: SceneInput): void {
     context.fillRect(0, 0, camera.width, camera.height);
     camera.apply(context);
 
-    drawThreadBands(scene);
     drawEdges(scene);
     drawParticles(scene);
     drawNodes(scene);

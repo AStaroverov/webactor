@@ -181,8 +181,6 @@ export class GraphView {
             bodies: this.bodies,
             edges: this.edges,
             particles: this.particles,
-            threads: this.threads.threads,
-            threadX: (thread) => this.threadX(thread),
             nodeAt: (id) => this.nodeAt(id),
             isVisible: this.filter,
             radiusOf: (node) => this.radiusOf(node),

@@ -5,8 +5,6 @@ export type GraphTheme = {
     label: string;
     labelMuted: string;
     selection: string;
-    threadBand: string;
-    threadLabel: string;
 };
 
 export const KIND_COLORS: Record<string, string> = {
@@ -34,7 +32,5 @@ export function readTheme(): GraphTheme {
         label: value('--text', '#e6e6e6'),
         labelMuted: value('--text-muted', '#9aa0a6'),
         selection: value('--accent', '#7cacf8'),
-        threadBand: value('--border', '#34363b'),
-        threadLabel: value('--text-muted', '#9aa0a6'),
     };
 }

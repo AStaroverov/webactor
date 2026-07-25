@@ -6,8 +6,8 @@ who is connected to whom, across every thread, and every envelope that travels b
 ## What you get
 
 - **Graph** — one node per actor, retranslator, supervisor and thread port; edges are real
-  `connectTransmitters` connections. Nodes are grouped into columns by thread, so a page with three
-  workers reads as four columns. Cross-thread edges are dashed.
+  `connectTransmitters` connections. Nodes of the same thread settle near each other, and cross-thread
+  edges are dashed.
 - **Message flow** — envelopes animate along the edge they travel on, coloured by envelope type
   (`message`, `close`, `error`). Undelivered envelopes (dropped by a route mismatch) are drawn in red.
 - **Per-actor history** — select an actor to get its incoming/outgoing envelopes with timestamps,
