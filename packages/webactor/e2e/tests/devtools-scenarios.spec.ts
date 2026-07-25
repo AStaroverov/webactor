@@ -9,7 +9,7 @@ declare global {
             snapshot: () => DevtoolsSnapshot;
             snapshotEvents: () => DevtoolsEvent[];
             flush: () => void;
-            getOptions: () => { maxMessages: number };
+            getOptions: () => { maxNodes: number; maxLinks: number; maxMessages: number };
         };
     }
 }
@@ -20,10 +20,8 @@ type Capture = {
     nodes: DevtoolsNode[];
     links: DevtoolsLink[];
     messages: DevtoolsMessage[];
-    maxMessages: number;
+    caps: { maxNodes: number; maxLinks: number; maxMessages: number };
 };
-
-const RECORDER_NODE_CAP = 4000;
 
 test.describe.configure({ mode: 'serial' });
 
@@ -44,20 +42,13 @@ test.beforeEach(async ({ page }) => {
     await page.waitForFunction(() => Boolean(window.__loadTest));
 });
 
-async function capture(page: Page, name: string, overrides: Record<string, number>): Promise<Capture> {
-    await page.evaluate(
-        ([scenario, config]) => window.__loadTest.run(scenario as string, config as Record<string, number>),
-        [name, overrides] as const,
-    );
-
-    await page.waitForTimeout(150);
-
+async function readCapture(page: Page): Promise<Capture> {
     const raw = await page.evaluate(() => {
         window.__WEBACTOR_DEVTOOLS__.flush();
         return {
             events: window.__devtoolsEvents,
             snapshot: window.__WEBACTOR_DEVTOOLS__.snapshot(),
-            maxMessages: window.__WEBACTOR_DEVTOOLS__.getOptions().maxMessages,
+            caps: window.__WEBACTOR_DEVTOOLS__.getOptions(),
         };
     });
 
@@ -71,6 +62,16 @@ async function capture(page: Page, name: string, overrides: Record<string, numbe
     }
 
     return { ...raw, nodes, links, messages };
+}
+
+async function capture(page: Page, name: string, overrides: Record<string, number>): Promise<Capture> {
+    await page.evaluate(
+        ([scenario, config]) => window.__loadTest.run(scenario as string, config as Record<string, number>),
+        [name, overrides] as const,
+    );
+
+    await page.waitForTimeout(150);
+    return readCapture(page);
 }
 
 function assertInvariants(capture: Capture, label: string): void {
@@ -128,9 +129,11 @@ function assertInvariants(capture: Capture, label: string): void {
     }
 
     expect(capture.snapshot.messages.length, `${label}: message ring buffer overflowed`).toBeLessThanOrEqual(
-        Math.ceil(capture.maxMessages * 1.25),
+        Math.ceil(capture.caps.maxMessages * 1.25),
     );
-    expect(capture.snapshot.nodes.length, `${label}: node map exceeded its cap`).toBeLessThanOrEqual(RECORDER_NODE_CAP);
+    expect(capture.snapshot.nodes.length, `${label}: node map exceeded its cap`).toBeLessThanOrEqual(
+        capture.caps.maxNodes,
+    );
 
     for (const link of capture.snapshot.links) {
         const source = capture.snapshot.nodes.find((node) => node.id === link.source);
@@ -275,8 +278,8 @@ test('memory-leak: recorder state stays bounded across churn cycles', async ({ p
     const result = await capture(page, 'memory-leak', { cycles: 3, actorsPerCycle: 200, messagesPerPair: 4 });
     assertInvariants(result, 'memory-leak');
 
-    expect(result.snapshot.nodes.length).toBeLessThanOrEqual(RECORDER_NODE_CAP);
-    expect(result.snapshot.links.length).toBeLessThanOrEqual(8000);
+    expect(result.snapshot.nodes.length).toBeLessThanOrEqual(result.caps.maxNodes);
+    expect(result.snapshot.links.length).toBeLessThanOrEqual(result.caps.maxLinks);
 
     const closed = result.snapshot.nodes.filter((node) => node.state === 'closed').length;
     expect(closed).toBeGreaterThan(0);
@@ -303,26 +306,10 @@ test('live user simulation satisfies the same invariants', async ({ page }) => {
     await page.evaluate(() => window.__simulation.stop());
     await page.waitForTimeout(200);
 
-    const raw = await page.evaluate(() => {
-        window.__WEBACTOR_DEVTOOLS__.flush();
-        return {
-            events: window.__devtoolsEvents,
-            snapshot: window.__WEBACTOR_DEVTOOLS__.snapshot(),
-            maxMessages: window.__WEBACTOR_DEVTOOLS__.getOptions().maxMessages,
-        };
-    });
+    const result = await readCapture(page);
+    assertInvariants(result, 'simulation');
 
-    const nodes: DevtoolsNode[] = [];
-    const links: DevtoolsLink[] = [];
-    const messages: DevtoolsMessage[] = [];
-    for (const event of raw.events) {
-        if (event.type === 'node') nodes.push(event.node);
-        if (event.type === 'link') links.push(event.link);
-        if (event.type === 'message') messages.push(event.message);
-    }
-
-    assertInvariants({ ...raw, nodes, links, messages }, 'simulation');
-    expect(messages.length).toBeGreaterThan(20);
-    expect(messages.length, 'human-paced activity must not amplify into a message storm').toBeLessThan(20_000);
-    expect(nodes.length, 'a human-paced session must not spawn thousands of nodes').toBeLessThan(200);
+    expect(result.messages.length).toBeGreaterThan(20);
+    expect(result.messages.length, 'human-paced activity must not amplify into a message storm').toBeLessThan(20_000);
+    expect(result.nodes.length, 'a human-paced session must not spawn thousands of nodes').toBeLessThan(200);
 });

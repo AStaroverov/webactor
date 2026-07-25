@@ -1,5 +1,4 @@
-import { handleBridgeEnvelope, isBridgeEnvelope, observeRemoteTransmitter } from './devtools/bridge';
-import { devtools } from './devtools/recorder';
+import { devtools, handleBridgeEnvelope, isBridgeEnvelope, observeRemoteTransmitter } from './devtools/internal';
 import { AnyEnvelope, EnvelopeType, isEnvelope, shallowCopyEnvelope } from './envelope';
 import { AnyData, EventType, Transmitter } from './types';
 import { createRoute, extendRoute, isRoutedEnvelope, reduceRoute, routeEndsWith } from './utils/route';

@@ -1,6 +1,6 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
-import { devtools } from '../devtools/recorder';
+import { devtools } from '../devtools/internal';
 import { EnvelopeType } from '../envelope';
 import { timeoutProvider } from '../providers';
 import { Reason, Reasons } from '../reason';

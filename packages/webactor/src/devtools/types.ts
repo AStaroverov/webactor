@@ -79,6 +79,8 @@ export type DevtoolsSnapshot = {
 };
 
 export type DevtoolsOptions = {
+    maxNodes: number;
+    maxLinks: number;
     maxMessages: number;
     previewDepth: number;
     capturePayload: boolean;

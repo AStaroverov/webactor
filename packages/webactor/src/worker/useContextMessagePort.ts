@@ -1,6 +1,6 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
-import { devtools } from '../devtools/recorder';
+import { devtools } from '../devtools/internal';
 import { Transmitter } from '../types';
 import { threadId } from '../utils/thread';
 import { onConnectMessagePort } from './onConnectMessagePort';

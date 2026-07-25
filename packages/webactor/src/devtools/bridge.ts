@@ -57,7 +57,7 @@ function attachToRemote(transmitter: Transmitter): void {
         const message = event.data;
         if (message === null || typeof message !== 'object') return;
         if (message.kind === DevtoolsBridgeMessage.Attached) {
-            devtools.crossLink(localNodeId, message.nodeId);
+            devtools.crossLink(localNodeId, message.nodeId, message.thread);
             return;
         }
         if (message.kind === DevtoolsBridgeMessage.Events) {
@@ -118,7 +118,7 @@ function acceptAttach(transmitter: object, data: AttachData): void {
     const localNodeId = devtools.nodeId(transmitter);
     if (localNodeId !== undefined) {
         port.postMessage({ kind: DevtoolsBridgeMessage.Attached, thread: threadId, nodeId: localNodeId });
-        devtools.crossLink(localNodeId, data.nodeId);
+        devtools.crossLink(localNodeId, data.nodeId, data.thread);
     }
 
     const snapshot = devtools.snapshotEvents();

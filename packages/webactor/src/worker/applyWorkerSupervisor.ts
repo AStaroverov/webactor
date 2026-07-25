@@ -1,6 +1,6 @@
 import { connectActorToWorker } from '.';
 import { createEnvelopeChannel } from '../createEnvelopePort';
-import { devtools } from '../devtools/recorder';
+import { devtools } from '../devtools/internal';
 import { Reason, Reasons } from '../reason';
 import { request } from '../request/request';
 import { Actor } from '../types';
