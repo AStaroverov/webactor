@@ -143,6 +143,27 @@ function assertInvariants(capture: Capture, label: string): void {
     }
 }
 
+/** Nodes reachable from `start` over the recorded links, in either direction. */
+function componentOf(capture: Capture, start: string): Set<string> {
+    const neighbours = new Map<string, string[]>();
+    const connect = (from: string, to: string) => neighbours.set(from, [...(neighbours.get(from) ?? []), to]);
+    for (const link of capture.links) {
+        connect(link.source, link.target);
+        connect(link.target, link.source);
+    }
+
+    const seen = new Set([start]);
+    const queue = [start];
+    while (queue.length > 0) {
+        for (const next of neighbours.get(queue.pop()!) ?? []) {
+            if (seen.has(next)) continue;
+            seen.add(next);
+            queue.push(next);
+        }
+    }
+    return seen;
+}
+
 const workerThreads = (capture: Capture) =>
     new Set(capture.nodes.filter((node) => node.thread.includes('Worker')).map((node) => node.thread));
 
@@ -222,6 +243,19 @@ test('worker-chain: every hop in the chain is visible', async ({ page }) => {
     expect(workerThreads(result).size).toBe(4);
     expect(result.nodes.filter((node) => node.name === 'relay')).toHaveLength(4);
     expect(result.links.filter((link) => link.crossThread).length).toBeGreaterThanOrEqual(4);
+
+    // A worker builds its ports before the page attaches to it. If the two ends of its internal
+    // channel do not share a node, the graph silently falls apart at every thread boundary.
+    const client = result.nodes.find((node) => node.name === 'chain-client')!;
+    const reachable = componentOf(result, client.id);
+    for (const relay of result.nodes.filter((node) => node.name === 'relay')) {
+        expect(reachable.has(relay.id), `relay in ${relay.thread} is not reachable from the page`).toBe(true);
+    }
+
+    const orphans = result.nodes.filter(
+        (node) => node.thread.includes('Worker') && !reachable.has(node.id) && node.state !== 'closed',
+    );
+    expect(orphans.map((node) => `${node.name} in ${node.thread}`)).toEqual([]);
 });
 
 test('worker-churn: spawned and terminated workers do not corrupt the graph', async ({ page }) => {

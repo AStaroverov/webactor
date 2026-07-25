@@ -37,7 +37,7 @@ export async function openChannel(
         const messagePort = envelope.data as MessagePort;
         devtools.excludeFromBridge(messagePort);
         const localChannel = createEnvelopeChannel();
-        devtools.register(localChannel.port1, localChannel.port2, 'port', 'openChannel');
+        devtools.registerEnds(localChannel.port1, localChannel.port2, 'port', 'openChannel');
         const disconnect = connectTransmitters(messagePort as Transmitter, localChannel.port1, [
             EnvelopeType.Message,
             EnvelopeType.Close,

@@ -51,11 +51,13 @@ page (MAIN world)                     extension
 
 `hook.js` only installs the sink; all recording lives in webactor itself
 (`packages/webactor/src/devtools`). Without the extension the global hook is absent and the recorder
-never activates: what remains is a flag check at each instrumentation point plus one `WeakMap` write
-per transmitter, which declares its kind. That write is not skippable — a worker activates only once
-the page attaches to it, by which time its actors already exist, so without a declared kind every
-actor behind a thread boundary would show up as `unknown`. Measured on the load suite, ten thousand
-actors cost 72 ms to create with the recorder present against 71 ms with it stripped out entirely.
+never activates: what remains is a flag check at each instrumentation point, one `WeakMap` write per
+transmitter to declare its kind, and one more for each pair of ports that form the two ends of an
+internal channel. Neither is skippable — a worker activates only once the page attaches to it, by
+which time its ports already exist, so a kind would read as `unknown` and, worse, the two ends of a
+channel would not share a node and the graph would come apart at the thread boundary. Measured on the
+load suite, ten thousand actors cost 72 ms to create with the recorder present against 71 ms with it
+stripped out entirely.
 
 Worker threads cannot be reached by content scripts, so they are attached from the page instead:
 the active thread sends a `__webactor_devtools__` envelope carrying a transferred `MessagePort` over

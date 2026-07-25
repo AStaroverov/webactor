@@ -47,6 +47,14 @@ function ensureNodeFor(transmitter: object): DevtoolsNode {
     return ensureNode(identify(transmitter), descriptor?.kind ?? inferKind(transmitter), descriptor?.name);
 }
 
+function announce(transmitter: object, kind: DevtoolsNodeKinds, name?: string): void {
+    const node = ensureNodeFor(transmitter);
+    if (node.kind === kind && (name === undefined || node.name === name)) return;
+    node.kind = kind;
+    if (name !== undefined) node.name = name;
+    record({ type: DevtoolsEventType.Node, node });
+}
+
 function ensureLink(sourceId: string, targetId: string): void {
     const id = `${sourceId}|${targetId}`;
     if (state.hasLink(id) || state.hasLink(`${targetId}|${sourceId}`)) return;
@@ -90,12 +98,19 @@ export const devtools = {
         declareKind(primary, kind);
         if (!sinks.isActive()) return;
         describe(primary, alias, kind, name);
+        announce(primary, kind, name);
+    },
 
-        const node = ensureNodeFor(primary);
-        if (node.kind === kind && (name === undefined || node.name === name)) return;
-        node.kind = kind;
-        if (name !== undefined) node.name = name;
-        record({ type: DevtoolsEventType.Node, node });
+    /**
+     * The two ends of one internal channel. Unlike a convenience alias this has to be recorded even
+     * while nothing is recording: a worker builds its ports before the page attaches to it, and if the
+     * ends did not share a node the graph would fall apart exactly at the thread boundary.
+     */
+    registerEnds(a: object, b: object, kind: DevtoolsNodeKinds, name?: string): void {
+        declareKind(a, kind);
+        describe(a, b, kind, name);
+        if (!sinks.isActive()) return;
+        announce(a, kind, name);
     },
 
     state(transmitter: object, nodeState: DevtoolsNodeStates): void {

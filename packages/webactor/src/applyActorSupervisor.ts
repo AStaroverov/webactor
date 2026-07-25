@@ -75,7 +75,7 @@ export function applyActorSupervisor(
         launch: launchProxy,
     };
 
-    devtools.register(actor, proxy.port1, 'supervisor', name);
+    devtools.registerEnds(actor, proxy.port1, 'supervisor', name);
 
     return actor;
 }
