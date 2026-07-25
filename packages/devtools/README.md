@@ -12,6 +12,11 @@ who is connected to whom, across every thread, and every envelope that travels b
   (`message`, `close`, `error`). Undelivered envelopes (dropped by a route mismatch) are drawn in red.
 - **Per-actor history** — select an actor to get its incoming/outgoing envelopes with timestamps,
   peers, payload size and a collapsible payload inspector.
+- **Watch** — the second tab of the right pane is a filtered view of *all* traffic, showing where each
+  envelope came from and where it went. Bare words match the payload, the peer names or the envelope
+  type; `from:` `to:` `peer:` `type:` `thread:` narrow to one field and `dropped` keeps only envelopes
+  a route mismatch threw away. Terms combine with AND, matching envelopes are drawn larger and ringed
+  as they travel the graph, and clicking either endpoint jumps to that actor.
 - **Lifecycle** — created / launched / closed state per node, plus a restart counter for supervisors.
 - **Workers** — actors living in dedicated workers and shared workers appear in the same graph. No
   setup in the worker: the page-side recorder attaches a private `MessageChannel` over the

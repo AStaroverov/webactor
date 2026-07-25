@@ -21,6 +21,13 @@ export const dom = {
     messagesList: byId('messages'),
     messageCount: byId('message-count'),
     payloadView: byId('payload-view'),
+    paneActorButton: byId<HTMLButtonElement>('pane-actor'),
+    paneWatchButton: byId<HTMLButtonElement>('pane-watch'),
+    paneActorView: byId('pane-actor-view'),
+    paneWatchView: byId('pane-watch-view'),
+    watchFilter: byId<HTMLInputElement>('watch-filter'),
+    watchCount: byId('watch-count'),
+    watchList: byId('watch-list'),
     splitter: byId('splitter'),
     details: document.querySelector('.details') as HTMLElement,
 };

@@ -80,11 +80,22 @@ function drawParticles(scene: SceneInput): void {
         const y = from.y + (to.y - from.y) * particle.progress;
         const fade = Math.sin(particle.progress * Math.PI);
 
+        const radius = particle.highlighted ? 5 : particle.dropped ? 2.5 : 3.2;
+
         context.globalAlpha = 0.25 + fade * 0.75;
         context.fillStyle = particle.dropped ? TYPE_COLORS.error : particle.color;
         context.beginPath();
-        context.arc(x, y, particle.dropped ? 2.5 : 3.2, 0, Math.PI * 2);
+        context.arc(x, y, radius, 0, Math.PI * 2);
         context.fill();
+
+        if (particle.highlighted) {
+            context.strokeStyle = scene.theme.label;
+            context.lineWidth = 1.5;
+            context.beginPath();
+            context.arc(x, y, radius + 2.5, 0, Math.PI * 2);
+            context.stroke();
+        }
+
         context.globalAlpha = 1;
     }
 }

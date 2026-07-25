@@ -42,15 +42,40 @@
             <div id="splitter" class="splitter"></div>
 
             <aside class="details">
-                <div id="node-header" class="node-header empty">select an actor in the graph</div>
-                <div class="tabs">
-                    <button data-direction="all" class="active">all</button>
-                    <button data-direction="in">incoming</button>
-                    <button data-direction="out">outgoing</button>
-                    <span class="grow"></span>
-                    <span id="message-count" class="muted"></span>
+                <div class="pane-tabs">
+                    <button id="pane-actor" data-pane="actor" class="active">Actor</button>
+                    <button id="pane-watch" data-pane="watch">Watch</button>
                 </div>
-                <div id="messages" class="messages"></div>
+
+                <section id="pane-actor-view" class="pane">
+                    <div id="node-header" class="node-header empty">select an actor in the graph</div>
+                    <div class="tabs">
+                        <button data-direction="all" class="active">all</button>
+                        <button data-direction="in">incoming</button>
+                        <button data-direction="out">outgoing</button>
+                        <span class="grow"></span>
+                        <span id="message-count" class="muted"></span>
+                    </div>
+                    <div id="messages" class="messages"></div>
+                </section>
+
+                <section id="pane-watch-view" class="pane" hidden>
+                    <div class="watch-bar">
+                        <input
+                            id="watch-filter"
+                            type="search"
+                            placeholder="filter: text, from:ui, to:api, type:close, dropped"
+                        />
+                        <span id="watch-count" class="muted"></span>
+                    </div>
+                    <div id="watch-hint" class="watch-hint">
+                        bare words match the payload, peer names and the envelope type; combine with
+                        <code>from:</code> <code>to:</code> <code>peer:</code> <code>type:</code>
+                        <code>thread:</code> <code>dropped</code>
+                    </div>
+                    <div id="watch-list" class="messages"></div>
+                </section>
+
                 <div class="payload-header">payload</div>
                 <div id="payload-view" class="payload-view"></div>
             </aside>

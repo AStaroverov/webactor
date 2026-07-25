@@ -196,6 +196,144 @@ canvas {
     border-left: 1px solid var(--border);
 }
 
+.pane-tabs {
+    display: flex;
+    flex: none;
+    gap: 2px;
+    padding: 4px 8px 0;
+    background: var(--bg-sunken);
+    border-bottom: 1px solid var(--border);
+}
+
+.pane-tabs button {
+    padding: 4px 12px;
+    font: inherit;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+}
+
+.pane-tabs button:hover {
+    color: var(--text);
+}
+
+.pane-tabs button.active {
+    color: var(--text);
+    background: var(--bg);
+    border-color: var(--border);
+    margin-bottom: -1px;
+    padding-bottom: 5px;
+}
+
+.pane {
+    display: flex;
+    flex: 1 1 55%;
+    flex-direction: column;
+    min-height: 80px;
+}
+
+.pane[hidden] {
+    display: none;
+}
+
+.watch-bar {
+    display: flex;
+    flex: none;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.watch-bar input {
+    flex: 1;
+    min-width: 0;
+    padding: 3px 6px;
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+
+.watch-hint {
+    flex: none;
+    padding: 4px 8px 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.watch-hint code {
+    padding: 0 2px;
+    font-family: var(--mono);
+    background: var(--bg-sunken);
+    border-radius: 3px;
+}
+
+.watch-row {
+    display: grid;
+    grid-template-columns: 62px 1fr auto;
+    gap: 6px;
+    align-items: baseline;
+    padding: 2px 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.watch-row:hover {
+    background: var(--hover);
+}
+
+.watch-row.selected {
+    background: var(--selected);
+}
+
+.watch-row .flow {
+    display: flex;
+    gap: 5px;
+    min-width: 0;
+}
+
+.watch-row .endpoint {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.watch-row .endpoint:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.watch-row .arrow {
+    flex: none;
+    color: var(--text-muted);
+}
+
+.watch-row .meta,
+.watch-row .time {
+    color: var(--text-muted);
+}
+
+.watch-row.type-close .flow {
+    color: #f59e0b;
+}
+
+.watch-row.type-error .flow {
+    color: #ef4444;
+}
+
+.watch-row.dropped {
+    text-decoration: line-through;
+    opacity: 0.65;
+}
+
 .node-header {
     flex: none;
     padding: 8px 10px;
@@ -259,8 +397,8 @@ canvas {
 }
 
 .messages {
-    flex: 1 1 55%;
-    min-height: 80px;
+    flex: 1;
+    min-height: 60px;
     overflow: auto;
 }
 

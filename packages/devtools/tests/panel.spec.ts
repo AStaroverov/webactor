@@ -16,6 +16,8 @@ declare global {
                 debugEdges: () => { source: string; target: string; collapsed: boolean; closed: boolean }[];
             };
             select: (id: string | undefined) => void;
+            showPane: (pane: 'actor' | 'watch') => void;
+            setWatchFilter: (query: string) => void;
         };
     }
 }
@@ -313,6 +315,65 @@ test('closed links stay visible as history instead of vanishing', async ({ page 
     expect(closed).toBeDefined();
     expect(closed!.closed).toBe(true);
     await expect(page.locator('#counts')).toContainText('1 links');
+});
+
+test('the watch pane lists every matching message with both endpoints', async ({ page }) => {
+    const errors = await openPanel(page);
+    await feed(page, graphEvents());
+
+    await page.locator('#pane-watch').click();
+    await expect(page.locator('#pane-watch-view')).toBeVisible();
+    await expect(page.locator('#pane-actor-view')).toBeHidden();
+
+    const rows = page.locator('#watch-list .watch-row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('producer');
+    await expect(rows.nth(0)).toContainText('consumer');
+    await expect(page.locator('#watch-count')).toContainText('2 captured');
+
+    await rows.nth(0).click();
+    await expect(page.locator('#payload-view')).toContainText('"ping"');
+
+    expect(errors).toEqual([]);
+});
+
+test('watch filters narrow by payload, direction, type and delivery', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await page.locator('#pane-watch').click();
+
+    const rows = page.locator('#watch-list .watch-row');
+
+    await page.evaluate(() => window.__webactorPanel.setWatchFilter('ping'));
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0)).toContainText('producer');
+    await expect(page.locator('#watch-count')).toHaveText('1 of 2');
+
+    await page.evaluate(() => window.__webactorPanel.setWatchFilter('from:consumer'));
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0)).toHaveClass(/dropped/);
+
+    await page.evaluate(() => window.__webactorPanel.setWatchFilter('type:close'));
+    await expect(rows).toHaveCount(1);
+
+    await page.evaluate(() => window.__webactorPanel.setWatchFilter('dropped'));
+    await expect(rows).toHaveCount(1);
+
+    await page.evaluate(() => window.__webactorPanel.setWatchFilter('from:producer dropped'));
+    await expect(rows).toHaveCount(0);
+    await expect(page.locator('#watch-list')).toContainText('nothing matches');
+
+    await page.evaluate(() => window.__webactorPanel.setWatchFilter('nested'));
+    await expect(rows).toHaveCount(1);
+});
+
+test('clicking an endpoint in the watch list opens that actor', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await page.locator('#pane-watch').click();
+
+    await page.locator('#watch-list .watch-row').first().locator('.endpoint').nth(1).click();
+    await expect(page.locator('#node-header .title')).toHaveText('consumer');
 });
 
 test('the canvas actually paints the graph', async ({ page }) => {

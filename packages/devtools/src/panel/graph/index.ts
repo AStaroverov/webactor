@@ -38,6 +38,8 @@ export class GraphView {
     animate = true;
     selected: string | undefined;
     filter: (node: DevtoolsNode) => boolean = () => true;
+    /** Marks the envelopes a watch filter selected, so they stand out while they travel. */
+    highlight: (message: DevtoolsMessage) => boolean = () => false;
     onSelect: (id: string | undefined) => void = () => {};
 
     constructor(
@@ -103,7 +105,7 @@ export class GraphView {
         const to = this.visibleEndpoint(message.target);
         if (from === undefined || to === undefined || from === to) return;
         if (!this.bodies.has(from) || !this.bodies.has(to)) return;
-        this.particles.spawn(message, from, to);
+        this.particles.spawn(message, from, to, this.highlight(message));
     }
 
     screenOf(id: string): { x: number; y: number } | undefined {

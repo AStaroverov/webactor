@@ -12,6 +12,7 @@ export type Particle = {
     speed: number;
     color: string;
     dropped: boolean;
+    highlighted: boolean;
 };
 
 export class Particles {
@@ -21,7 +22,7 @@ export class Particles {
         return this.items;
     }
 
-    spawn(message: DevtoolsMessage, from: string, to: string): void {
+    spawn(message: DevtoolsMessage, from: string, to: string, highlighted = false): void {
         if (this.items.length >= MAX_PARTICLES) return;
         this.items.push({
             from,
@@ -30,6 +31,7 @@ export class Particles {
             speed: BASE_SPEED + Math.random() * SPEED_JITTER,
             color: TYPE_COLORS[message.type] ?? TYPE_COLORS.message,
             dropped: !message.delivered,
+            highlighted,
         });
     }
 
