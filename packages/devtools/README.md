@@ -62,8 +62,15 @@ Relays form a **tree rooted at the page**, which matters for correctness:
 
 - a thread holding a *local* sink (the extension hook, or `enableDevtools()`) is the root and never
   accepts an upstream;
-- every other thread accepts exactly **one** upstream and may collect from many children, so chains
-  `page → worker → worker` relay hop by hop;
+- every other thread accepts **one upstream per peer thread**, so a SharedWorker reports to every page
+  that connected to it, and may collect from many children, so chains `page → worker → worker` relay
+  hop by hop;
+- when both ends attach over the same port — which happens whenever a second page connects to an
+  already-running SharedWorker — the root wins, since it is the only end that can deliver anywhere;
+- an upstream slot is freed when its port closes or the owning page unloads, so a closed tab cannot
+  keep a SharedWorker from reporting to the tabs that remain;
+- a message that arrives twice (two routes, or a snapshot overlapping the batch after it) is applied
+  once: ids are deduplicated, while node and link events are idempotent anyway;
 - channel `MessagePort`s are excluded from bridging, so a channel never adds a second bridge between
   two threads;
 - every relayed batch carries the threads it has visited and is refused if it comes back around.

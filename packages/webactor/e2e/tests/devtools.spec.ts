@@ -138,6 +138,46 @@ test('live user simulation produces a connected multi-thread graph that survives
     expect(staleActors.every((node) => !node.thread.startsWith('window'))).toBe(true);
 });
 
+test('two tabs sharing one SharedWorker both see its actors', async ({ browser }) => {
+    const context = await browser.newContext();
+    const first = await context.newPage();
+    const second = await context.newPage();
+
+    for (const [index, page] of [first, second].entries()) {
+        await page.addInitScript(installHook);
+        await page.goto('/');
+        await page.waitForFunction(() => Boolean(window.__sharedTab));
+        await page.evaluate((id) => window.__sharedTab.connect(id), index + 1);
+        await page.evaluate(() => window.__sharedTab.send(5));
+    }
+
+    await first.waitForTimeout(600);
+
+    for (const [index, page] of [first, second].entries()) {
+        const snapshot = await readSnapshot(page);
+        const label = `tab ${index + 1}`;
+
+        const hub = snapshot.nodes.find((node) => node.name === 'broadcast-hub');
+        expect(hub, `${label}: the shared worker actor is missing`).toBeDefined();
+        expect(hub!.thread, `${label}: wrong thread for the shared worker actor`).toContain('sharedWorker');
+
+        expect(
+            snapshot.nodes.some((node) => node.name === `tab-${index + 1}`),
+            `${label}: its own client actor is missing`,
+        ).toBe(true);
+        expect(
+            snapshot.links.some((link) => link.crossThread),
+            `${label}: no cross-thread link to the shared worker`,
+        ).toBe(true);
+        expect(
+            snapshot.messages.some((message) => message.thread.includes('sharedWorker')),
+            `${label}: no messages recorded inside the shared worker`,
+        ).toBe(true);
+    }
+
+    await context.close();
+});
+
 test('devtools stays inert without the hook', async ({ browser }) => {
     const clean = await browser.newPage();
     await clean.goto('/');

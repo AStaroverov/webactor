@@ -207,6 +207,31 @@ describe('devtools recorder', () => {
         actor.close();
     });
 
+    it('applies a relayed message once even when it arrives twice', () => {
+        const seen: DevtoolsEvent[] = [];
+        disable = addSink((events) => seen.push(...events));
+
+        const message = {
+            seq: 'other-thread:1',
+            ts: 1,
+            source: 'a<other-thread-1>',
+            target: 'b<other-thread-2>',
+            thread: 'other-thread',
+            type: 'message',
+            delivered: true,
+            route: undefined,
+            checkpoints: undefined,
+            bytes: 2,
+            preview: { n: 1 },
+        };
+
+        devtools.ingest([{ type: 'message', message }], ['other-thread']);
+        devtools.ingest([{ type: 'message', message }], ['other-thread', 'third-thread']);
+
+        expect(getDevtoolsSnapshot().messages.filter((entry) => entry.seq === message.seq)).toHaveLength(1);
+        expect(seen.filter((event) => event.type === 'message')).toHaveLength(1);
+    });
+
     it('remembers transmitters excluded from bridging', () => {
         const port = {};
         expect(devtools.isExcludedFromBridge(port)).toBe(false);

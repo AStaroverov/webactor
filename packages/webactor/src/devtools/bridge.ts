@@ -1,7 +1,7 @@
 import { type AnyEnvelope, createEnvelope, type EnvelopeTypes } from '../envelope';
 import type { Transmitter } from '../types';
 import { threadId } from '../utils/thread';
-import { isDedicatedWorkerScope, isSharedWorkerScope, isWorkerLike } from '../worker/detect';
+import { isDedicatedWorkerScope, isSharedWorkerScope, isWindowScope, isWorkerLike } from '../worker/detect';
 import { DEVTOOLS_ENVELOPE_TYPE, DevtoolsBridgeMessage } from './defs';
 import { addSink, devtools } from './recorder';
 import type { DevtoolsEvent } from './types';
@@ -10,6 +10,8 @@ type AttachData = {
     kind: typeof DevtoolsBridgeMessage.Attach;
     thread: string;
     nodeId: string;
+    /** Set when the sender holds a local sink, i.e. it is where events must ultimately arrive. */
+    root: boolean;
     port: MessagePort;
 };
 
@@ -24,7 +26,28 @@ type PortState = {
 
 const states = new WeakMap<object, PortState>();
 
-let upstream: { thread: string; detach: VoidFunction } | undefined;
+/**
+ * One upstream per peer thread. A SharedWorker legitimately reports to every page that connected to
+ * it, so this cannot be a single slot; a second port to a thread we already report to is refused,
+ * because that pair is what would let two threads relay to each other.
+ */
+const upstreams = new Map<string, VoidFunction>();
+
+let unloadHooked = false;
+
+/** Closing our out-attach channels makes the peer's relay port fire `close`, so it frees its slot. */
+function detachOnUnload(detach: VoidFunction): void {
+    if (!isWindowScope(globalThis)) return;
+    outAttachments.add(detach);
+    if (unloadHooked) return;
+    unloadHooked = true;
+    globalThis.addEventListener('pagehide', () => {
+        for (const dispose of outAttachments) dispose();
+        outAttachments.clear();
+    });
+}
+
+const outAttachments = new Set<VoidFunction>();
 
 export function isRemoteTransmitter(transmitter: object): boolean {
     if (typeof MessagePort !== 'undefined' && transmitter instanceof MessagePort) return true;
@@ -68,17 +91,24 @@ function attachToRemote(transmitter: Transmitter): void {
     channel.port1.addEventListener('message', onMessage);
     channel.port1.start();
 
-    states.set(transmitter, {
-        direction: 'out',
-        detach: () => {
-            channel.port1.removeEventListener('message', onMessage);
-            channel.port1.close();
-        },
-    });
+    const detach = () => {
+        channel.port1.removeEventListener('message', onMessage);
+        channel.port1.close();
+        states.delete(transmitter);
+    };
+
+    states.set(transmitter, { direction: 'out', detach });
+    detachOnUnload(detach);
 
     const envelope = createEnvelope(
         DEVTOOLS_ENVELOPE_TYPE as EnvelopeTypes,
-        { kind: DevtoolsBridgeMessage.Attach, thread: threadId, nodeId: localNodeId, port: channel.port2 },
+        {
+            kind: DevtoolsBridgeMessage.Attach,
+            thread: threadId,
+            nodeId: localNodeId,
+            root: devtools.hasLocalSink(),
+            port: channel.port2,
+        },
         [channel.port2],
     );
 
@@ -87,8 +117,7 @@ function attachToRemote(transmitter: Transmitter): void {
             channel.port2,
         ]);
     } catch {
-        states.get(transmitter)?.detach();
-        states.delete(transmitter);
+        detach();
     }
 }
 
@@ -106,14 +135,21 @@ function acceptAttach(transmitter: object, data: AttachData): void {
         { relay: true },
     );
 
+    let detached = false;
     const detach = () => {
+        if (detached) return;
+        detached = true;
         removeSink();
         port.close();
-        upstream = undefined;
+        states.delete(transmitter);
+        if (upstreams.get(data.thread) === detach) upstreams.delete(data.thread);
     };
 
+    // Fires when the peer closes its end or its realm goes away, which is how a closed tab frees its slot.
+    port.addEventListener('close', detach);
+
     states.set(transmitter, { direction: 'in', detach });
-    upstream = { thread: data.thread, detach };
+    upstreams.set(data.thread, detach);
 
     const localNodeId = devtools.nodeId(transmitter);
     if (localNodeId !== undefined) {
@@ -133,8 +169,16 @@ export function handleBridgeEnvelope(transmitter: object, envelope: AnyEnvelope)
     const data = envelope.data as AttachData | null;
     if (data === null || typeof data !== 'object' || data.kind !== DevtoolsBridgeMessage.Attach) return;
 
-    if (states.has(transmitter)) return;
-    if (upstream !== undefined) return;
+    const state = states.get(transmitter);
+    if (state !== undefined) {
+        // Both ends attached out over the same port, which happens whenever a second page connects to
+        // an already-active SharedWorker. The root wins: it is the only end that can deliver anywhere.
+        if (state.direction === 'in') return;
+        if (!data.root || devtools.hasLocalSink()) return;
+        state.detach();
+    }
+
+    if (upstreams.has(data.thread)) return;
     if (devtools.hasLocalSink()) return;
 
     acceptAttach(transmitter, data);

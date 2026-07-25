@@ -13,6 +13,12 @@ const links = new Map<string, DevtoolsLink>();
 const linkRefs = new Map<string, number>();
 const messages: DevtoolsMessage[] = [];
 
+/**
+ * Message ids already applied. With several upstreams a batch can reach a thread by two routes, and a
+ * snapshot can overlap the batch that follows it; nodes and links are idempotent, messages are not.
+ */
+const appliedSeq = new Set<string>();
+
 function evictNodes(): void {
     const max = option('maxNodes');
     if (nodes.size <= max) return;
@@ -36,6 +42,22 @@ function evictLinks(): void {
 function trimMessages(): void {
     const max = option('maxMessages');
     if (messages.length > max * 1.25) messages.splice(0, messages.length - max);
+}
+
+function forgetOldSeq(): void {
+    const max = option('maxMessages') * 2;
+    if (appliedSeq.size <= max * 1.25) return;
+    let excess = appliedSeq.size - max;
+    for (const seq of appliedSeq) {
+        if (excess-- <= 0) break;
+        appliedSeq.delete(seq);
+    }
+}
+
+/** True when the event carries new information; a repeated message is dropped rather than duplicated. */
+export function isNew(event: DevtoolsEvent): boolean {
+    if (event.type !== DevtoolsEventType.Message) return true;
+    return !appliedSeq.has(event.message.seq);
 }
 
 export function getNode(id: string): DevtoolsNode | undefined {
@@ -78,6 +100,9 @@ export function apply(event: DevtoolsEvent): void {
             linkRefs.delete(event.id);
             break;
         case DevtoolsEventType.Message:
+            if (appliedSeq.has(event.message.seq)) break;
+            appliedSeq.add(event.message.seq);
+            forgetOldSeq();
             messages.push(event.message);
             trimMessages();
             break;
@@ -111,4 +136,5 @@ export function clear(): void {
     links.clear();
     linkRefs.clear();
     messages.length = 0;
+    appliedSeq.clear();
 }

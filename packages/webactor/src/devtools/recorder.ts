@@ -198,9 +198,11 @@ export const devtools = {
     },
 
     ingest(events: DevtoolsEvent[], path: string[] = []): void {
-        for (const event of events) state.apply(event);
+        const fresh = events.filter((event) => state.isNew(event));
+        if (fresh.length === 0) return;
+        for (const event of fresh) state.apply(event);
         sinks.flush();
-        sinks.deliver(events, path);
+        sinks.deliver(fresh, path);
     },
 
     snapshot(): DevtoolsSnapshot {
