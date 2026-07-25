@@ -49,3 +49,10 @@ await window.__loadTest.run('message-flooding', { producers: 50, bursts: 20 });
 ```
 
 The same API is what the Playwright suite calls through `page.evaluate`, so any config override can be passed from a test too.
+
+## Scenario: cross-thread-channel
+
+`cross-thread-channel` opens one channel from the page to a dedicated worker
+(`src/workers/channel-host.worker.ts`) and sends a single message over it. It exists to keep the
+devtools relay honest: `tests/devtools-scenarios.spec.ts` asserts that one application message stays
+one message and that both ends of the channel remain visible in the recorded graph.

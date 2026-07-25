@@ -20,7 +20,13 @@ export const thrashingDefaults: ThrashingConfig = {
 };
 
 export async function runChannelThrashing(overrides: Partial<ThrashingConfig> = {}): Promise<ScenarioResult> {
-    const { actors: actorCount, rounds, createPerRound, destroyPerRound, seed } = { ...thrashingDefaults, ...overrides };
+    const {
+        actors: actorCount,
+        rounds,
+        createPerRound,
+        destroyPerRound,
+        seed,
+    } = { ...thrashingDefaults, ...overrides };
     const startedAt = performance.now();
     const random = createPRNG(seed);
     const errors: string[] = [];

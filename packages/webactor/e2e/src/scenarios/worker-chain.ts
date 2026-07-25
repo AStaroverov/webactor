@@ -34,7 +34,9 @@ export async function runWorkerChain(overrides: Partial<WorkerChainConfig> = {})
 
     const bridges: VoidFunction[] = [];
     for (let i = 0; i < chainLength - 1; i++) {
-        bridges.push(connectTransmitters(workers[i] as unknown as Transmitter, workers[i + 1] as unknown as Transmitter));
+        bridges.push(
+            connectTransmitters(workers[i] as unknown as Transmitter, workers[i + 1] as unknown as Transmitter),
+        );
     }
 
     let completed = 0;

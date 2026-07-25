@@ -151,6 +151,51 @@ Full API, internals, routing model, and patterns: **[documentation.md](./documen
 
 ---
 
+## DevTools
+
+A Chrome DevTools panel ships alongside the library: the live actor graph across every thread, the
+connections between actors, and the envelopes flowing over them — plus per-actor message history
+with a payload inspector.
+
+```bash
+pnpm --filter webactor-devtools build   # load packages/devtools/dist as an unpacked extension
+```
+
+See **[packages/devtools](./packages/devtools)**. The recorder lives in the library but stays inert
+until something installs a sink, so there is no cost when the extension is not present. You can also
+drive it yourself:
+
+```ts
+import { enableDevtools, getDevtoolsSnapshot } from 'webactor';
+
+enableDevtools();
+console.log(getDevtoolsSnapshot()); // { thread, nodes, links, messages }
+```
+
+---
+
+## Repository layout
+
+This is a pnpm workspace:
+
+| Package                                       | What it is                                                    |
+| --------------------------------------------- | ------------------------------------------------------------- |
+| [`packages/webactor`](./packages/webactor)    | the library (`src`), unit tests (`tests`), load tests (`e2e`)  |
+| [`packages/devtools`](./packages/devtools)    | `webactor-devtools`, the Chrome DevTools extension            |
+| [`examples/simple`](./examples/simple)        | minimal UI ↔ business actor split                             |
+| [`examples/chat`](./examples/chat)            | multi-tab chat over a `SharedWorker`                          |
+
+```bash
+pnpm install
+pnpm build           # every package
+pnpm test            # unit + e2e + devtools
+pnpm test:unit       # vitest, packages/webactor/tests
+pnpm test:e2e        # playwright load tests, packages/webactor/e2e
+pnpm test:devtools   # playwright panel + unpacked-extension tests
+```
+
+---
+
 ## When to use it (and when not)
 
 **Great fit**
@@ -184,4 +229,4 @@ webactor is a _model_, not just an RPC shim: you adopt actors, envelopes, and su
 
 ## Status
 
-`1.0.0` · single-maintainer project · MIT-style usage. The API described here is exercised by the test suite (`npm test`). Feedback and issues welcome on the [repository](https://github.com/AStaroverov/actorr).
+`1.0.0` · single-maintainer project · MIT-style usage. The API described here is exercised by the test suite (`pnpm test`). Feedback and issues welcome on the [repository](https://github.com/AStaroverov/actorr).

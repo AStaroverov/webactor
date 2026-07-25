@@ -79,9 +79,7 @@ export async function runWorkerFlooding(overrides: Partial<WorkerFloodingConfig>
 
     const floodStart = performance.now();
     const results = await Promise.all(
-        Array.from({ length: workers }, (_, i) =>
-            floodSingleWorker(i, messagesPerWorker, payload, queueDrain, errors),
-        ),
+        Array.from({ length: workers }, (_, i) => floodSingleWorker(i, messagesPerWorker, payload, queueDrain, errors)),
     );
     const floodMs = performance.now() - floodStart;
 
