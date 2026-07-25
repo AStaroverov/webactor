@@ -35,6 +35,7 @@ chrome.runtime.onConnect.addListener((port) => {
             const init = message as { kind?: string; tabId?: number };
             if (init.kind === 'init' && typeof init.tabId === 'number') {
                 tabId = init.tabId;
+                panelPorts.get(tabId)?.disconnect();
                 panelPorts.set(tabId, port);
                 return;
             }
@@ -48,7 +49,7 @@ chrome.runtime.onConnect.addListener((port) => {
             }
         });
         port.onDisconnect.addListener(() => {
-            if (tabId !== undefined) panelPorts.delete(tabId);
+            if (tabId !== undefined && panelPorts.get(tabId) === port) panelPorts.delete(tabId);
         });
     }
 });

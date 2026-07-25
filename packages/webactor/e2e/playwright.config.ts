@@ -1,6 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
+const port = Number(process.env.E2E_PORT ?? 5199);
+const baseURL = `http://localhost:${port}`;
+
 export default defineConfig({
     testDir: './tests',
     timeout: 240_000,
@@ -8,7 +11,7 @@ export default defineConfig({
     workers: 1,
     reporter: [['list']],
     use: {
-        baseURL: 'http://localhost:5199',
+        baseURL,
         trace: 'retain-on-failure',
     },
     projects: [
@@ -23,9 +26,9 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: 'pnpm dev:e2e --port 5199 --strictPort',
+        command: `pnpm dev:e2e --port ${port} --strictPort`,
         cwd: fileURLToPath(new URL('..', import.meta.url)),
-        url: 'http://localhost:5199',
+        url: baseURL,
         reuseExistingServer: !process.env.CI,
     },
 });

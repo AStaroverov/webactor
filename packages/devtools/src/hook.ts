@@ -9,6 +9,7 @@ type RecorderApi = {
 
 const HOOK_KEY = '__WEBACTOR_DEVTOOLS_HOOK__';
 const GLOBAL_KEY = '__WEBACTOR_DEVTOOLS__';
+// Coalesces the recorder's task-boundary batches into one window.postMessage per frame-ish.
 const FLUSH_INTERVAL = 40;
 const MAX_QUEUE = 20000;
 

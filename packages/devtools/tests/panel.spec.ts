@@ -13,7 +13,6 @@ declare global {
             store: { nodes: Map<string, unknown>; links: Map<string, unknown>; messages: unknown[] };
             graph: {
                 selected: string | undefined;
-                debugBodies: () => { id: string; x: number; y: number }[];
                 debugEdges: () => { source: string; target: string; collapsed: boolean; closed: boolean }[];
             };
             select: (id: string | undefined) => void;
