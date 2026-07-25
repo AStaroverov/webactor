@@ -8,5 +8,5 @@
     "env": {
         "builtin": true
     },
-    "ignorePatterns": ["dist", "examples"]
+    "ignorePatterns": ["**/dist", "**/node_modules", "examples"]
 }

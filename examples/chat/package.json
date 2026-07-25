@@ -1,5 +1,5 @@
 {
-  "name": "example",
+  "name": "example-chat",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "webactor": "file:../../"
+    "webactor": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

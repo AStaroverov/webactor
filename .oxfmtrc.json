@@ -5,5 +5,5 @@
     "printWidth": 120,
     "tabWidth": 4,
     "sortPackageJson": false,
-    "ignorePatterns": ["dist", "examples"]
+    "ignorePatterns": ["**/dist", "**/node_modules", "examples", "**/*.md", "**/*.html"]
 }

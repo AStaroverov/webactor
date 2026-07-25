@@ -1,7 +1,7 @@
 import type { AnyEnvelope, ChannelTransmitter } from 'webactor';
 import { connectActors, createActor, openChannel, Reasons, supportChannel } from 'webactor';
 import type { ScenarioResult } from '../harness';
-import { onActorMessage, round, Sampler, sleep, waitUntil } from '../harness';
+import { round, Sampler, sleep, waitUntil } from '../harness';
 
 export type ChannelStormConfig = {
     waves: number;

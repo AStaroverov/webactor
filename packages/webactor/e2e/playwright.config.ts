@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
@@ -22,7 +23,8 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: 'pnpm dev --port 5199 --strictPort',
+        command: 'pnpm dev:e2e --port 5199 --strictPort',
+        cwd: fileURLToPath(new URL('..', import.meta.url)),
         url: 'http://localhost:5199',
         reuseExistingServer: !process.env.CI,
     },

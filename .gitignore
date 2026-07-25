@@ -1,6 +1,6 @@
 /.idea/
-/dist/
 **/dist/
-/coverage/
-/node_modules/
 **/node_modules/
+/coverage/
+**/test-results/
+**/playwright-report/
