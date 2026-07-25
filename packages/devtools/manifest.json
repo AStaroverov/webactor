@@ -1,0 +1,28 @@
+{
+    "manifest_version": 3,
+    "name": "webactor devtools",
+    "version": "0.1.0",
+    "description": "Inspect webactor actor graphs, connections and message flow",
+    "minimum_chrome_version": "111",
+    "devtools_page": "devtools.html",
+    "background": {
+        "service_worker": "background.js"
+    },
+    "host_permissions": ["<all_urls>"],
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["hook.js"],
+            "run_at": "document_start",
+            "world": "MAIN",
+            "all_frames": true
+        },
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"],
+            "run_at": "document_start",
+            "world": "ISOLATED",
+            "all_frames": true
+        }
+    ]
+}

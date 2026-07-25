@@ -1,0 +1,98 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { type BrowserContext, chromium, expect, test } from '@playwright/test';
+
+const extensionPath = fileURLToPath(new URL('../dist', import.meta.url));
+const FIXTURE_URL = `http://localhost:${process.env.PORT ?? 5177}/devtools/tests/fixtures/index.html`;
+
+declare global {
+    interface Window {
+        __fixture: { received: unknown[] };
+    }
+}
+
+let context: BrowserContext;
+let profile: string;
+
+test.beforeAll(async () => {
+    profile = await mkdtemp(join(tmpdir(), 'webactor-devtools-'));
+    context = await chromium.launchPersistentContext(profile, {
+        channel: 'chromium',
+        args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+    });
+});
+
+test.afterAll(async () => {
+    await context?.close();
+    await rm(profile, { recursive: true, force: true });
+});
+
+test('the unpacked extension loads and registers its service worker', async () => {
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    expect(worker.url()).toContain('background.js');
+});
+
+test('the content script relays page events to the background worker', async () => {
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+
+    await worker.evaluate(() => {
+        (globalThis as unknown as { __seen: unknown[] }).__seen = [];
+        chrome.runtime.onConnect.addListener((port) => {
+            if (port.name !== 'webactor-content') return;
+            port.onMessage.addListener((message) => {
+                (globalThis as unknown as { __seen: unknown[] }).__seen.push(message);
+            });
+        });
+    });
+
+    const page = await context.newPage();
+    await page.goto(FIXTURE_URL);
+    await page.waitForFunction(() => window.__fixture !== undefined);
+    await page.evaluate(() => window.postMessage({ source: 'webactor-devtools:panel', kind: 'start' }, '*'));
+
+    await expect
+        .poll(() => worker.evaluate(() => (globalThis as unknown as { __seen: unknown[] }).__seen.length), {
+            timeout: 5000,
+        })
+        .toBeGreaterThan(0);
+
+    const kinds = await worker.evaluate(() =>
+        ((globalThis as unknown as { __seen: { kind: string }[] }).__seen ?? []).map((message) => message.kind),
+    );
+    expect(kinds).toContain('status');
+    expect(kinds).toContain('events');
+
+    await page.close();
+});
+
+test('the hook is injected before page scripts and activates the recorder', async () => {
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(String(error)));
+
+    await page.goto(FIXTURE_URL);
+    await page.waitForFunction(() => window.__fixture !== undefined);
+
+    expect(await page.evaluate(() => '__WEBACTOR_DEVTOOLS_HOOK__' in window)).toBe(true);
+    expect(await page.evaluate(() => '__WEBACTOR_DEVTOOLS__' in window)).toBe(true);
+
+    const snapshot = await page.evaluate(() => {
+        const api = (window as unknown as { __WEBACTOR_DEVTOOLS__: { flush: () => void; snapshot: () => unknown } })
+            .__WEBACTOR_DEVTOOLS__;
+        api.flush();
+        return api.snapshot() as {
+            nodes: { name: string; kind: string }[];
+            links: unknown[];
+            messages: { preview: unknown }[];
+        };
+    });
+
+    expect(snapshot.nodes.map((node) => node.name).sort()).toEqual(['fixture-consumer', 'fixture-producer']);
+    expect(snapshot.links).toHaveLength(1);
+    expect(snapshot.messages.at(-1)?.preview).toEqual({ hello: 'world' });
+    expect(errors).toEqual([]);
+
+    await page.close();
+});
