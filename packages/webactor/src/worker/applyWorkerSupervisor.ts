@@ -1,5 +1,6 @@
 import { connectActorToWorker } from '.';
 import { createEnvelopeChannel } from '../createEnvelopePort';
+import { devtools } from '../devtools/recorder';
 import { Reason, Reasons } from '../reason';
 import { request } from '../request/request';
 import { Actor } from '../types';
@@ -41,6 +42,7 @@ export function applyWorkerSupervisor(
             decided = true;
             close();
             if ((await shouldRestartFor(reason)) && !supervisorClosed) {
+                devtools.restart(actor, reason);
                 launchWorker();
             }
         };
@@ -78,6 +80,7 @@ export function applyWorkerSupervisor(
     const disposes: (() => void)[] = [];
 
     const launchProxy = () => {
+        devtools.state(actor, 'launched');
         launchWorker();
         disposes.push(() => closeCurrentWorker());
         disposes.push(() => proxy.port1.close());
@@ -86,15 +89,19 @@ export function applyWorkerSupervisor(
 
     const closeProxy = () => {
         supervisorClosed = true;
+        devtools.state(actor, 'closed');
         disposes.forEach((dispose) => dispose());
     };
 
+    const name = `WorkerSupervisor<${createShortRandomString()}>`;
     const actor = {
         ...proxy.port2,
-        name: `WorkerSupervisor<${createShortRandomString()}>`,
+        name,
         close: closeProxy,
         launch: launchProxy,
     };
+
+    devtools.register([actor, proxy.port1, proxy.port2], 'supervisor', name);
 
     return actor;
 }

@@ -1,3 +1,5 @@
+import { handleBridgeEnvelope, isBridgeEnvelope, observeRemoteTransmitter } from './devtools/bridge';
+import { devtools } from './devtools/recorder';
 import { AnyEnvelope, EnvelopeType, isEnvelope, shallowCopyEnvelope } from './envelope';
 import { AnyData, EventType, Transmitter } from './types';
 import { createRoute, extendRoute, isRoutedEnvelope, reduceRoute, routeEndsWith } from './utils/route';
@@ -14,12 +16,17 @@ export function connectTransmitters<T1 extends Transmitter, T2 extends Transmitt
     transmitter2: T2,
     types: Type[] = [EnvelopeType.Message],
 ): VoidFunction {
+    const linkId = devtools.link(transmitter1, transmitter2, types);
+    observeRemoteTransmitter(transmitter1);
+    observeRemoteTransmitter(transmitter2);
+
     const unsub1 = resubscribe(transmitter1, transmitter2, types);
     const unsub2 = resubscribe(transmitter2, transmitter1, types);
 
     return () => {
         unsub1();
         unsub2();
+        devtools.unlink(linkId);
     };
 }
 
@@ -35,8 +42,10 @@ function createReposter(subscribedType: Type, connectedTypes: Type[], source: Tr
     const targetName = getTransmitterName(target);
     return function repost(data: AnyData) {
         if (isEnvelope(data)) {
+            if (isBridgeEnvelope(data)) return handleBridgeEnvelope(source, data);
             if (!connectedTypes.includes(data.type as Type)) return;
             const envelope = processEnvelope(data, sourceName, targetName);
+            if (devtools.active) devtools.message(source, target, envelope ?? data, envelope !== undefined);
             if (envelope) post(target, envelope.type, envelope);
         } else {
             post(target, subscribedType, data);

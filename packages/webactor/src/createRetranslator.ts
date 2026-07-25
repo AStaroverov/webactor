@@ -1,4 +1,5 @@
 import { createEnvelopeChannel } from './createEnvelopePort';
+import { devtools } from './devtools/recorder';
 import { EnvelopeType } from './envelope';
 import { Actor } from './types';
 
@@ -19,6 +20,7 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
     const close = () => {
         if (closed) return;
         closed = true;
+        devtools.state(actor, 'closed');
         // @ts-ignore
         port1.removeEventListener(EnvelopeType.Close, postToPort2);
         // @ts-ignore
@@ -30,6 +32,7 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
     const launch = () => {
         if (launched) return;
         launched = true;
+        devtools.state(actor, 'launched');
 
         // @ts-ignore
         port1.addEventListener(EnvelopeType.Close, postToPort2);
@@ -47,6 +50,8 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
         addEventListener: port2.addEventListener.bind(port2),
         removeEventListener: port2.removeEventListener.bind(port2),
     };
+
+    devtools.register([actor, port1, port2], 'retranslator', name);
 
     return actor;
 }

@@ -1,4 +1,5 @@
 import { createEnvelopeChannel } from './createEnvelopePort';
+import { devtools } from './devtools/recorder';
 import { AnyEnvelope, EnvelopeType } from './envelope';
 import { Reason } from './reason';
 import { Actor, ActorContext, AnyData } from './types';
@@ -20,21 +21,26 @@ export function createActorFactory(options: { createChannel: () => ReturnType<ty
 
             post(port1, EnvelopeType.Close, { reason: reason as AnyData });
 
+            devtools.state(actor, 'closed');
+
             port1.close?.();
             port2.close?.();
             if (typeof dispose === 'function') dispose();
         };
 
+        const context: ActorContext<AnyEnvelope> = {
+            name,
+            close,
+            postMessage: port1.postMessage.bind(port1),
+            addEventListener: port1.addEventListener.bind(port1),
+            removeEventListener: port1.removeEventListener.bind(port1),
+        };
+
         const launch = () => {
             if (launched || closed) return;
-            dispose = constructor({
-                name,
-                close,
-                postMessage: port1.postMessage.bind(port1),
-                addEventListener: port1.addEventListener.bind(port1),
-                removeEventListener: port1.removeEventListener.bind(port1),
-            });
+            dispose = constructor(context);
             launched = true;
+            devtools.state(actor, 'launched');
         };
 
         const actor: Actor = {
@@ -45,6 +51,8 @@ export function createActorFactory(options: { createChannel: () => ReturnType<ty
             addEventListener: port2.addEventListener.bind(port2),
             removeEventListener: port2.removeEventListener.bind(port2),
         };
+
+        devtools.register([actor, context, port1, port2], 'actor', name);
 
         return actor;
     };

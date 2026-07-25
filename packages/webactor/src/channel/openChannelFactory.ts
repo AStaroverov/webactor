@@ -1,5 +1,6 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
+import { devtools } from '../devtools/recorder';
 import { EnvelopeType } from '../envelope';
 import { timeoutProvider } from '../providers';
 import { Reason, Reasons } from '../reason';
@@ -34,7 +35,9 @@ export async function openChannel(
         }
 
         const messagePort = envelope.data as MessagePort;
+        devtools.excludeFromBridge(messagePort);
         const localChannel = createEnvelopeChannel();
+        devtools.register([localChannel.port1, localChannel.port2], 'port', 'openChannel');
         const disconnect = connectTransmitters(messagePort as Transmitter, localChannel.port1, [
             EnvelopeType.Message,
             EnvelopeType.Close,

@@ -1,5 +1,6 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
+import { devtools } from '../devtools/recorder';
 import { Transmitter } from '../types';
 import { threadId } from '../utils/thread';
 import { onConnectMessagePort } from './onConnectMessagePort';
@@ -13,8 +14,12 @@ export function useContextMessagePort() {
     });
     disposes.push(stop);
 
-    return {
+    const contextPort = {
         ...channel.port2,
         name: threadId,
     };
+
+    devtools.register([contextPort, channel.port1, channel.port2], 'thread-port', threadId);
+
+    return contextPort;
 }

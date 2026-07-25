@@ -25,3 +25,5 @@ export * from './channel/types';
 
 export * from './envelope';
 export * from './worker';
+
+export * from './devtools';

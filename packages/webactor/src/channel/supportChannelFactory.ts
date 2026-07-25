@@ -1,5 +1,6 @@
 import { connectTransmitters } from '../connectTransmitters';
 import { createEnvelopeChannel } from '../createEnvelopePort';
+import { devtools } from '../devtools/recorder';
 import { Envelope, EnvelopeType } from '../envelope';
 import { Reason, Reasons } from '../reason';
 import { response } from '../request/response';
@@ -23,8 +24,10 @@ export async function supportChannel(target: Transmitter, envelope: Envelope<Any
     }
 
     const messageChannel = new MessageChannel();
+    devtools.excludeFromBridge(messageChannel.port2);
     response(target, envelope, messageChannel.port1, [messageChannel.port1]);
     const localChannel = createEnvelopeChannel();
+    devtools.register([localChannel.port1, localChannel.port2], 'port', 'supportChannel');
     const disconnect = connectTransmitters(messageChannel.port2 as Transmitter, localChannel.port1, [
         EnvelopeType.Message,
         EnvelopeType.Close,
