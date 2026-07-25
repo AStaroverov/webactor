@@ -21,7 +21,6 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<Enve
         void Promise.resolve().then(() => {
             if (!callbacksRecord.has(envelope.type)) return;
             for (let callback of callbacksRecord.get(envelope.type)!) {
-                // @ts-ignore
                 callback(envelope);
             }
         });

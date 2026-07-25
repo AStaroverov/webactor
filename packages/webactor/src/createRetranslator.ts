@@ -21,9 +21,7 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
         if (closed) return;
         closed = true;
         devtools.state(actor, 'closed');
-        // @ts-ignore
         port1.removeEventListener(EnvelopeType.Close, postToPort2);
-        // @ts-ignore
         port1.removeEventListener(EnvelopeType.Message, postToPort2);
         port1.close?.();
         port2.close?.();
@@ -33,10 +31,7 @@ export function createRetranslator(options: RetranslatorOptions = {}): Actor {
         if (launched) return;
         launched = true;
         devtools.state(actor, 'launched');
-
-        // @ts-ignore
         port1.addEventListener(EnvelopeType.Close, postToPort2);
-        // @ts-ignore
         port1.addEventListener(EnvelopeType.Message, postToPort2);
 
         return actor;
