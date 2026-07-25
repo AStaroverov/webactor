@@ -5,7 +5,9 @@ import { runChannelStorm } from './scenarios/channel-storm';
 import { runChannelThrashing } from './scenarios/channel-thrashing';
 import { runMemoryLeak } from './scenarios/memory-leak';
 import { runMessageFlooding } from './scenarios/message-flooding';
+import { runCrossThreadChannel } from './scenarios/cross-thread-channel';
 import { runPortFlooding } from './scenarios/port-flooding';
+import { simulationStats, startSimulation, stopSimulation } from './scenarios/simulation';
 import { runWorkerChain } from './scenarios/worker-chain';
 import { runWorkerChurn } from './scenarios/worker-churn';
 import { runWorkerFlooding } from './scenarios/worker-flooding';
@@ -21,6 +23,7 @@ const scenarios: Record<string, (overrides?: Record<string, number>) => Promise<
     'worker-chain': runWorkerChain,
     'worker-churn': runWorkerChurn,
     'channel-storm': runChannelStorm,
+    'cross-thread-channel': runCrossThreadChannel,
     'actor-supervisor-storm': runActorSupervisorStorm,
     'worker-supervisor-storm': runWorkerSupervisorStorm,
     'memory-leak': runMemoryLeak,
@@ -75,3 +78,43 @@ addButton('run all', async () => {
         await runAndPrint(name);
     }
 });
+
+const simulationButton = document.createElement('button');
+simulationButton.id = 'simulation';
+simulationButton.className = 'primary';
+
+const activityLabel = document.createElement('span');
+activityLabel.id = 'activity';
+activityLabel.style.marginLeft = '0.5rem';
+activityLabel.style.color = '#8a8';
+
+let activityTimer: ReturnType<typeof setInterval> | undefined;
+
+const renderSimulationButton = () => {
+    const stats = simulationStats();
+    simulationButton.textContent = stats.running ? '■ stop live user' : '▶ live user';
+    simulationButton.classList.toggle('running', stats.running);
+    activityLabel.textContent = stats.running
+        ? `${stats.activity} · ${stats.messagesSent} sent / ${stats.messagesReceived} received · ${stats.keystrokes} keys`
+        : '';
+};
+
+simulationButton.addEventListener('click', () => {
+    if (simulationStats().running) {
+        clearInterval(activityTimer);
+        activityTimer = undefined;
+        const stats = stopSimulation();
+        print(`■ live user left after ${Math.round(stats.uptimeMs / 1000)}s\n${JSON.stringify(stats, null, 2)}`);
+    } else {
+        startSimulation();
+        print('▶ live user browsing a chat app — signs in, opens conversations, types and sends messages');
+        activityTimer = setInterval(renderSimulationButton, 250);
+    }
+    renderSimulationButton();
+});
+
+renderSimulationButton();
+controls.appendChild(simulationButton);
+controls.appendChild(activityLabel);
+
+window.__simulation = { start: startSimulation, stop: stopSimulation, stats: simulationStats };
