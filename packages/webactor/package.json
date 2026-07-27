@@ -16,7 +16,7 @@
     ],
     "scripts": {
         "build": "tsc --noEmit && vite build",
-        "test": "vitest run",
+        "test": "pnpm build && vitest run",
         "test:ui": "vitest --ui",
         "test:watch": "vitest --watch",
         "test:e2e": "playwright test --config e2e/playwright.config.ts",

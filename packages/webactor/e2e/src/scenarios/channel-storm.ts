@@ -38,11 +38,18 @@ export async function runChannelStorm(overrides: Partial<ChannelStormConfig> = {
     let supportsSettled = 0;
     let duplicateSupportsRejected = 0;
     let supportsLostBeforeHandshake = 0;
+    // mid-flight aborts fire from the supporter, the moment the open request lands and
+    // before it calls supportChannel — a timer here races the open latency on slow machines
+    const midFlightControllers = new Map<string, AbortController>();
     const supporter = createActor('supporter', (context) => {
         const listener = (envelope: AnyEnvelope) => {
-            if (envelope.data !== OPEN_MARKER && envelope.data !== SLOW_MARKER) return;
+            const marker = typeof envelope.data === 'string' ? envelope.data : '';
+            const slow = marker.startsWith(SLOW_MARKER);
+            if (!slow && marker !== OPEN_MARKER) return;
             supportsAttempted += 1;
-            const delay = envelope.data === SLOW_MARKER ? sleep(SLOW_SUPPORT_DELAY) : Promise.resolve();
+            const midFlight = midFlightControllers.get(marker);
+            if (midFlight) queueMicrotask(() => midFlight.abort(new Error('storm abort')));
+            const delay = slow ? sleep(SLOW_SUPPORT_DELAY) : Promise.resolve();
             delay
                 .then(() => supportChannel(context, envelope))
                 .then((channel) => {
@@ -114,7 +121,9 @@ export async function runChannelStorm(overrides: Partial<ChannelStormConfig> = {
     for (let i = 0; i < aborts; i++) {
         const controller = new AbortController();
         const midFlight = i < midFlightAborts;
-        open(midFlight ? SLOW_MARKER : OPEN_MARKER, controller.signal)
+        const marker = midFlight ? `${SLOW_MARKER}:${i}` : OPEN_MARKER;
+        if (midFlight) midFlightControllers.set(marker, controller);
+        open(marker, controller.signal)
             .then((channel) => {
                 abortsResolved += 1;
                 lateChannels.push(channel);
@@ -122,12 +131,12 @@ export async function runChannelStorm(overrides: Partial<ChannelStormConfig> = {
             .catch(() => {
                 abortsRejected += 1;
             });
-        if (midFlight) {
-            setTimeout(() => controller.abort(new Error('storm abort')), 5);
-        } else if (i % 2 === 0) {
-            controller.abort(new Error('storm abort'));
-        } else {
-            queueMicrotask(() => controller.abort(new Error('storm abort')));
+        if (!midFlight) {
+            if (i % 2 === 0) {
+                controller.abort(new Error('storm abort'));
+            } else {
+                queueMicrotask(() => controller.abort(new Error('storm abort')));
+            }
         }
     }
     try {
