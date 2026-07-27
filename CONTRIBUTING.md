@@ -39,9 +39,11 @@ A PR without a changeset is fine when nothing user-facing changed (docs, CI, tes
 
 ### 2. Merge to `main`
 
-The [Release workflow](./.github/workflows/release.yml) sees pending changesets and opens (or updates) a
+The release job in [CI](./.github/workflows/ci.yml) sees pending changesets and opens (or updates) a
 **`chore(release): version packages`** PR. That PR contains the version bump, the consumed changeset files and
 the generated `CHANGELOG.md`.
+
+That job `needs` every test job, so nothing is ever versioned or published from a red `main`.
 
 ### 3. Merge the version PR
 
@@ -63,7 +65,7 @@ One-time setup on npmjs.com → package `webactor` → Settings → Trusted publ
 | Publisher       | GitHub Actions       |
 | Organization    | `AStaroverov`        |
 | Repository      | `webactor`           |
-| Workflow        | `release.yml`        |
+| Workflow        | `ci.yml`             |
 | Environment     | _(leave empty)_      |
 
 Until that is configured the publish step fails with a 404 from the registry.
