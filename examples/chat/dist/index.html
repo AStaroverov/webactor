@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi-Tab Chat - Actorr Demo</title>
+    <meta name="description" content="Multi-tab synchronized chat application built with the Actorr library and SharedWorkers" />
+    
+    <!-- Preconnect for better performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Inter font for better typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- Meta tags for mobile optimization -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#3b82f6" />
+    <script type="module" crossorigin src="/assets/index-XWKsNhcF.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BaSTYc06.css">
+  </head>
+  <body class="font-sans antialiased">
+    <!-- Loading screen while application initializes -->
+    <div id="app">
+      <div class="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div class="text-center">
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+          <h2 class="text-xl font-semibold text-gray-900 mb-2">Loading Chat</h2>
+          <p class="text-gray-600">Initializing multi-tab synchronization...</p>
+        </div>
+      </div>
+    </div>
+    
+    
+    <!-- Browser compatibility notice for non-JS users -->
+    <noscript>
+      <div class="min-h-screen bg-red-50 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md">
+          <h1 class="text-xl font-bold text-red-600 mb-4">JavaScript Required</h1>
+          <p class="text-gray-700">This chat application requires JavaScript to function. Please enable JavaScript in your browser settings.</p>
+        </div>
+      </div>
+    </noscript>
+  </body>
+</html>

@@ -1,111 +1,232 @@
-# Webactor
-Everything that you need for actor architecture on client
+# webactor
 
-Webactor exports a set of functions to implement a message passing mechanism between different parts of a JavaScript application. It creates and manages message channels, defines message types and provides functions to send and receive messages over these channels. The code uses a combination of maps, finalization registry, weak references, and closure to keep track of messages and message channels, and to prevent memory leaks. The module supports message passing between different threads (Web workers) and between different JavaScript contexts within the same thread.
+**Actor-model architecture for the browser.** One programming model for every boundary in your app — components, tabs, and Web Workers — built on plain message passing.
 
-## Public methods
+```ts
+import { createActor, request, response } from 'webactor';
 
-##### w/ chatGPT
+const math = createActor('math', (ctx) => {
+    ctx.addEventListener('message', (e) => {
+        if (e.data.type === 'sum') response(ctx, e, e.data.a + e.data.b);
+    });
+});
 
-### createEnvelope
-The `createEnvelope` method is a utility function that helps create an envelope object for communication between different parts of an application.
+math.launch();
 
-```typescript
-function createEnvelope<T extends string, P>(type: T, payload: P, transferable?: undefined | Transferable[]): Envelope<T, P>
-```
-* type (required): a string indicating the type of the message being sent. This could be any string that can be used to identify the message type.
-* payload (required): the message payload. This could be any JavaScript object or primitive value.
-* transferable (optional): an array of objects that should be transferred instead of cloned when the message is sent. This could be an array buffer, a shared memory object or a message port.
-
-#### Return value
-The `createEnvelope` function returns an Envelope object that can be sent between different parts of the application.
-
-### isEnvelope
-
-The `isEnvelope` method is a utility method that checks whether a given object is an instance of the Envelope or not. The method takes one argument, obj, which is the object to be checked.
-
-```typescript
-function isEnvelope<T extends Envelope>(some: any): some is T
+const res = await request(math, { type: 'sum', a: 2, b: 3 });
+console.log(res.data); // 5
 ```
 
-### createActorFactory
-The createActorFactory method is a higher-order function that returns a factory function for creating actors with a given behavior function.
+---
 
-The return function createActorFactory creates an actor that communicates with other actors using a message-passing system. The behavior function defines how the actor should respond to incoming messages.
+## Why actors, why now
 
+For a decade the frontend default was one big shared-memory blob: a global store, synchronous function calls, everything reaching into everything. It works until the app gets big — then coupling, race conditions, and "who mutated this?" take over.
 
-```typescript
-function createActorFactory(props: { getMailbox: () => Mailbox<Envelope>; }): (name: string, constructor: ActorConstructor) => Actor;
+The backend solved this long ago by going **distributed**: small services that own their state and talk only through messages. That model is getting a second life in the **AI era**, for two reasons.
+
+At runtime, an app is increasingly a swarm of semi-independent units (agents, workers, streams, tabs) that run concurrently, fail independently, and must be supervised. Shared-memory thinking doesn't survive that. Message passing does.
+
+But the deeper shift is in _who writes the code_. When agents author it, an architecture of independent modules is far more robust — and lets you move faster and more safely. Each actor can be understood, built, and changed in isolation; the blast radius of a mistake stops at its mailbox; and the contract between units is an explicit message, not an implicit reach into shared state. Strong boundaries are exactly what let humans and agents work in parallel without breaking everything.
+
+The browser already ships the primitives for it — Web Workers, `SharedWorker`, `MessagePort`, `postMessage` — but they're low-level, inconsistent, and painful to wire up. **webactor is the missing layer on top:** it gives you one uniform actor model whether two units live in the same thread, two tabs, or two threads.
+
+- **Isolated state.** Each actor owns its data. The only way in or out is a message. No shared mutable globals.
+- **Location transparency.** The same `connect` / `request` / `channel` API works in-thread and across a Worker boundary. Move an actor into a worker without touching its logic.
+- **Fault tolerance.** Supervisors restart crashed actors and dead workers — Erlang/OTP's "let it crash" on the client.
+- **No shared-memory races.** Everything is a message, delivered asynchronously, one at a time.
+
+If you believe the future of software is small units talking over messages, the web shouldn't be the exception.
+
+---
+
+## Install
+
+```bash
+npm install webactor
+# or: pnpm add webactor
 ```
 
-### createDispatch / dispatch
-The createDispatch function takes a target argument and returns a dispatch function that can be called with an envelope argument. The dispatch function is a shorthand for calling createDispatch and passing both target and envelope arguments in a single call.
+---
 
-The dispatch function send envelope through target.
-```typescript
-function createDispatch(target: EnvelopeDispatchTarget): (envelope: Envelope) => void
-function dispatch(target: EnvelopeDispatchTarget, envelope: Envelope): void
+## Core idea in one picture
+
+An **actor** is an isolated unit with a mailbox. You never call it — you send it an **envelope** (a typed message). Actors are wired together with **connections**. Once connected, three communication patterns cover almost everything:
+
+| Pattern                | Function                         | Use it for                                               |
+| ---------------------- | -------------------------------- | -------------------------------------------------------- |
+| **Fire-and-forget**    | `postMessage`                    | events, notifications, state broadcasts                  |
+| **Request / response** | `request` / `response`           | "ask and await an answer", RPC-style calls               |
+| **Channel**            | `openChannel` / `supportChannel` | a dedicated, disconnect-aware session between two actors |
+
+The same three patterns work identically across a Worker boundary.
+
+---
+
+## 60-second tour
+
+### Two actors talking
+
+```ts
+import { createActor, connectActors, ActorContext } from 'webactor';
+
+// A stateful business actor — owns the counter, no one else can touch it.
+const counter = createActor('counter', (ctx: ActorContext) => {
+    let value = 0;
+    ctx.addEventListener('message', (e) => {
+        if (e.data.type === 'inc') value++;
+        if (e.data.type === 'dec') value--;
+        ctx.postMessage({ type: 'value', value }); // broadcast new state
+    });
+});
+
+// A UI actor — renders, never owns business state.
+const ui = createActor('ui', (ctx: ActorContext) => {
+    ctx.addEventListener('message', (e) => {
+        if (e.data.type === 'value') render(e.data.value);
+    });
+    document.querySelector('#inc')!.addEventListener('click', () => ctx.postMessage({ type: 'inc' }));
+});
+
+const disconnect = connectActors(ui, counter);
+ui.launch();
+counter.launch();
+
+// later: disconnect(); ui.close(); counter.close();
 ```
 
-### connectActorToActor
-This function takes in two Actors or Actors with mappers and sets up a bi-directional connection between them.
-```typescript
-function connectActorToActor(actor1: Actor | EnvelopeTransmitterWithMapper<Actor>, actor2: Actor | EnvelopeTransmitterWithMapper<Actor>): Function;
+### Move an actor into a Worker — same code
+
+`counter` doesn't care where it lives. Put it in a `SharedWorker` (shared across every tab) and connect the whole thing with a dense network:
+
+```ts
+// main.ts
+import { createDenseNetwork } from 'webactor';
+import { createUIActor } from './ui-actor';
+
+const worker = new SharedWorker(new URL('./server.worker.ts', import.meta.url), { type: 'module' });
+const network = createDenseNetwork(createUIActor(), worker); // auto-detects the worker
+network.launch();
 ```
 
-## Request - Response
-### createRequest
-This function takes a transmitter object as an argument. The function returns another function that is used to make requests to the transmitter
-```typescript
-function createRequest(transmitter: EnvelopeTransmitter): (envelope: Envelope, onResponse: SubscribeCallback) => Function;
+```ts
+// server.worker.ts
+import { createDenseNetwork, useContextMessagePort } from 'webactor';
+import { createCounterActor } from './counter-actor';
+
+createDenseNetwork(useContextMessagePort(), createCounterActor()).launch();
 ```
 
-##### w/o chatGPT
-### createResponseFactory
-```typescript
-function createResponseFactory(dispatch: WithDispatch): (initial: Envelope) => (envelope: Envelope) => void;
+The UI actor's `request(...)` / `postMessage(...)` calls are unchanged. Routing across the thread boundary is automatic.
+
+### Keep it alive — supervision
+
+```ts
+import { applyActorSupervisor, Reasons } from 'webactor';
+
+const supervised = applyActorSupervisor(
+    () => createCounterActor(),
+    { shouldRetry: (reason) => reason !== Reasons.Close }, // restart on crash, not on intentional close
+);
+supervised.launch(); // if the inner actor throws/closes unexpectedly, it's rebuilt
 ```
 
-## Channels
-### openChannelFactory
-```typescript
-function openChannelFactory(transmitter: EnvelopeTransmitter): (envelope: Envelope, onOpenChannel: (context: OpenChanelContext) => void | Function) => () => void;
+There's an `applyWorkerSupervisor` too — it detects a dead/crashed Worker (via the Web Locks API) and respawns it.
+
+---
+
+## What's in the box
+
+- `createActor` / `createActorFactory` — build isolated units.
+- `connectActors` / `connectActorToWorker` / `connectActorToMessagePort` — wire units across any boundary.
+- `createDenseNetwork` — full-mesh several actors and workers at once.
+- `createRetranslator` — a transparent relay node for building hub/bridge topologies.
+- `request` / `response` — awaitable RPC with automatic back-routing across the mesh.
+- `openChannel` / `supportChannel` — dedicated, disconnect-aware pipes (great for per-client sessions).
+- `applyActorSupervisor` / `applyWorkerSupervisor` — "let it crash" restart strategies.
+- `useContextMessagePort` / `onConnectMessagePort` — the Worker/`SharedWorker` side of the wire.
+- Envelopes, transferables, pluggable providers (timers, locks, logger) for testing & non-browser runtimes.
+
+Full API, internals, routing model, and patterns: **[documentation.md](./documentation.md)**.
+
+---
+
+## DevTools
+
+A Chrome DevTools panel ships alongside the library: the live actor graph across every thread, the
+connections between actors, and the envelopes flowing over them — plus per-actor message history
+with a payload inspector.
+
+```bash
+pnpm --filter webactor-devtools build   # load packages/devtools/dist as an unpacked extension
 ```
 
-### supportChannelFactory
-```typescript
-function supportChannelFactory(transmitter: EnvelopeTransmitter): (initial: Envelope, onOpenChannel: (context: SupportChanelContext) => void | Function) => () => void;
+See **[packages/devtools](./packages/devtools)**. The recorder lives in the library but stays inert
+until something installs a sink, so there is no cost when the extension is not present. You can also
+drive it yourself:
+
+```ts
+import { enableDevtools, getDevtoolsSnapshot } from 'webactor';
+
+enableDevtools();
+console.log(getDevtoolsSnapshot()); // { thread, nodes, links, messages }
 ```
 
-### createHeartbeat
-```typescript
-type HeartbeatOptions = {
-    maxTimeout?: number;
-    checkTimeout?: number;
-    dispatchTimeout?: number;
-};
-function createHeartbeat(context: WithDispatch & WithSubscribe, panic: (timeout: number) => void, options?: HeartbeatOptions): () => void;
+---
+
+## Repository layout
+
+This is a pnpm workspace:
+
+| Package                                       | What it is                                                    |
+| --------------------------------------------- | ------------------------------------------------------------- |
+| [`packages/webactor`](./packages/webactor)    | the library (`src`), unit tests (`tests`), load tests (`e2e`)  |
+| [`packages/devtools`](./packages/devtools)    | `webactor-devtools`, the Chrome DevTools extension            |
+| [`examples/simple`](./examples/simple)        | minimal UI ↔ business actor split                             |
+| [`examples/chat`](./examples/chat)            | multi-tab chat over a `SharedWorker`                          |
+
+```bash
+pnpm install
+pnpm build           # every package
+pnpm test            # unit + e2e + devtools
+pnpm test:unit       # vitest, packages/webactor/tests
+pnpm test:e2e        # playwright load tests, packages/webactor/e2e
+pnpm test:devtools   # playwright panel + unpacked-extension tests
 ```
 
-## Worker
-### connectActorToWorker
-```typescript
-function connectActorToWorker(actor: Actor, worker: Worker | SharedWorker): Promise<() => void>;
-```
-<!--
-### connectWorkerToWorker
-```typescript
-function connectWorkerToWorker(
-    worker1: { name: string; worker: Worker | SharedWorker; },
-    worker2: { name: string; worker: Worker | SharedWorker; }
-): Promise<() => void>;
-```
--->
-### connectActorToMessagePort
-```typescript
-function connectActorToMessagePort(actor: Actor, port: MessagePort | MessagePortName): Function;
-```
-### onConnectMessagePort
-```typescript
-function onConnectMessagePort(context: DedicatedWorkerGlobalScope | SharedWorkerGlobalScope, callback: (name: MessagePortName) => unknown | Function): VoidFunction;
-```
+---
+
+## When to use it (and when not)
+
+**Great fit**
+
+- Apps with heavy `Worker` / `SharedWorker` use, or that want to move work off the main thread.
+- Multi-tab coordination and real-time sync through a `SharedWorker`.
+- Clear separation of UI ↔ domain logic, offline-first, or long-lived background processing.
+- Anything that needs fault isolation and automatic restart of subsystems.
+
+**Probably overkill**
+
+- "Call one function in a worker and get a result." Reach for [Comlink](https://github.com/GoogleChromeLabs/comlink) — it's a thinner RPC wrapper.
+- Small apps where a component tree + a state manager already fit comfortably.
+
+webactor is a _model_, not just an RPC shim: you adopt actors, envelopes, and supervision. That's a real mental investment — worth it when the payoff (isolation, fault tolerance, location transparency) matters.
+
+### vs. Comlink
+
+|                                       | webactor                | Comlink               |
+| ------------------------------------- | ----------------------- | --------------------- |
+| Model                                 | Actor / message passing | Proxy-based RPC       |
+| In-thread + cross-worker with one API | ✅                      | Worker-focused        |
+| Request/response                      | ✅                      | ✅ (as proxied calls) |
+| Fire-and-forget broadcasts            | ✅                      | Awkward               |
+| Dedicated sessions (channels)         | ✅                      | Manual                |
+| Supervision / restart                 | ✅                      | ❌                    |
+| Multi-node topologies (mesh, relay)   | ✅                      | ❌                    |
+| Bundle / surface                      | Larger, opinionated     | Tiny, minimal         |
+
+---
+
+## Status
+
+`1.0.0` · single-maintainer project · MIT-style usage. The API described here is exercised by the test suite (`pnpm test`). Feedback and issues welcome on the [repository](https://github.com/AStaroverov/actorr).

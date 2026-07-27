@@ -1,0 +1,40 @@
+{
+    "name": "webactor",
+    "description": "Everything that you need for actor architecture on client",
+    "version": "2.0.0",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/AStaroverov/actorr.git",
+        "directory": "packages/webactor"
+    },
+    "author": "AStaroverov",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc --noEmit && vite build",
+        "test": "vitest run",
+        "test:ui": "vitest --ui",
+        "test:watch": "vitest --watch",
+        "test:e2e": "playwright test --config e2e/playwright.config.ts",
+        "test:e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
+        "dev:e2e": "vite --config e2e/vite.config.ts",
+        "release": "pnpm build && npm publish",
+        "release:beta": "pnpm build && npm publish --tag beta"
+    },
+    "devDependencies": {
+        "@apacheli/web-workers": "^2.0.1",
+        "@playwright/test": "^1.57.0",
+        "@types/node": "^26.1.1",
+        "@typescript/typescript6": "^6.0.2",
+        "@vitest/ui": "^4.1.10",
+        "typescript": "^7.0.2",
+        "vite": "^8.1.5",
+        "vite-plugin-dts": "^5.0.3",
+        "vitest": "^4.1.10",
+        "web-locks": "0.0.8"
+    }
+}

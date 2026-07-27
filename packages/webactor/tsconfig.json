@@ -1,0 +1,20 @@
+{
+    "include": ["src"],
+    "exclude": ["node_modules"],
+    "compilerOptions": {
+        "target": "ESNEXT",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "lib": ["esnext", "dom", "webworker"],
+        "skipDefaultLibCheck": true,
+        "strict": true,
+        "alwaysStrict": true,
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "esModuleInterop": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "strictBindCallApply": true,
+        "strictPropertyInitialization": true
+    }
+}

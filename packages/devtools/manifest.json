@@ -1,0 +1,28 @@
+{
+    "manifest_version": 3,
+    "name": "webactor devtools",
+    "description": "Inspect webactor actor graphs, connections and message flow",
+    "homepage_url": "https://github.com/AStaroverov/actorr/tree/main/packages/devtools",
+    "minimum_chrome_version": "111",
+    "devtools_page": "devtools.html",
+    "background": {
+        "service_worker": "background.js"
+    },
+    "icons": {
+        "16": "img/icon-16.png",
+        "32": "img/icon-32.png",
+        "48": "img/icon-48.png",
+        "128": "img/icon-128.png"
+    },
+    "action": {
+        "default_title": "webactor devtools",
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "img/icon-16.png",
+            "32": "img/icon-32.png",
+            "48": "img/icon-48.png"
+        }
+    },
+    "permissions": ["scripting", "activeTab"],
+    "optional_host_permissions": ["http://*/*", "https://*/*"]
+}

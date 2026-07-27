@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>webactor</title>
+        <link rel="stylesheet" href="panel.css" />
+    </head>
+    <body>
+        <header class="toolbar">
+            <button id="record" class="toggle" title="Pause / resume recording">
+                <span class="dot"></span><span id="record-label">Recording</span>
+            </button>
+            <button id="clear" title="Clear captured graph and history">Clear</button>
+            <button id="fit" title="Reset layout and zoom">Reset view</button>
+            <span class="separator"></span>
+            <label class="field" title="Actors whose name matches are kept, as a regular expression">
+                <input id="search" type="search" placeholder="actors matching…" />
+            </label>
+            <div class="picker">
+                <button id="actors" class="toggle" title="Pick exactly which actors to debug">
+                    actors: <span id="actors-count">all</span>
+                </button>
+                <div id="actors-list" class="picker-list" hidden></div>
+            </div>
+            <label class="field">
+                <select id="thread"><option value="">all threads</option></select>
+            </label>
+            <label class="check" title="Light nodes up when they send or receive">
+                <input id="flash" type="checkbox" checked /> flashes
+            </label>
+            <label class="check"><input id="payload" type="checkbox" checked /> payloads</label>
+            <span class="grow"></span>
+            <span id="status" class="status">waiting for webactor…</span>
+        </header>
+
+        <div id="access" class="access" hidden>
+            <span id="access-text"></span>
+            <button id="access-grant">Enable on this site</button>
+        </div>
+
+        <main>
+            <section class="graph">
+                <canvas id="canvas"></canvas>
+                <div class="legend">
+                    <span><i style="background: #5aa9ff"></i>actor</span>
+                    <span><i style="background: #a78bfa"></i>retranslator</span>
+                    <span><i style="background: #f59e0b"></i>supervisor</span>
+                    <span><i style="background: #34d399"></i>thread port</span>
+                    <span class="rule"></span>
+                    <span><i style="background: #e879f9"></i>sent</span>
+                    <span><i style="background: #22d3ee"></i>received</span>
+                    <span><i style="background: #f87171"></i>dropped</span>
+                </div>
+                <div id="counts" class="counts"></div>
+            </section>
+
+            <div id="splitter" class="splitter"></div>
+
+            <aside class="details">
+                <div class="pane-tabs">
+                    <button id="pane-actor" data-pane="actor" class="active">Actor</button>
+                    <button id="pane-global" data-pane="global">Global</button>
+                    <button id="pane-channels" data-pane="channels">Channels</button>
+                </div>
+
+                <div class="filter-bar">
+                    <input id="filter" type="search" placeholder="filter: text, from:ui, to:api, type:close, dropped" />
+                    <span id="filter-count" class="muted"></span>
+                </div>
+                <div id="filter-chips" class="chips" hidden></div>
+                <div class="filter-hint">
+                    bare words match the payload, peer names and the envelope type; combine with
+                    <code>from:</code> <code>to:</code> <code>peer:</code> <code>type:</code>
+                    <code>thread:</code> <code>dropped</code>. Press <code>+</code> on any payload field below to watch
+                    every envelope carrying that value.
+                </div>
+
+                <section id="pane-actor-view" class="pane">
+                    <div id="node-header" class="node-header empty">select an actor in the graph</div>
+                    <div class="tabs">
+                        <button data-direction="all" class="active">all</button>
+                        <button data-direction="in">incoming</button>
+                        <button data-direction="out">outgoing</button>
+                    </div>
+                    <div id="messages" class="messages"></div>
+                </section>
+
+                <section id="pane-global-view" class="pane" hidden>
+                    <div id="global-list" class="messages"></div>
+                </section>
+
+                <section id="pane-channels-view" class="pane" hidden>
+                    <div class="tabs">
+                        <span class="muted">open channels</span>
+                        <span class="grow"></span>
+                        <span id="channels-count" class="muted"></span>
+                    </div>
+                    <div id="channels-list" class="channels"></div>
+                    <div id="channel-traffic" class="messages"></div>
+                </section>
+
+                <div class="payload-header">payload</div>
+                <div id="payload-view" class="payload-view"></div>
+            </aside>
+        </main>
+
+        <script src="panel.js"></script>
+    </body>
+</html>

@@ -1,0 +1,32 @@
+{
+    "name": "webactor-devtools",
+    "description": "Chrome DevTools panel for inspecting webactor actor graphs and message flow",
+    "version": "0.1.0",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/AStaroverov/actorr.git",
+        "directory": "packages/devtools"
+    },
+    "author": "AStaroverov",
+    "type": "module",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc --noEmit && node build.mjs",
+        "zip": "tsc --noEmit && node build.mjs --pack",
+        "dev": "node build.mjs --watch",
+        "test": "pnpm --filter webactor build && node build.mjs && playwright test",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "webactor": "workspace:*"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.57.0",
+        "@types/chrome": "^0.1.31",
+        "@types/node": "^26.1.1",
+        "esbuild": "^0.28.0",
+        "typescript": "^7.0.2"
+    }
+}
