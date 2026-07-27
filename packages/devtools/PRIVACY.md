@@ -15,7 +15,7 @@ popup or from the bar inside the panel — the extension cannot read anything at
 one origin and can be withdrawn at any time from the same popup, or from the extension's card in
 `chrome://extensions`.
 
-On an allowed page, the extension reads what the [webactor](https://github.com/AStaroverov/actorr)
+On an allowed page, the extension reads what the [webactor](https://github.com/AStaroverov/webactor)
 library reports about itself:
 
 - names, kinds and lifecycle of actors, supervisors and channels;
@@ -54,9 +54,9 @@ runtime.
 
 ## Source
 
-The extension is open source: <https://github.com/AStaroverov/actorr/tree/main/packages/devtools>.
+The extension is open source: <https://github.com/AStaroverov/webactor/tree/main/packages/devtools>.
 Everything described here is verifiable in that code.
 
 ## Contact
 
-Open an issue at <https://github.com/AStaroverov/actorr/issues>.
+Open an issue at <https://github.com/AStaroverov/webactor/issues>.

@@ -1,13 +1,14 @@
 {
     "name": "webactor",
     "description": "Everything that you need for actor architecture on client",
-    "version": "2.0.0",
+    "version": "1.0.0",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/AStaroverov/actorr.git",
+        "url": "git+https://github.com/AStaroverov/webactor.git",
         "directory": "packages/webactor"
     },
     "author": "AStaroverov",
+    "license": "MIT",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -16,14 +17,14 @@
     ],
     "scripts": {
         "build": "tsc --noEmit && vite build",
-        "test": "vitest run",
+        "test": "pnpm build && vitest run",
         "test:ui": "vitest --ui",
         "test:watch": "vitest --watch",
         "test:e2e": "playwright test --config e2e/playwright.config.ts",
         "test:e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
         "dev:e2e": "vite --config e2e/vite.config.ts",
-        "release": "pnpm build && npm publish",
-        "release:beta": "pnpm build && npm publish --tag beta"
+        "prepack": "node -e \"for (const f of ['README.md', 'LICENSE']) require('node:fs').copyFileSync('../../' + f, f)\"",
+        "postpack": "node -e \"for (const f of ['README.md', 'LICENSE']) require('node:fs').rmSync(f, { force: true })\""
     },
     "devDependencies": {
         "@apacheli/web-workers": "^2.0.1",

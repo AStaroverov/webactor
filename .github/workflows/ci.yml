@@ -1,0 +1,66 @@
+name: CI
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    check:
+        name: Lint, format, build
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup
+            - run: pnpm lint
+            - run: pnpm format:check
+            - run: pnpm build
+
+    unit:
+        name: Unit tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup
+            - run: pnpm test:unit
+
+    e2e:
+        name: E2E tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup
+            - run: pnpm --filter webactor exec playwright install --with-deps chromium
+            - run: pnpm test:e2e
+            - uses: actions/upload-artifact@v7
+              if: failure()
+              with:
+                  name: e2e-results
+                  path: packages/webactor/test-results/
+                  retention-days: 7
+
+    devtools:
+        name: DevTools tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup
+            - run: pnpm --filter webactor-devtools exec playwright install --with-deps chromium
+            - run: pnpm test:devtools
+            - uses: actions/upload-artifact@v7
+              if: failure()
+              with:
+                  name: devtools-results
+                  path: packages/devtools/test-results/
+                  retention-days: 7

@@ -1,0 +1,22 @@
+name: Setup
+description: Install pnpm, Node.js and workspace dependencies
+
+inputs:
+    registry-url:
+        description: npm registry to configure Node.js for
+        required: false
+        default: ''
+
+runs:
+    using: composite
+    steps:
+        - uses: pnpm/action-setup@v6
+
+        - uses: actions/setup-node@v7
+          with:
+              node-version-file: .node-version
+              registry-url: ${{ inputs.registry-url }}
+              cache: pnpm
+
+        - run: pnpm install --frozen-lockfile
+          shell: bash

@@ -2,12 +2,14 @@
     "name": "webactor-devtools",
     "description": "Chrome DevTools panel for inspecting webactor actor graphs and message flow",
     "version": "0.1.0",
+    "private": true,
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/AStaroverov/actorr.git",
+        "url": "git+https://github.com/AStaroverov/webactor.git",
         "directory": "packages/devtools"
     },
     "author": "AStaroverov",
+    "license": "MIT",
     "type": "module",
     "files": [
         "dist"
