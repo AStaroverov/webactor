@@ -7,7 +7,7 @@ on:
 
 concurrency:
     group: ci-${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
     contents: read
@@ -64,3 +64,29 @@ jobs:
                   name: devtools-results
                   path: packages/devtools/test-results/
                   retention-days: 7
+
+    release:
+        name: Version or publish
+        needs: [check, unit, e2e, devtools]
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        permissions:
+            contents: write
+            pull-requests: write
+            id-token: write
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+
+            - uses: ./.github/actions/setup
+
+            - uses: changesets/action@v1
+              with:
+                  version: pnpm version:packages
+                  publish: pnpm release
+                  commit: 'chore(release): version packages'
+                  title: 'chore(release): version packages'
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
