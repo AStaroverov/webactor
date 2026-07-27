@@ -290,7 +290,7 @@ test('clicking a node where it is drawn selects that node', async ({ page }) => 
     expect(await page.evaluate(() => window.__webactorPanel.graph.selected)).toBe(NODE_A);
 });
 
-test('hiding ports keeps the graph connected by collapsing them into pass-through edges', async ({ page }) => {
+test('ports are never drawn, and collapse into pass-through edges instead', async ({ page }) => {
     await openPanel(page);
     await feed(page, portBridgeEvents());
     await page.waitForTimeout(200);
@@ -303,13 +303,6 @@ test('hiding ports keeps the graph connected by collapsing them into pass-throug
     expect(between, 'consumer and echo must stay connected through the two hidden ports').toBeDefined();
     expect(between!.collapsed).toBe(true);
     expect(collapsed.some((edge) => edge.source === PORT_ID || edge.target === PORT_ID)).toBe(false);
-
-    await page.locator('#ports').check();
-    await page.waitForTimeout(200);
-
-    const expanded = await page.evaluate(() => window.__webactorPanel.graph.debugEdges());
-    expect(expanded.every((edge) => !edge.collapsed)).toBe(true);
-    expect(expanded.some((edge) => edge.source === PORT_ID || edge.target === PORT_ID)).toBe(true);
 });
 
 /** Long enough for the flashes the fixture itself caused to have faded out. */

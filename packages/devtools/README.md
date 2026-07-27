@@ -7,7 +7,8 @@ who is connected to whom, across every thread, and every envelope that travels b
 
 - **Graph** — one node per actor, retranslator, supervisor and thread port; edges are real
   `connectTransmitters` connections. Nodes of the same thread settle near each other, and cross-thread
-  edges are dashed.
+  edges are dashed. Raw ports are not drawn — they mean nothing on their own, so a run of them collapses
+  into a single pass-through edge between the nodes on either side.
 - **Traffic** — nodes flash when they work: magenta on sending, cyan on receiving, red when an
   envelope was dropped by a route mismatch. Nothing is drawn travelling along an edge — real traffic is
   orders of magnitude faster than any animation, so a single envelope would appear in every segment of

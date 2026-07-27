@@ -68,8 +68,9 @@ function nameOf(id: string): string {
     return store.nodes.get(id)?.name ?? id.split('<')[0];
 }
 
+/** Raw ports are never drawn: they carry no meaning of their own and collapse into pass-through edges. */
 function nodeVisible(node: DevtoolsNode): boolean {
-    if (!dom.portsInput.checked && node.kind === 'port') return false;
+    if (node.kind === 'port') return false;
     const thread = dom.threadSelect.value;
     if (thread !== '' && node.thread !== thread) return false;
     const query = dom.searchInput.value.trim().toLowerCase();
@@ -256,7 +257,6 @@ dom.fitButton.addEventListener('click', () => graph.resetView());
 
 dom.searchInput.addEventListener('input', () => graph.invalidate());
 dom.threadSelect.addEventListener('change', () => graph.invalidate());
-dom.portsInput.addEventListener('change', () => graph.invalidate());
 dom.flashInput.addEventListener('change', () => {
     graph.flash = dom.flashInput.checked;
 });

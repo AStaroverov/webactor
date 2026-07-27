@@ -14,7 +14,6 @@ export const dom = {
     threadSelect: byId<HTMLSelectElement>('thread'),
     flashInput: byId<HTMLInputElement>('flash'),
     payloadInput: byId<HTMLInputElement>('payload'),
-    portsInput: byId<HTMLInputElement>('ports'),
     statusLabel: byId('status'),
     countsLabel: byId('counts'),
     nodeHeader: byId('node-header'),
