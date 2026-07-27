@@ -462,6 +462,70 @@ canvas {
     overflow: auto;
 }
 
+.channels {
+    flex: 0 1 auto;
+    max-height: 45%;
+    min-height: 40px;
+    overflow: auto;
+    border-bottom: 1px solid var(--border);
+}
+
+.channel-row {
+    display: grid;
+    grid-template-columns: minmax(60px, 1fr) minmax(0, 2fr) auto auto;
+    gap: 6px;
+    align-items: baseline;
+    padding: 3px 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.channel-row:hover {
+    background: var(--hover);
+}
+
+.channel-row.selected {
+    background: var(--selected);
+}
+
+.channel-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.channel-flow,
+.channel-meta {
+    overflow: hidden;
+    color: var(--text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.channel-row.state-opening .channel-name {
+    color: #f59e0b;
+}
+
+.channel-row.state-closed {
+    opacity: 0.55;
+}
+
+.channel-row.state-closed .channel-name {
+    text-decoration: line-through;
+}
+
+.channel-row.state-failed .channel-name,
+.channel-row.state-failed .channel-meta {
+    color: #ef4444;
+}
+
+/** One half of a channel, i.e. the peer thread never reported its side. */
+.channel-lonely {
+    color: var(--text-muted);
+}
+
 .message {
     display: grid;
     grid-template-columns: 62px 14px 1fr auto;

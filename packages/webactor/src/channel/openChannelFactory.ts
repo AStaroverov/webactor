@@ -24,7 +24,10 @@ export async function openChannel(
     },
 ): Promise<ChannelTransmitter> {
     const channelId = createShortRandomString();
+    const channelName = typeof message === 'string' ? message : undefined;
     const unlockChannelPromise = lock('openChannel' + channelId);
+
+    devtools.channelOpening(channelId, 'open', channelName, target);
 
     try {
         const unlockChannel = await unlockChannelPromise;
@@ -37,7 +40,16 @@ export async function openChannel(
         const messagePort = envelope.data as MessagePort;
         devtools.excludeFromBridge(messagePort);
         const localChannel = createEnvelopeChannel();
-        devtools.registerEnds(localChannel.port1, localChannel.port2, 'port', 'openChannel');
+        devtools.registerEnds(
+            localChannel.port1,
+            localChannel.port2,
+            'port',
+            `openChannel(${channelName ?? channelId})`,
+        );
+        devtools.channelEnds(channelId, 'open', channelName, {
+            local: [localChannel.port1, localChannel.port2],
+            remote: [messagePort],
+        });
         const disconnect = connectTransmitters(messagePort as Transmitter, localChannel.port1, [
             EnvelopeType.Message,
             EnvelopeType.Close,
@@ -49,6 +61,7 @@ export async function openChannel(
         const close = (reason?: Reason) => {
             if (closed) return;
             closed = true;
+            devtools.channelState(channelId, 'open', 'closed', reason);
             post(localChannel.port1, EnvelopeType.Close, { reason, source: 'openChannel' });
             post(localChannel.port2, EnvelopeType.Close, { reason, source: 'openChannel' });
             disconnect();
@@ -79,11 +92,14 @@ export async function openChannel(
             throw error;
         });
 
+        devtools.channelState(channelId, 'open', 'open');
+
         return {
             ...localChannel.port2,
             close,
         } as ChannelTransmitter;
     } catch (err) {
+        devtools.channelState(channelId, 'open', 'failed', err);
         unlockChannelPromise.then((unlock) => unlock());
         throw err;
     }

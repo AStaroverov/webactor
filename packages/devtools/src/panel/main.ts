@@ -6,13 +6,14 @@ import { GraphView } from './graph';
 import { Store } from './store';
 import { readTheme } from './theme';
 import { connect } from './transport';
+import { renderChannelList } from './views/channel-list';
 import { renderChipList } from './views/chip-list';
 import { renderGlobalList } from './views/global-list';
 import { type Direction, renderMessageList } from './views/message-list';
 import { renderNodeDetails } from './views/node-details';
 import { renderPayload } from './views/payload';
 
-type Pane = 'actor' | 'global';
+type Pane = 'actor' | 'global' | 'channels';
 
 const LIST_REFRESH_INTERVAL = 250;
 const MIN_GRAPH_WIDTH = 200;
@@ -25,6 +26,7 @@ let recording = true;
 let direction: Direction = 'all';
 let selectedNode: string | undefined;
 let selectedMessage: string | undefined;
+let selectedChannel: string | undefined;
 let listDirty = false;
 let pane: Pane = 'actor';
 let textFilter: MessageFilter = createMessageFilter('');
@@ -52,7 +54,7 @@ const transport = connect((message) => {
         if (selectedNode !== undefined) showNodeDetails();
     }
     for (const entry of delta.messages) graph.pulse(entry);
-    if (delta.messages.length > 0) listDirty = true;
+    if (delta.messages.length > 0 || delta.channelsChanged) listDirty = true;
     if (delta.graphChanged || delta.messages.length > 0) dom.countsLabel.textContent = summary();
 });
 
@@ -141,6 +143,31 @@ function showGlobal(): void {
     });
 }
 
+function showChannels(): void {
+    renderChannelList({
+        container: dom.channelsList,
+        counter: dom.channelsCount,
+        store,
+        selectedChannel,
+        onPick: (channelId) => {
+            selectedChannel = channelId === selectedChannel ? undefined : channelId;
+            showChannels();
+        },
+    });
+
+    renderGlobalList({
+        container: dom.channelTraffic,
+        counter: dom.filterCount,
+        store,
+        filter: activeFilter(),
+        selectedMessage,
+        source: selectedChannel === undefined ? [] : store.messagesForChannel(selectedChannel),
+        emptyText: selectedChannel === undefined ? 'select a channel above' : 'nothing has travelled this channel yet',
+        onPick: pickMessage,
+        onOpenNode: openActor,
+    });
+}
+
 function showChips(): void {
     renderChipList({
         container: dom.filterChips,
@@ -161,25 +188,34 @@ function refreshActivePane(): void {
     listDirty = false;
     showChips();
     if (pane === 'global') showGlobal();
+    else if (pane === 'channels') showChannels();
     else showMessages();
 }
 
 function showPane(next: Pane): void {
     pane = next;
-    dom.paneActorButton.classList.toggle('active', next === 'actor');
-    dom.paneGlobalButton.classList.toggle('active', next === 'global');
-    dom.paneActorView.hidden = next !== 'actor';
-    dom.paneGlobalView.hidden = next !== 'global';
+    for (const [name, button, view] of [
+        ['actor', dom.paneActorButton, dom.paneActorView],
+        ['global', dom.paneGlobalButton, dom.paneGlobalView],
+        ['channels', dom.paneChannelsButton, dom.paneChannelsView],
+    ] as const) {
+        button.classList.toggle('active', next === name);
+        view.hidden = next !== name;
+    }
     refreshActivePane();
 }
 
-/** Picking an actor is what the Actor pane is for; letting go of one leaves nothing to show there. */
+/**
+ * Picking an actor is what the Actor pane is for; letting go of one leaves nothing to show there. The
+ * Channels pane is a deliberate choice, so a selection never drags the user out of it.
+ */
 function selectRoot(id: string | undefined): void {
     selectedNode = id;
     selectedMessage = undefined;
     renderPayload(dom.payloadView, undefined);
     showNodeDetails();
-    showPane(id === undefined ? 'global' : 'actor');
+    if (pane === 'channels') refreshActivePane();
+    else showPane(id === undefined ? 'global' : 'actor');
 }
 
 function openActor(id: string): void {
@@ -201,6 +237,7 @@ graph.onSelect = selectRoot;
 
 dom.paneActorButton.addEventListener('click', () => showPane('actor'));
 dom.paneGlobalButton.addEventListener('click', () => showPane('global'));
+dom.paneChannelsButton.addEventListener('click', () => showPane('channels'));
 
 dom.filterInput.addEventListener('input', () => {
     textFilter = createMessageFilter(dom.filterInput.value);
@@ -280,6 +317,10 @@ chrome.devtools.network.onNavigated.addListener(() => {
         dom.filterInput.dispatchEvent(new Event('input'));
     },
     pinnedFields: () => pinnedFields.list().map((chip) => chip.id),
+    selectChannel(channelId: string | undefined) {
+        selectedChannel = channelId;
+        showPane('channels');
+    },
 };
 
 selectRoot(undefined);

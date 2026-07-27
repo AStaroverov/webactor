@@ -18,16 +18,30 @@ export async function supportChannel(target: Transmitter, envelope: Envelope<Any
         throw new Error('Invalid envelope: missing checkpoints');
     }
 
+    const channelName = typeof envelope.data === 'string' ? envelope.data : undefined;
+    devtools.channelOpening(channelId, 'support', channelName, target);
+
     const unlockChannel = await lockIfAvailable('supportChannel' + channelId);
     if (unlockChannel === null) {
-        throw new Error(`Channel is already supported: ${channelId}`);
+        const error = new Error(`Channel is already supported: ${channelId}`);
+        devtools.channelState(channelId, 'support', 'failed', error);
+        throw error;
     }
 
     const messageChannel = new MessageChannel();
     devtools.excludeFromBridge(messageChannel.port2);
     response(target, envelope, messageChannel.port1, [messageChannel.port1]);
     const localChannel = createEnvelopeChannel();
-    devtools.registerEnds(localChannel.port1, localChannel.port2, 'port', 'supportChannel');
+    devtools.registerEnds(
+        localChannel.port1,
+        localChannel.port2,
+        'port',
+        `supportChannel(${channelName ?? channelId})`,
+    );
+    devtools.channelEnds(channelId, 'support', channelName, {
+        local: [localChannel.port1, localChannel.port2],
+        remote: [messageChannel.port2],
+    });
     const disconnect = connectTransmitters(messageChannel.port2 as Transmitter, localChannel.port1, [
         EnvelopeType.Message,
         EnvelopeType.Close,
@@ -39,6 +53,7 @@ export async function supportChannel(target: Transmitter, envelope: Envelope<Any
     const close = (reason?: Reason) => {
         if (closed) return;
         closed = true;
+        devtools.channelState(channelId, 'support', 'closed', reason);
         post(localChannel.port1, EnvelopeType.Close, { reason, source: 'supportChannel' });
         post(localChannel.port2, EnvelopeType.Close, { reason, source: 'supportChannel' });
         disconnect();
@@ -64,6 +79,8 @@ export async function supportChannel(target: Transmitter, envelope: Envelope<Any
         .catch(catchAbortToSymbol);
 
     await handshake.promise;
+
+    devtools.channelState(channelId, 'support', 'open');
 
     return {
         ...localChannel.port2,

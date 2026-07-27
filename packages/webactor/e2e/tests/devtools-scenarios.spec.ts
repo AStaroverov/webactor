@@ -1,5 +1,12 @@
 import { expect, type Page, test } from '@playwright/test';
-import type { DevtoolsEvent, DevtoolsLink, DevtoolsMessage, DevtoolsNode, DevtoolsSnapshot } from 'webactor';
+import type {
+    DevtoolsChannel,
+    DevtoolsEvent,
+    DevtoolsLink,
+    DevtoolsMessage,
+    DevtoolsNode,
+    DevtoolsSnapshot,
+} from 'webactor';
 
 declare global {
     interface Window {
@@ -20,6 +27,7 @@ type Capture = {
     nodes: DevtoolsNode[];
     links: DevtoolsLink[];
     messages: DevtoolsMessage[];
+    channels: DevtoolsChannel[];
     caps: { maxNodes: number; maxLinks: number; maxMessages: number };
 };
 
@@ -55,13 +63,15 @@ async function readCapture(page: Page): Promise<Capture> {
     const nodes: DevtoolsNode[] = [];
     const links: DevtoolsLink[] = [];
     const messages: DevtoolsMessage[] = [];
+    const channels: DevtoolsChannel[] = [];
     for (const event of raw.events) {
         if (event.type === 'node') nodes.push(event.node);
         if (event.type === 'link') links.push(event.link);
         if (event.type === 'message') messages.push(event.message);
+        if (event.type === 'channel') channels.push(event.channel);
     }
 
-    return { ...raw, nodes, links, messages };
+    return { ...raw, nodes, links, messages, channels };
 }
 
 async function capture(page: Page, name: string, overrides: Record<string, number>): Promise<Capture> {
@@ -275,12 +285,33 @@ test('channel-storm: channel ports and close envelopes are recorded', async ({ p
     });
     assertInvariants(result, 'channel-storm');
 
-    expect(result.nodes.some((node) => node.name === 'openChannel')).toBe(true);
-    expect(result.nodes.some((node) => node.name === 'supportChannel')).toBe(true);
+    expect(result.nodes.some((node) => node.name.startsWith('openChannel('))).toBe(true);
+    expect(result.nodes.some((node) => node.name.startsWith('supportChannel('))).toBe(true);
     expect(result.nodes.every((node) => node.name !== 'UnknownTransmitter')).toBe(true);
 
     const closedLinks = result.events.filter((event) => event.type === 'link-closed');
     expect(closedLinks.length).toBeGreaterThan(0);
+
+    const openers = result.channels.filter((channel) => channel.side === 'open');
+    const supporters = result.channels.filter((channel) => channel.side === 'support');
+    expect(openers.length).toBeGreaterThan(0);
+    expect(supporters.length).toBeGreaterThan(0);
+
+    const supported = new Set(supporters.map((channel) => channel.channelId));
+    const paired = openers.filter((channel) => supported.has(channel.channelId));
+    expect(paired.length, 'a supported channel must pair with its opener by id').toBeGreaterThan(0);
+
+    const settled = result.snapshot.channels.filter(
+        (channel) => channel.state === 'closed' || channel.state === 'failed',
+    );
+    expect(settled.length, 'the aborts must leave settled channels behind').toBeGreaterThan(0);
+
+    const attributed = result.messages.filter((message) => message.channel !== undefined);
+    expect(attributed.length, 'traffic through a channel must carry its id').toBeGreaterThan(0);
+    const known = new Set(result.channels.map((channel) => channel.channelId));
+    for (const message of attributed) {
+        expect(known.has(message.channel!), `message tagged with an unannounced channel ${message.channel}`).toBe(true);
+    }
 });
 
 test('actor-supervisor-storm: restarts are attributed to supervisors', async ({ page }) => {
@@ -327,11 +358,22 @@ test('cross-thread channel: one message stays one message and the channel is vis
 
     const threads = new Set(result.nodes.map((node) => node.thread));
     expect([...threads].filter((thread) => thread.includes('dedicatedWorker'))).toHaveLength(1);
-    expect(result.nodes.some((node) => node.name === 'openChannel')).toBe(true);
-    expect(result.nodes.some((node) => node.name === 'supportChannel')).toBe(true);
+    expect(result.nodes.some((node) => node.name.startsWith('openChannel('))).toBe(true);
+    expect(result.nodes.some((node) => node.name.startsWith('supportChannel('))).toBe(true);
     expect(result.nodes.some((node) => node.name === 'channel-client')).toBe(true);
     expect(result.nodes.some((node) => node.name === 'channel-host')).toBe(true);
     expect(result.links.some((link) => link.crossThread)).toBe(true);
+
+    const opener = result.channels.find((channel) => channel.side === 'open');
+    const supporter = result.channels.find((channel) => channel.side === 'support');
+    expect(opener?.channelId, 'the two halves must pair across the thread boundary').toBe(supporter?.channelId);
+    expect(opener?.name).toBe('open-probe-channel');
+    expect(opener?.thread).toContain('window');
+    expect(supporter?.thread, 'the supporting half lives in the worker').toContain('dedicatedWorker');
+
+    const traffic = result.messages.filter((message) => message.channel === opener?.channelId);
+    expect(traffic.length, 'both legs of the channel are attributed to it').toBeGreaterThan(0);
+    expect(new Set(traffic.map((message) => message.thread)).size, 'traffic is seen from both threads').toBe(2);
 });
 
 test('live user simulation satisfies the same invariants', async ({ page }) => {

@@ -4,6 +4,7 @@ const options: DevtoolsOptions = {
     maxNodes: 4000,
     maxLinks: 8000,
     maxMessages: 5000,
+    maxChannels: 500,
     previewDepth: 5,
     capturePayload: true,
     flushInterval: 0,

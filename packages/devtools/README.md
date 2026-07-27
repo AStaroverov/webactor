@@ -20,6 +20,13 @@ who is connected to whom, across every thread, and every envelope that travels b
 - **Filter** — one field above both panes, narrowing whichever list is open. Bare words match the
   payload, the peer names or the envelope type; `from:` `to:` `peer:` `type:` `thread:` narrow to one
   field and `dropped` keeps only envelopes a route mismatch threw away. Terms combine with AND.
+- **Channels** — the third tab lists every channel `openChannel`/`supportChannel` built: its handshake
+  name, both halves with the actor and thread each lives in, its state, and how much has travelled it.
+  The two halves are one row — the `channelId` the opener generates and the supporter reads back off the
+  envelope's route is the same on both sides, so they pair up even across a worker boundary; a `½` marks
+  a channel whose peer thread never reported its side. Selecting a channel lists exactly the envelopes
+  that went through it, in both threads. Closed and failed channels stay for 20 seconds with their
+  reason — a `LostConnection` or a duplicate `supportChannel` is worth seeing after the fact.
 - **Watched fields** — `+` next to any field in the payload inspector pins that field *and its value*
   as a chip: every envelope carrying it joins the watch list. Chips combine with OR, the typed query
   narrows whatever they let through, and each chip counts its matches. Primitives compare exactly;
@@ -65,12 +72,16 @@ page (MAIN world)                     extension
 `hook.js` only installs the sink; all recording lives in webactor itself
 (`packages/webactor/src/devtools`). Without the extension the global hook is absent and the recorder
 never activates: what remains is a flag check at each instrumentation point, one `WeakMap` write per
-transmitter to declare its kind, and one more for each pair of ports that form the two ends of an
-internal channel. Neither is skippable — a worker activates only once the page attaches to it, by
-which time its ports already exist, so a kind would read as `unknown` and, worse, the two ends of a
-channel would not share a node and the graph would come apart at the thread boundary. Measured on the
-load suite, ten thousand actors cost 72 ms to create with the recorder present against 71 ms with it
-stripped out entirely.
+transmitter to declare its kind, one more for each pair of ports that form the two ends of an internal
+channel, and three per `openChannel`/`supportChannel` to remember which channel its ends belong to.
+None is skippable — a worker activates only once the page attaches to it, by which time its ports
+already exist, so a kind would read as `unknown`, a channel opened earlier would be unrecognisable, and
+worse, the two ends of a channel would not share a node and the graph would come apart at the thread
+boundary. Measured on the load suite, ten thousand actors cost 72 ms to create with the recorder present
+against 71 ms with it stripped out entirely.
+
+While recording, attributing an envelope to its channel adds two `WeakMap` lookups per hop — 2.6 ms per
+200 000 envelopes, against a preview that costs orders of magnitude more.
 
 Worker threads cannot be reached by content scripts, so they are attached from the page instead:
 the active thread sends a `__webactor_devtools__` envelope carrying a transferred `MessagePort` over

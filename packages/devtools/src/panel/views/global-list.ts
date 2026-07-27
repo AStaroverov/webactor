@@ -12,6 +12,9 @@ export type GlobalListInput = {
     selectedMessage: string | undefined;
     onPick: (message: DevtoolsMessage) => void;
     onOpenNode: (nodeId: string) => void;
+    /** Defaults to every captured message; a channel passes its own traffic instead. */
+    source?: readonly DevtoolsMessage[];
+    emptyText?: string;
 };
 
 function nameOf(store: Store, id: string): string {
@@ -68,23 +71,26 @@ function buildRow(message: DevtoolsMessage, input: GlobalListInput): HTMLElement
 
 export function renderGlobalList(input: GlobalListInput): void {
     const { container, counter, store, filter } = input;
+    const source = input.source ?? store.messages;
     container.textContent = '';
 
     const matched: DevtoolsMessage[] = [];
-    for (let i = store.messages.length - 1; i >= 0 && matched.length < MAX_ROWS; i--) {
-        const message = store.messages[i];
+    for (let i = source.length - 1; i >= 0 && matched.length < MAX_ROWS; i--) {
+        const message = source[i];
         if (filter.matches(message, (id) => nameOf(store, id))) matched.push(message);
     }
     matched.reverse();
 
     counter.textContent = filter.empty
-        ? `${store.messages.length} captured`
-        : `${matched.length}${matched.length === MAX_ROWS ? '+' : ''} of ${store.messages.length}`;
+        ? `${source.length} captured`
+        : `${matched.length}${matched.length === MAX_ROWS ? '+' : ''} of ${source.length}`;
 
     if (matched.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'empty-list';
-        empty.textContent = filter.empty ? 'no messages captured yet' : 'nothing matches this filter';
+        empty.textContent = filter.empty
+            ? (input.emptyText ?? 'no messages captured yet')
+            : 'nothing matches this filter';
         container.append(empty);
         return;
     }

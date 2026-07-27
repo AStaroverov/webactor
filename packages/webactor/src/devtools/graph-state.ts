@@ -1,5 +1,6 @@
 import { option } from './options';
 import {
+    type DevtoolsChannel,
     type DevtoolsEvent,
     DevtoolsEventType,
     type DevtoolsLink,
@@ -12,6 +13,7 @@ const nodes = new Map<string, DevtoolsNode>();
 const links = new Map<string, DevtoolsLink>();
 const linkRefs = new Map<string, number>();
 const messages: DevtoolsMessage[] = [];
+const channels = new Map<string, DevtoolsChannel>();
 
 /**
  * Message ids already applied. With several upstreams a batch can reach a thread by two routes, and a
@@ -36,6 +38,16 @@ function evictLinks(): void {
         if (excess-- <= 0) break;
         links.delete(id);
         linkRefs.delete(id);
+    }
+}
+
+/** Only settled channels are dropped: a live one is what the list is for, however old it is. */
+function evictChannels(): void {
+    const max = option('maxChannels');
+    if (channels.size <= max) return;
+    for (const [id, channel] of channels) {
+        if (channels.size <= max) break;
+        if (channel.state === 'closed' || channel.state === 'failed') channels.delete(id);
     }
 }
 
@@ -66,6 +78,10 @@ export function getNode(id: string): DevtoolsNode | undefined {
 
 export function hasLink(id: string): boolean {
     return links.has(id);
+}
+
+export function getChannel(id: string): DevtoolsChannel | undefined {
+    return channels.get(id);
 }
 
 export function retainLink(id: string): number {
@@ -111,6 +127,20 @@ export function apply(event: DevtoolsEvent): void {
             if (node !== undefined) node.restarts += 1;
             break;
         }
+        case DevtoolsEventType.Channel:
+            channels.set(event.channel.id, event.channel);
+            evictChannels();
+            break;
+        case DevtoolsEventType.ChannelState: {
+            const channel = channels.get(event.id);
+            if (channel === undefined) break;
+            channel.state = event.state;
+            if (event.state === 'closed' || event.state === 'failed') {
+                channel.closedAt = event.ts;
+                channel.reason = event.reason;
+            }
+            break;
+        }
     }
 }
 
@@ -120,6 +150,7 @@ export function snapshot(thread: string): DevtoolsSnapshot {
         nodes: [...nodes.values()],
         links: [...links.values()],
         messages: [...messages],
+        channels: [...channels.values()],
     };
 }
 
@@ -127,6 +158,7 @@ export function snapshotEvents(): DevtoolsEvent[] {
     const events: DevtoolsEvent[] = [];
     for (const node of nodes.values()) events.push({ type: DevtoolsEventType.Node, node });
     for (const link of links.values()) events.push({ type: DevtoolsEventType.Link, link });
+    for (const channel of channels.values()) events.push({ type: DevtoolsEventType.Channel, channel });
     for (const message of messages) events.push({ type: DevtoolsEventType.Message, message });
     return events;
 }
@@ -136,5 +168,6 @@ export function clear(): void {
     links.clear();
     linkRefs.clear();
     messages.length = 0;
+    channels.clear();
     appliedSeq.clear();
 }

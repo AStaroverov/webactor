@@ -51,6 +51,7 @@
                 <div class="pane-tabs">
                     <button id="pane-actor" data-pane="actor" class="active">Actor</button>
                     <button id="pane-global" data-pane="global">Global</button>
+                    <button id="pane-channels" data-pane="channels">Channels</button>
                 </div>
 
                 <div class="filter-bar">
@@ -77,6 +78,16 @@
 
                 <section id="pane-global-view" class="pane" hidden>
                     <div id="global-list" class="messages"></div>
+                </section>
+
+                <section id="pane-channels-view" class="pane" hidden>
+                    <div class="tabs">
+                        <span class="muted">open channels</span>
+                        <span class="grow"></span>
+                        <span id="channels-count" class="muted"></span>
+                    </div>
+                    <div id="channels-list" class="channels"></div>
+                    <div id="channel-traffic" class="messages"></div>
                 </section>
 
                 <div class="payload-header">payload</div>

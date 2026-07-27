@@ -18,9 +18,10 @@ declare global {
                 debugPulses: () => [string, Record<string, number>][];
             };
             select: (id: string | undefined) => void;
-            showPane: (pane: 'actor' | 'global') => void;
+            showPane: (pane: 'actor' | 'global' | 'channels') => void;
             setFilter: (query: string) => void;
             pinnedFields: () => string[];
+            selectChannel: (channelId: string | undefined) => void;
         };
     }
 }
@@ -549,6 +550,95 @@ test('an active filter dims the graph and marks the nodes it touches', async ({ 
 
     await page.locator('#filter-chips .chip-remove').click();
     expect(await page.evaluate(() => window.__webactorPanel.graph.dimUnwatched)).toBe(false);
+});
+
+const CHANNEL_ID = 'ab12cd';
+
+function channelEvents(): DevtoolsEvent[] {
+    const side = (
+        sideName: 'open' | 'support',
+        thread: string,
+        ownerId: string,
+        endpointId: string,
+    ): DevtoolsEvent => ({
+        type: 'channel',
+        channel: {
+            id: `${CHANNEL_ID}:${sideName}`,
+            channelId: CHANNEL_ID,
+            side: sideName,
+            name: 'chat',
+            thread,
+            state: 'open',
+            ownerId,
+            endpointId,
+            createdAt: 1_700_000_000_000,
+        },
+    });
+
+    const hop = (seq: string, source: string, target: string, channel?: string): DevtoolsEvent => ({
+        type: 'message',
+        message: { ...hopMessage(source, target, seq), preview: { text: 'hi' }, channel },
+    });
+
+    return [
+        ...graphEvents(),
+        side('open', 'window<t1>', NODE_A, NODE_A),
+        side('support', 'worker<t2>', NODE_C, NODE_C),
+        hop('window<t1>:20', NODE_A, NODE_B, CHANNEL_ID),
+        hop('window<t1>:21', NODE_B, NODE_A, CHANNEL_ID),
+        hop('window<t1>:22', NODE_A, NODE_B),
+    ];
+}
+
+test('the channels pane pairs both sides of a channel and lists what travelled it', async ({ page }) => {
+    const errors = await openPanel(page);
+    await feed(page, channelEvents());
+
+    await page.locator('#pane-channels').click();
+    await expect(page.locator('#pane-channels-view')).toBeVisible();
+
+    const rows = page.locator('#channels-list .channel-row');
+    await expect(rows, 'two sides are one channel').toHaveCount(1);
+    await expect(rows.first().locator('.channel-name')).toHaveText('chat');
+    await expect(rows.first().locator('.channel-flow')).toContainText('producer');
+    await expect(rows.first().locator('.channel-flow')).toContainText('echo');
+    await expect(rows.first().locator('.channel-meta')).toHaveText('2 msg');
+    await expect(page.locator('#channels-count')).toHaveText('1 open of 1');
+    await expect(page.locator('#channel-traffic')).toContainText('select a channel');
+
+    await rows.first().click();
+    await expect(page.locator('#channel-traffic .global-row'), 'only this channel travels here').toHaveCount(2);
+
+    await page.locator('#channel-traffic .global-row').first().click();
+    await expect(page.locator('#payload-view')).toContainText('"hi"');
+
+    expect(errors).toEqual([]);
+});
+
+test('a closed channel stays in the list carrying its reason', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, channelEvents());
+    await page.locator('#pane-channels').click();
+
+    await feed(page, [
+        { type: 'channel-state', id: `${CHANNEL_ID}:open`, state: 'closed', ts: Date.now(), reason: 'LostConnection' },
+    ]);
+
+    const row = page.locator('#channels-list .channel-row').first();
+    await expect(row).toHaveClass(/state-closed/);
+    await expect(row.locator('.channel-meta')).toHaveText('closed · LostConnection');
+    await expect(page.locator('#channels-count'), 'it is still listed, just not open').toHaveText('0 open of 1');
+});
+
+test('the shared filter narrows a channel traffic list too', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, channelEvents());
+    await page.evaluate((id) => window.__webactorPanel.selectChannel(id), CHANNEL_ID);
+
+    await expect(page.locator('#channel-traffic .global-row')).toHaveCount(2);
+
+    await page.evaluate(() => window.__webactorPanel.setFilter('from:producer'));
+    await expect(page.locator('#channel-traffic .global-row')).toHaveCount(1);
 });
 
 test('the canvas actually paints the graph', async ({ page }) => {

@@ -1,6 +1,7 @@
 import type { AnyEnvelope } from '../envelope';
 import { threadId } from '../utils/thread';
 import { excludeFromBridge, isExcludedFromBridge } from './bridge-exclusions';
+import { type ChannelTag, channelTagOf, tagChannelEnds } from './channel-tags';
 import { DEVTOOLS_GLOBAL_KEY, DEVTOOLS_HOOK_KEY } from './defs';
 import * as state from './graph-state';
 import { declareKind, describe, descriptorOf, displayName, identify, inferKind } from './identity';
@@ -8,6 +9,9 @@ import { getOptions, option, setOptions } from './options';
 import { createPreview, estimateBytes } from './serialize';
 import * as sinks from './sinks';
 import {
+    type DevtoolsChannel,
+    type DevtoolsChannelSides,
+    type DevtoolsChannelStates,
     type DevtoolsEvent,
     DevtoolsEventType,
     type DevtoolsHook,
@@ -71,6 +75,36 @@ function ensureLink(sourceId: string, targetId: string): void {
             inferred: true,
         },
     });
+}
+
+function channelKey(channelId: string, side: DevtoolsChannelSides): string {
+    return `${channelId}:${side}`;
+}
+
+function ensureChannel(tag: ChannelTag, endpointId?: string): DevtoolsChannel {
+    const id = channelKey(tag.channelId, tag.side);
+    const existing = state.getChannel(id);
+    if (existing !== undefined) {
+        if (existing.endpointId === undefined && endpointId !== undefined) {
+            existing.endpointId = endpointId;
+            record({ type: DevtoolsEventType.Channel, channel: existing });
+        }
+        return existing;
+    }
+
+    const channel: DevtoolsChannel = {
+        id,
+        channelId: tag.channelId,
+        side: tag.side,
+        name: tag.name,
+        thread: threadId,
+        state: 'open',
+        ownerId: undefined,
+        endpointId,
+        createdAt: Date.now(),
+    };
+    record({ type: DevtoolsEventType.Channel, channel });
+    return channel;
 }
 
 export function addSink(sink: DevtoolsSink, options?: { relay?: boolean }): VoidFunction {
@@ -194,6 +228,19 @@ export const devtools = {
         const sourceId = ensureNodeFor(source).id;
         const targetId = ensureNodeFor(target).id;
         ensureLink(sourceId, targetId);
+
+        // A channel opened before devtools woke up is only known by its tag, so back-fill it from there.
+        const sourceTag = channelTagOf(source);
+        const targetTag = channelTagOf(target);
+        const tag = sourceTag ?? targetTag;
+        const channel =
+            tag === undefined
+                ? undefined
+                : ensureChannel(
+                      tag,
+                      sourceTag?.local === true ? sourceId : targetTag?.local === true ? targetId : undefined,
+                  );
+
         const preview = option('capturePayload') ? createPreview(envelope.data, option('previewDepth')) : undefined;
         record({
             type: DevtoolsEventType.Message,
@@ -209,7 +256,64 @@ export const devtools = {
                 checkpoints: envelope.__checkpoints,
                 bytes: estimateBytes(preview),
                 preview,
+                channel: channel?.channelId,
             },
+        });
+    },
+
+    /**
+     * Declares a channel the moment it starts opening, before either end exists: a request that never
+     * comes back is exactly the case worth seeing, and by then there is nothing left to attach to.
+     */
+    channelOpening(channelId: string, side: DevtoolsChannelSides, name: string | undefined, owner?: object): void {
+        if (!sinks.isActive()) return;
+        const id = channelKey(channelId, side);
+        if (state.getChannel(id) !== undefined) return;
+        record({
+            type: DevtoolsEventType.Channel,
+            channel: {
+                id,
+                channelId,
+                side,
+                name,
+                thread: threadId,
+                state: 'opening',
+                ownerId: owner === undefined ? undefined : ensureNodeFor(owner).id,
+                endpointId: undefined,
+                createdAt: Date.now(),
+            },
+        });
+    },
+
+    /** Tags the transmitters whose traffic belongs to this channel. Always recorded, like a node kind. */
+    channelEnds(
+        channelId: string,
+        side: DevtoolsChannelSides,
+        name: string | undefined,
+        ends: { local: readonly object[]; remote: readonly object[] },
+    ): void {
+        tagChannelEnds(ends.local, { channelId, side, name, local: true });
+        tagChannelEnds(ends.remote, { channelId, side, name, local: false });
+
+        if (!sinks.isActive() || ends.local.length === 0) return;
+        const channel = state.getChannel(channelKey(channelId, side));
+        if (channel === undefined || channel.endpointId !== undefined) return;
+        channel.endpointId = ensureNodeFor(ends.local[0]).id;
+        record({ type: DevtoolsEventType.Channel, channel });
+    },
+
+    channelState(channelId: string, side: DevtoolsChannelSides, next: DevtoolsChannelStates, reason?: unknown): void {
+        if (!sinks.isActive()) return;
+        const id = channelKey(channelId, side);
+        const channel = state.getChannel(id);
+        if (channel === undefined) return;
+        if (channel.state === 'closed' || channel.state === 'failed') return;
+        record({
+            type: DevtoolsEventType.ChannelState,
+            id,
+            state: next,
+            ts: Date.now(),
+            reason: reason === undefined ? undefined : createPreview(reason, 2),
         });
     },
 
