@@ -126,6 +126,30 @@ body {
     color: #16a34a;
 }
 
+.access {
+    display: flex;
+    flex: none;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 10px;
+    border-bottom: 1px solid #f0b429;
+    background: color-mix(in srgb, #f0b429 14%, var(--bg));
+}
+
+.access[hidden] {
+    display: none;
+}
+
+.access button {
+    padding: 3px 8px;
+    border: 1px solid #f0b429;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
 main {
     display: flex;
     flex: 1;

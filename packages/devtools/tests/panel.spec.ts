@@ -23,13 +23,25 @@ declare global {
             pinnedFields: () => string[];
             selectChannel: (channelId: string | undefined) => void;
         };
+        __accessDenied?: boolean;
+        __access: { denied: boolean; grant: () => void; reloads: number; asked: number };
     }
 }
 
 function stubChrome(): void {
     const listeners: ((message: unknown) => void)[] = [];
+    const granted: VoidFunction[] = [];
     window.__panelSent = [];
     window.__panelReceive = (message) => listeners.forEach((listener) => listener(message));
+    window.__access = {
+        denied: window.__accessDenied === true,
+        grant: () => {
+            window.__access.denied = false;
+            granted.forEach((listener) => listener());
+        },
+        reloads: 0,
+        asked: 0,
+    };
 
     (window as unknown as { chrome: unknown }).chrome = {
         runtime: {
@@ -38,10 +50,29 @@ function stubChrome(): void {
                 onMessage: { addListener: (listener: (message: unknown) => void) => listeners.push(listener) },
                 onDisconnect: { addListener: () => {} },
             }),
+            sendMessage: () => Promise.resolve(true),
+            getURL: (path: string) => `chrome-extension://stub/${path}`,
         },
         devtools: {
-            inspectedWindow: { tabId: 7 },
+            inspectedWindow: {
+                tabId: 7,
+                eval: (_expression: string, callback: (result: unknown) => void) => callback('http://localhost/app'),
+                reload: () => {
+                    window.__access.reloads += 1;
+                },
+            },
             network: { onNavigated: { addListener: () => {} } },
+        },
+        permissions: {
+            contains: () => Promise.resolve(!window.__access.denied),
+            onAdded: { addListener: (listener: VoidFunction) => granted.push(listener) },
+            onRemoved: { addListener: () => {} },
+        },
+        windows: {
+            create: () => {
+                window.__access.asked += 1;
+                return Promise.resolve({});
+            },
         },
     };
 }
@@ -184,6 +215,25 @@ async function feed(page: Page, events: DevtoolsEvent[]): Promise<void> {
         [PAGE_SOURCE, events] as const,
     );
 }
+
+test('the access bar asks in a window of its own and clears once the site is allowed', async ({ page }) => {
+    await page.addInitScript(() => {
+        window.__accessDenied = true;
+    });
+    const errors = await openPanel(page);
+
+    await expect(page.locator('#access')).toBeVisible();
+    await expect(page.locator('#access-grant')).toBeVisible();
+
+    await page.click('#access-grant');
+    expect(await page.evaluate(() => window.__access.asked), 'a panel cannot prompt for permissions itself').toBe(1);
+
+    await page.evaluate(() => window.__access.grant());
+
+    await expect(page.locator('#access')).toBeHidden();
+    await expect.poll(() => page.evaluate(() => window.__access.reloads), { timeout: 2000 }).toBe(1);
+    expect(errors).toEqual([]);
+});
 
 test('panel connects, announces itself and asks the page to start streaming', async ({ page }) => {
     const errors = await openPanel(page);

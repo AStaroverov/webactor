@@ -1,4 +1,23 @@
+import { isSyncRequest, syncRegistrations } from './permissions';
 import { isPageMessage, isPanelCommand } from './protocol';
+
+let pending = Promise.resolve();
+
+function sync(): Promise<void> {
+    pending = pending.then(() => syncRegistrations()).catch(() => {});
+    return pending;
+}
+
+chrome.runtime.onInstalled.addListener(() => void sync());
+chrome.runtime.onStartup.addListener(() => void sync());
+chrome.permissions.onAdded.addListener(() => void sync());
+chrome.permissions.onRemoved.addListener(() => void sync());
+
+chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+    if (!isSyncRequest(message)) return false;
+    void sync().then(() => respond(true));
+    return true;
+});
 
 const contentPorts = new Map<number, Set<chrome.runtime.Port>>();
 const panelPorts = new Map<number, chrome.runtime.Port>();

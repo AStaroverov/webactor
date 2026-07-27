@@ -1,10 +1,10 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type BrowserContext, chromium, expect, test } from '@playwright/test';
+import { type BrowserContext, chromium, expect, test, type Worker } from '@playwright/test';
 
-const extensionPath = fileURLToPath(new URL('../dist', import.meta.url));
+const distPath = fileURLToPath(new URL('../dist', import.meta.url));
 const FIXTURE_URL = `http://localhost:${process.env.PORT ?? 5177}/devtools/tests/fixtures/index.html`;
 
 declare global {
@@ -15,27 +15,76 @@ declare global {
 
 let context: BrowserContext;
 let profile: string;
+let extensionPath: string;
+
+/**
+ * Nothing is injected until the user allows a site, and a native permission prompt cannot be clicked
+ * from a test — so the fixture origin is pre-granted through the manifest of a throwaway copy.
+ */
+async function grantedCopy(): Promise<string> {
+    const copy = await mkdtemp(join(tmpdir(), 'webactor-devtools-dist-'));
+    await cp(distPath, copy, { recursive: true });
+
+    const manifestPath = join(copy, 'manifest.json');
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    manifest.host_permissions = ['http://localhost/*'];
+    await writeFile(manifestPath, JSON.stringify(manifest));
+
+    return copy;
+}
+
+function serviceWorker(): Promise<Worker> | Worker {
+    return context.serviceWorkers()[0] ?? context.waitForEvent('serviceworker');
+}
 
 test.beforeAll(async () => {
+    extensionPath = await grantedCopy();
     profile = await mkdtemp(join(tmpdir(), 'webactor-devtools-'));
     context = await chromium.launchPersistentContext(profile, {
         channel: 'chromium',
         args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
     });
+
+    const worker = await serviceWorker();
+    await expect
+        .poll(() => worker.evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).length), {
+            timeout: 5000,
+        })
+        .toBe(2);
 });
 
 test.afterAll(async () => {
     await context?.close();
     await rm(profile, { recursive: true, force: true });
+    await rm(extensionPath, { recursive: true, force: true });
+});
+
+test('the shipped manifest injects nothing until a site is allowed', async () => {
+    const manifest = JSON.parse(await readFile(join(distPath, 'manifest.json'), 'utf8'));
+
+    expect(manifest.content_scripts, 'static injection would mean access to every site').toBeUndefined();
+    expect(manifest.host_permissions).toBeUndefined();
+    expect(manifest.optional_host_permissions).toEqual(['http://*/*', 'https://*/*']);
+    expect(manifest.permissions).toEqual(['scripting', 'activeTab']);
 });
 
 test('the unpacked extension loads and registers its service worker', async () => {
-    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const worker = await serviceWorker();
     expect(worker.url()).toContain('background.js');
 });
 
+test('an allowed origin gets both scripts at document_start, in the right worlds', async () => {
+    const worker = await serviceWorker();
+    const scripts = await worker.evaluate(() => chrome.scripting.getRegisteredContentScripts());
+
+    expect(scripts.map((script) => [script.id, script.world, script.runAt, script.matches]).sort()).toEqual([
+        ['webactor-content', 'ISOLATED', 'document_start', ['http://localhost/*']],
+        ['webactor-hook', 'MAIN', 'document_start', ['http://localhost/*']],
+    ]);
+});
+
 test('the content script relays page events to the background worker', async () => {
-    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const worker = await serviceWorker();
 
     await worker.evaluate(() => {
         (globalThis as unknown as { __seen: unknown[] }).__seen = [];

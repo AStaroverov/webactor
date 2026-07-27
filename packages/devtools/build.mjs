@@ -11,6 +11,7 @@ const scripts = [
     { entry: 'src/content.ts', out: 'content', format: 'iife' },
     { entry: 'src/background.ts', out: 'background', format: 'iife' },
     { entry: 'src/devtools.ts', out: 'devtools', format: 'iife' },
+    { entry: 'src/popup.ts', out: 'popup', format: 'iife' },
     { entry: 'src/panel/main.ts', out: 'panel', format: 'iife' },
 ];
 

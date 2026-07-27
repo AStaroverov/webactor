@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>webactor devtools</title>
+        <style>
+            :root {
+                color-scheme: light dark;
+                --text: #1f2328;
+                --muted: #6b7280;
+                --border: #d8dce3;
+                --accent: #2563eb;
+            }
+
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --text: #e6e6e6;
+                    --muted: #9aa0a6;
+                    --border: #34363b;
+                    --accent: #7cacf8;
+                }
+            }
+
+            body {
+                width: 260px;
+                margin: 0;
+                padding: 12px;
+                font:
+                    12px/1.45 ui-sans-serif,
+                    system-ui,
+                    sans-serif;
+                color: var(--text);
+            }
+
+            h1 {
+                margin: 0 0 8px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            #site {
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            }
+
+            #state {
+                margin: 0 0 10px;
+                color: var(--muted);
+            }
+
+            button {
+                width: 100%;
+                padding: 6px 8px;
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                background: transparent;
+                color: inherit;
+                font: inherit;
+                cursor: pointer;
+            }
+
+            button:hover {
+                border-color: var(--accent);
+            }
+
+            button.primary {
+                border-color: var(--accent);
+                color: var(--accent);
+                font-weight: 600;
+            }
+
+            #everywhere {
+                margin-top: 6px;
+                border-color: transparent;
+                color: var(--muted);
+            }
+        </style>
+    </head>
+    <body>
+        <h1>webactor devtools · <span id="site">…</span></h1>
+        <p id="state">checking…</p>
+        <button id="toggle" hidden></button>
+        <button id="everywhere"></button>
+        <script src="popup.js"></script>
+    </body>
+</html>

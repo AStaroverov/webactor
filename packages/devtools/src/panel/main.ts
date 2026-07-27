@@ -1,4 +1,5 @@
 import type { DevtoolsMessage, DevtoolsNode } from 'webactor';
+import { refreshAccess, watchAccess } from './access';
 import { ChipSet } from './chips';
 import { dom } from './elements';
 import { createMessageFilter, type MessageFilter } from './filter';
@@ -304,6 +305,7 @@ chrome.devtools.network.onNavigated.addListener(() => {
     store.reset();
     clearFilter();
     selectRoot(undefined);
+    void refreshAccess();
     setTimeout(() => transport.send({ kind: 'start' }), 200);
 });
 
@@ -324,4 +326,5 @@ chrome.devtools.network.onNavigated.addListener(() => {
 };
 
 selectRoot(undefined);
+watchAccess();
 transport.send({ kind: 'start' });
