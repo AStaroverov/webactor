@@ -1,6 +1,6 @@
 # webactor
 
-[![CI](https://github.com/AStaroverov/actorr/actions/workflows/ci.yml/badge.svg)](https://github.com/AStaroverov/actorr/actions/workflows/ci.yml)
+[![CI](https://github.com/AStaroverov/webactor/actions/workflows/ci.yml/badge.svg)](https://github.com/AStaroverov/webactor/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/webactor.svg)](https://www.npmjs.com/package/webactor)
 
 **Actor-model architecture for the browser.** One programming model for every boundary in your app — components, tabs, and Web Workers — built on plain message passing.
@@ -222,6 +222,6 @@ webactor is a _model_, not just an RPC shim: you adopt actors, envelopes, and su
 
 ## Status
 
-Single-maintainer project · MIT-style usage. The API described here is exercised by the test suite (`pnpm test`). Feedback and issues welcome on the [repository](https://github.com/AStaroverov/actorr).
+Single-maintainer project · MIT-style usage. The API described here is exercised by the test suite (`pnpm test`). Feedback and issues welcome on the [repository](https://github.com/AStaroverov/webactor).
 
 Releases are automated with [changesets](https://github.com/changesets/changesets) — see [CONTRIBUTING.md](./CONTRIBUTING.md) for how to land a change and cut a version.

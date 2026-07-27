@@ -62,7 +62,7 @@ One-time setup on npmjs.com → package `webactor` → Settings → Trusted publ
 | --------------- | -------------------- |
 | Publisher       | GitHub Actions       |
 | Organization    | `AStaroverov`        |
-| Repository      | `actorr`             |
+| Repository      | `webactor`           |
 | Workflow        | `release.yml`        |
 | Environment     | _(leave empty)_      |
 
