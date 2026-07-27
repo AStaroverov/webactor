@@ -50,7 +50,19 @@
             <aside class="details">
                 <div class="pane-tabs">
                     <button id="pane-actor" data-pane="actor" class="active">Actor</button>
-                    <button id="pane-watch" data-pane="watch">Watch</button>
+                    <button id="pane-global" data-pane="global">Global</button>
+                </div>
+
+                <div class="filter-bar">
+                    <input id="filter" type="search" placeholder="filter: text, from:ui, to:api, type:close, dropped" />
+                    <span id="filter-count" class="muted"></span>
+                </div>
+                <div id="filter-chips" class="chips" hidden></div>
+                <div class="filter-hint">
+                    bare words match the payload, peer names and the envelope type; combine with
+                    <code>from:</code> <code>to:</code> <code>peer:</code> <code>type:</code>
+                    <code>thread:</code> <code>dropped</code>. Press <code>+</code> on any payload field below to watch
+                    every envelope carrying that value.
                 </div>
 
                 <section id="pane-actor-view" class="pane">
@@ -59,29 +71,12 @@
                         <button data-direction="all" class="active">all</button>
                         <button data-direction="in">incoming</button>
                         <button data-direction="out">outgoing</button>
-                        <span class="grow"></span>
-                        <span id="message-count" class="muted"></span>
                     </div>
                     <div id="messages" class="messages"></div>
                 </section>
 
-                <section id="pane-watch-view" class="pane" hidden>
-                    <div class="watch-bar">
-                        <input
-                            id="watch-filter"
-                            type="search"
-                            placeholder="filter: text, from:ui, to:api, type:close, dropped"
-                        />
-                        <span id="watch-count" class="muted"></span>
-                    </div>
-                    <div id="watch-chips" class="chips" hidden></div>
-                    <div id="watch-hint" class="watch-hint">
-                        bare words match the payload, peer names and the envelope type; combine with
-                        <code>from:</code> <code>to:</code> <code>peer:</code> <code>type:</code>
-                        <code>thread:</code> <code>dropped</code>. Press <code>+</code> on any payload field below
-                        to watch every envelope carrying that value.
-                    </div>
-                    <div id="watch-list" class="messages"></div>
+                <section id="pane-global-view" class="pane" hidden>
+                    <div id="global-list" class="messages"></div>
                 </section>
 
                 <div class="payload-header">payload</div>

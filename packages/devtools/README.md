@@ -14,10 +14,12 @@ who is connected to whom, across every thread, and every envelope that travels b
   its chain at once. A busy node simply stays lit.
 - **Per-actor history** — select an actor to get its incoming/outgoing envelopes with timestamps,
   peers, payload size and a collapsible payload inspector.
-- **Watch** — the second tab of the right pane is a filtered view of *all* traffic, showing where each
-  envelope came from and where it went. Bare words match the payload, the peer names or the envelope
-  type; `from:` `to:` `peer:` `type:` `thread:` narrow to one field and `dropped` keeps only envelopes
-  a route mismatch threw away. Terms combine with AND, and clicking either endpoint jumps to that actor.
+- **Global** — the second tab of the right pane is every envelope in one list, showing where each came
+  from and where it went; clicking either endpoint opens that actor. The pane follows the selection:
+  picking an actor in the graph opens **Actor**, clicking past every node opens **Global**.
+- **Filter** — one field above both panes, narrowing whichever list is open. Bare words match the
+  payload, the peer names or the envelope type; `from:` `to:` `peer:` `type:` `thread:` narrow to one
+  field and `dropped` keeps only envelopes a route mismatch threw away. Terms combine with AND.
 - **Watched fields** — `+` next to any field in the payload inspector pins that field *and its value*
   as a chip: every envelope carrying it joins the watch list. Chips combine with OR, the typed query
   narrows whatever they let through, and each chip counts its matches. Primitives compare exactly;

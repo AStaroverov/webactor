@@ -4,7 +4,7 @@ import type { Store } from '../store';
 
 const MAX_ROWS = 300;
 
-export type WatchListInput = {
+export type GlobalListInput = {
     container: HTMLElement;
     counter: HTMLElement;
     store: Store;
@@ -30,11 +30,11 @@ function endpoint(label: string, nodeId: string, onOpen: (nodeId: string) => voi
     return span;
 }
 
-function buildRow(message: DevtoolsMessage, input: WatchListInput): HTMLElement {
+function buildRow(message: DevtoolsMessage, input: GlobalListInput): HTMLElement {
     const { store, selectedMessage, onPick, onOpenNode } = input;
 
     const row = document.createElement('div');
-    row.className = `watch-row type-${message.type}${message.delivered ? '' : ' dropped'}`;
+    row.className = `global-row type-${message.type}${message.delivered ? '' : ' dropped'}`;
     if (message.seq === selectedMessage) row.classList.add('selected');
 
     const time = document.createElement('span');
@@ -66,7 +66,7 @@ function buildRow(message: DevtoolsMessage, input: WatchListInput): HTMLElement 
     return row;
 }
 
-export function renderWatchList(input: WatchListInput): void {
+export function renderGlobalList(input: GlobalListInput): void {
     const { container, counter, store, filter } = input;
     container.textContent = '';
 

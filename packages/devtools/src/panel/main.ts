@@ -7,10 +7,12 @@ import { Store } from './store';
 import { readTheme } from './theme';
 import { connect } from './transport';
 import { renderChipList } from './views/chip-list';
+import { renderGlobalList } from './views/global-list';
 import { type Direction, renderMessageList } from './views/message-list';
 import { renderNodeDetails } from './views/node-details';
 import { renderPayload } from './views/payload';
-import { renderWatchList } from './views/watch-list';
+
+type Pane = 'actor' | 'global';
 
 const LIST_REFRESH_INTERVAL = 250;
 const MIN_GRAPH_WIDTH = 200;
@@ -24,9 +26,9 @@ let direction: Direction = 'all';
 let selectedNode: string | undefined;
 let selectedMessage: string | undefined;
 let listDirty = false;
-let pane: 'actor' | 'watch' = 'actor';
-let watchQuery: MessageFilter = createMessageFilter('');
-const watchChips = new ChipSet();
+let pane: Pane = 'actor';
+let textFilter: MessageFilter = createMessageFilter('');
+const pinnedFields = new ChipSet();
 
 const transport = connect((message) => {
     if (message.kind === 'status') {
@@ -37,7 +39,7 @@ const transport = connect((message) => {
 
     if (message.kind === 'reset') {
         store.reset();
-        forgetWatched();
+        clearFilter();
         selectRoot(undefined);
         graph.invalidate();
         return;
@@ -83,30 +85,29 @@ function syncThreadOptions(): void {
     dom.threadSelect.value = threads.includes(current) ? current : '';
 }
 
-/** The chips OR each other, the typed query narrows whatever they let through. */
-function watchSelection(): MessageFilter {
+/** One filter for both panes: the chips OR each other, the typed query narrows what they let through. */
+function activeFilter(): MessageFilter {
     return {
-        empty: watchQuery.empty && watchChips.empty,
-        matches: (message, resolve) => watchChips.matches(message) && watchQuery.matches(message, resolve),
+        empty: textFilter.empty && pinnedFields.empty,
+        matches: (message, resolve) => pinnedFields.matches(message) && textFilter.matches(message, resolve),
     };
 }
 
-function syncWatchSelection(): void {
-    const selection = watchSelection();
-    graph.highlight = (message) => !selection.empty && selection.matches(message, nameOf);
-    graph.dimUnwatched = !selection.empty;
-    showWatch();
+function syncFilter(): void {
+    const filter = activeFilter();
+    graph.highlight = (message) => !filter.empty && filter.matches(message, nameOf);
+    graph.dimUnwatched = !filter.empty;
+    refreshActivePane();
 }
 
-function watchField(path: string[], value: unknown): void {
-    watchChips.add(path, value);
-    syncWatchSelection();
-    showPane('watch');
+function pinField(path: string[], value: unknown): void {
+    pinnedFields.add(path, value);
+    syncFilter();
 }
 
 function pickMessage(message: DevtoolsMessage): void {
     selectedMessage = message.seq;
-    renderPayload(dom.payloadView, message.preview, watchField);
+    renderPayload(dom.payloadView, message.preview, pinField);
 }
 
 function showNodeDetails(): void {
@@ -115,94 +116,95 @@ function showNodeDetails(): void {
 }
 
 function showMessages(): void {
-    listDirty = false;
     renderMessageList({
         container: dom.messagesList,
-        counter: dom.messageCount,
+        counter: dom.filterCount,
         store,
         selectedNode,
         selectedMessage,
         direction,
+        filter: activeFilter(),
         onPick: pickMessage,
-        onOpenPeer: (peerId) => {
-            selectedNode = peerId;
-            graph.focus(peerId);
-            showNodeDetails();
-            showMessages();
-        },
+        onOpenPeer: openActor,
     });
 }
 
-function showWatch(): void {
-    listDirty = false;
-
-    renderChipList({
-        container: dom.watchChips,
-        chips: watchChips.list(),
-        counts: watchChips.counts(store.messages),
-        onRemove: (id) => {
-            watchChips.remove(id);
-            syncWatchSelection();
-        },
-        onClear: () => {
-            watchChips.clear();
-            syncWatchSelection();
-        },
-    });
-
-    renderWatchList({
-        container: dom.watchList,
-        counter: dom.watchCount,
+function showGlobal(): void {
+    renderGlobalList({
+        container: dom.globalList,
+        counter: dom.filterCount,
         store,
-        filter: watchSelection(),
+        filter: activeFilter(),
         selectedMessage,
         onPick: pickMessage,
-        onOpenNode: (nodeId) => {
-            selectedNode = nodeId;
-            graph.focus(nodeId);
-            showNodeDetails();
+        onOpenNode: openActor,
+    });
+}
+
+function showChips(): void {
+    renderChipList({
+        container: dom.filterChips,
+        chips: pinnedFields.list(),
+        counts: pinnedFields.counts(store.messages),
+        onRemove: (id) => {
+            pinnedFields.remove(id);
+            syncFilter();
+        },
+        onClear: () => {
+            pinnedFields.clear();
+            syncFilter();
         },
     });
 }
 
 function refreshActivePane(): void {
-    if (pane === 'watch') showWatch();
+    listDirty = false;
+    showChips();
+    if (pane === 'global') showGlobal();
     else showMessages();
 }
 
-function showPane(next: 'actor' | 'watch'): void {
+function showPane(next: Pane): void {
     pane = next;
     dom.paneActorButton.classList.toggle('active', next === 'actor');
-    dom.paneWatchButton.classList.toggle('active', next === 'watch');
+    dom.paneGlobalButton.classList.toggle('active', next === 'global');
     dom.paneActorView.hidden = next !== 'actor';
-    dom.paneWatchView.hidden = next !== 'watch';
+    dom.paneGlobalView.hidden = next !== 'global';
     refreshActivePane();
 }
 
+/** Picking an actor is what the Actor pane is for; letting go of one leaves nothing to show there. */
 function selectRoot(id: string | undefined): void {
     selectedNode = id;
     selectedMessage = undefined;
-    showNodeDetails();
-    refreshActivePane();
     renderPayload(dom.payloadView, undefined);
+    showNodeDetails();
+    showPane(id === undefined ? 'global' : 'actor');
 }
 
-function forgetWatched(): void {
-    watchChips.clear();
-    watchQuery = createMessageFilter('');
-    dom.watchFilter.value = '';
-    syncWatchSelection();
+function openActor(id: string): void {
+    selectedNode = id;
+    graph.focus(id);
+    showNodeDetails();
+    showPane('actor');
+}
+
+function clearFilter(): void {
+    pinnedFields.clear();
+    textFilter = createMessageFilter('');
+    dom.filterInput.value = '';
+    syncFilter();
 }
 
 graph.filter = nodeVisible;
 graph.onSelect = selectRoot;
 
 dom.paneActorButton.addEventListener('click', () => showPane('actor'));
-dom.paneWatchButton.addEventListener('click', () => showPane('watch'));
+dom.paneGlobalButton.addEventListener('click', () => showPane('global'));
 
-dom.watchFilter.addEventListener('input', () => {
-    watchQuery = createMessageFilter(dom.watchFilter.value);
-    syncWatchSelection();
+dom.filterInput.addEventListener('input', () => {
+    textFilter = createMessageFilter(dom.filterInput.value);
+    syncFilter();
 });
 
 dom.recordButton.addEventListener('click', () => {
@@ -263,7 +265,7 @@ setInterval(() => {
 
 chrome.devtools.network.onNavigated.addListener(() => {
     store.reset();
-    forgetWatched();
+    clearFilter();
     selectRoot(undefined);
     setTimeout(() => transport.send({ kind: 'start' }), 200);
 });
@@ -273,11 +275,11 @@ chrome.devtools.network.onNavigated.addListener(() => {
     graph,
     select: selectRoot,
     showPane,
-    setWatchFilter(query: string) {
-        dom.watchFilter.value = query;
-        dom.watchFilter.dispatchEvent(new Event('input'));
+    setFilter(query: string) {
+        dom.filterInput.value = query;
+        dom.filterInput.dispatchEvent(new Event('input'));
     },
-    watchedFields: () => watchChips.list().map((chip) => chip.id),
+    pinnedFields: () => pinnedFields.list().map((chip) => chip.id),
 };
 
 selectRoot(undefined);

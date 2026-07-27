@@ -18,9 +18,9 @@ declare global {
                 debugPulses: () => [string, Record<string, number>][];
             };
             select: (id: string | undefined) => void;
-            showPane: (pane: 'actor' | 'watch') => void;
-            setWatchFilter: (query: string) => void;
-            watchedFields: () => string[];
+            showPane: (pane: 'actor' | 'global') => void;
+            setFilter: (query: string) => void;
+            pinnedFields: () => string[];
         };
     }
 }
@@ -228,13 +228,45 @@ test('direction tabs filter incoming and outgoing messages', async ({ page }) =>
 
     await page.locator('.tabs button[data-direction="out"]').click();
     await expect(page.locator('#messages .message')).toHaveCount(1);
-    await expect(page.locator('#message-count')).toHaveText('1 of 2');
+    await expect(page.locator('#filter-count')).toHaveText('1 of 2');
 
     await page.locator('.tabs button[data-direction="in"]').click();
     await expect(page.locator('#messages .message')).toHaveCount(1);
 
     await page.locator('.tabs button[data-direction="all"]').click();
     await expect(page.locator('#messages .message')).toHaveCount(2);
+});
+
+test('the pane follows the selection: an actor opens Actor, empty canvas opens Global', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await page.waitForTimeout(600);
+
+    await expect(page.locator('#pane-global'), 'nothing selected yet').toHaveClass(/active/);
+
+    await page.evaluate((id) => window.__webactorPanel.select(id), NODE_A);
+    await expect(page.locator('#pane-actor')).toHaveClass(/active/);
+    await expect(page.locator('#pane-actor-view')).toBeVisible();
+
+    await page.locator('#pane-global').click();
+    await page.evaluate((id) => window.__webactorPanel.select(id), NODE_B);
+    await expect(page.locator('#pane-actor'), 'picking an actor always returns to Actor').toHaveClass(/active/);
+
+    const box = (await page.locator('#canvas').boundingBox())!;
+    await page.mouse.click(box.x + 6, box.y + 6);
+    await expect(page.locator('#pane-global'), 'clicking past every node opens Global').toHaveClass(/active/);
+    await expect(page.locator('#node-header')).toContainText('select an actor');
+});
+
+test('clicking an endpoint in the global list opens the Actor pane on that actor', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await page.locator('#pane-global').click();
+
+    await page.locator('#global-list .global-row').first().locator('.endpoint').nth(1).click();
+
+    await expect(page.locator('#pane-actor')).toHaveClass(/active/);
+    await expect(page.locator('#node-header .title')).toHaveText('consumer');
 });
 
 test('clicking a node where it is drawn selects that node', async ({ page }) => {
@@ -357,19 +389,19 @@ test('closed links stay visible as history instead of vanishing', async ({ page 
     await expect(page.locator('#counts')).toContainText('1 links');
 });
 
-test('the watch pane lists every matching message with both endpoints', async ({ page }) => {
+test('the global pane lists every matching message with both endpoints', async ({ page }) => {
     const errors = await openPanel(page);
     await feed(page, graphEvents());
 
-    await page.locator('#pane-watch').click();
-    await expect(page.locator('#pane-watch-view')).toBeVisible();
+    await page.locator('#pane-global').click();
+    await expect(page.locator('#pane-global-view')).toBeVisible();
     await expect(page.locator('#pane-actor-view')).toBeHidden();
 
-    const rows = page.locator('#watch-list .watch-row');
+    const rows = page.locator('#global-list .global-row');
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0)).toContainText('producer');
     await expect(rows.nth(0)).toContainText('consumer');
-    await expect(page.locator('#watch-count')).toContainText('2 captured');
+    await expect(page.locator('#filter-count')).toContainText('2 captured');
 
     await rows.nth(0).click();
     await expect(page.locator('#payload-view')).toContainText('"ping"');
@@ -377,33 +409,33 @@ test('the watch pane lists every matching message with both endpoints', async ({
     expect(errors).toEqual([]);
 });
 
-test('watch filters narrow by payload, direction, type and delivery', async ({ page }) => {
+test('the filter narrows by payload, direction, type and delivery', async ({ page }) => {
     await openPanel(page);
     await feed(page, graphEvents());
-    await page.locator('#pane-watch').click();
+    await page.locator('#pane-global').click();
 
-    const rows = page.locator('#watch-list .watch-row');
+    const rows = page.locator('#global-list .global-row');
 
-    await page.evaluate(() => window.__webactorPanel.setWatchFilter('ping'));
+    await page.evaluate(() => window.__webactorPanel.setFilter('ping'));
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0)).toContainText('producer');
-    await expect(page.locator('#watch-count')).toHaveText('1 of 2');
+    await expect(page.locator('#filter-count')).toHaveText('1 of 2');
 
-    await page.evaluate(() => window.__webactorPanel.setWatchFilter('from:consumer'));
+    await page.evaluate(() => window.__webactorPanel.setFilter('from:consumer'));
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0)).toHaveClass(/dropped/);
 
-    await page.evaluate(() => window.__webactorPanel.setWatchFilter('type:close'));
+    await page.evaluate(() => window.__webactorPanel.setFilter('type:close'));
     await expect(rows).toHaveCount(1);
 
-    await page.evaluate(() => window.__webactorPanel.setWatchFilter('dropped'));
+    await page.evaluate(() => window.__webactorPanel.setFilter('dropped'));
     await expect(rows).toHaveCount(1);
 
-    await page.evaluate(() => window.__webactorPanel.setWatchFilter('from:producer dropped'));
+    await page.evaluate(() => window.__webactorPanel.setFilter('from:producer dropped'));
     await expect(rows).toHaveCount(0);
-    await expect(page.locator('#watch-list')).toContainText('nothing matches');
+    await expect(page.locator('#global-list')).toContainText('nothing matches');
 
-    await page.evaluate(() => window.__webactorPanel.setWatchFilter('nested'));
+    await page.evaluate(() => window.__webactorPanel.setFilter('nested'));
     await expect(rows).toHaveCount(1);
 });
 
@@ -414,9 +446,8 @@ function payloadRow(page: Page, key: string) {
         .first();
 }
 
-async function watchPayloadField(page: Page, key: string, row = 0): Promise<void> {
+async function pinPayloadField(page: Page, key: string, row = 0): Promise<void> {
     await page.evaluate((id) => window.__webactorPanel.select(id), NODE_A);
-    await page.locator('#pane-actor').click();
     await page.locator('#messages .message').nth(row).click();
     await payloadRow(page, key).locator('.tree-watch').click();
 }
@@ -443,50 +474,69 @@ test('watching a payload field pins it as a chip and keeps only envelopes carryi
         },
     ]);
 
-    await watchPayloadField(page, 'kind');
+    await pinPayloadField(page, 'kind');
 
-    await expect(page.locator('#pane-watch')).toHaveClass(/active/);
-    await expect(page.locator('#watch-chips .chip')).toHaveCount(1);
-    await expect(page.locator('#watch-chips .chip-label')).toHaveText('kind = "ping"');
-    await expect(page.locator('#watch-chips .chip-count')).toHaveText('1');
-    await expect(page.locator('#watch-list .watch-row')).toHaveCount(1);
-    expect(await page.evaluate(() => window.__webactorPanel.watchedFields())).toEqual(['kind="ping"']);
+    await expect(page.locator('#pane-actor')).toHaveClass(/active/);
+    await expect(page.locator('#filter-chips .chip')).toHaveCount(1);
+    await expect(page.locator('#filter-chips .chip-label')).toHaveText('kind = "ping"');
+    await expect(page.locator('#filter-chips .chip-count')).toHaveText('1');
+    expect(await page.evaluate(() => window.__webactorPanel.pinnedFields())).toEqual(['kind="ping"']);
+
+    await expect(page.locator('#messages .message'), 'the same filter narrows the actor pane').toHaveCount(1);
+
+    await page.locator('#pane-global').click();
+    await expect(page.locator('#global-list .global-row')).toHaveCount(1);
 });
 
 test('a chip on a non-primitive field compares the whole subtree', async ({ page }) => {
     await openPanel(page);
     await feed(page, graphEvents());
 
-    await watchPayloadField(page, 'payload');
+    await pinPayloadField(page, 'payload');
 
-    await expect(page.locator('#watch-chips .chip-label')).toHaveText('payload = {"nested":[1,2,3]}');
-    await expect(page.locator('#watch-list .watch-row')).toHaveCount(1);
+    await expect(page.locator('#filter-chips .chip-label')).toHaveText('payload = {"nested":[1,2,3]}');
+    await expect(page.locator('#messages .message')).toHaveCount(1);
 });
 
 test('chips combine with OR while the typed query narrows them', async ({ page }) => {
     await openPanel(page);
     await feed(page, graphEvents());
+    await feed(page, [
+        {
+            type: 'message',
+            message: {
+                ...hopMessage(NODE_A, NODE_B, 'window<t1>:9'),
+                preview: { kind: 'pong', payload: { nested: [1, 2, 3] } },
+            },
+        },
+    ]);
 
-    await watchPayloadField(page, 'kind');
-    await watchPayloadField(page, 'reason', 1);
-    await expect(page.locator('#watch-chips .chip')).toHaveCount(2);
-    await expect(page.locator('#watch-list .watch-row')).toHaveCount(2);
+    await pinPayloadField(page, 'kind');
+    await expect(page.locator('#messages .message')).toHaveCount(1);
 
-    await page.evaluate(() => window.__webactorPanel.setWatchFilter('dropped'));
-    await expect(page.locator('#watch-list .watch-row')).toHaveCount(1);
+    await pinPayloadField(page, 'payload');
+    await expect(page.locator('#filter-chips .chip')).toHaveCount(2);
+    await expect(
+        page.locator('#messages .message'),
+        'the second chip widens the set, it does not narrow it',
+    ).toHaveCount(2);
 
-    await page.locator('#watch-chips .chip').first().locator('.chip-remove').click();
-    await expect(page.locator('#watch-chips .chip')).toHaveCount(1);
+    await page.evaluate(() => window.__webactorPanel.setFilter('pong'));
+    await expect(page.locator('#messages .message')).toHaveCount(1);
+
+    await page.locator('#filter-chips .chip').nth(1).locator('.chip-remove').click();
+    await expect(page.locator('#filter-chips .chip')).toHaveCount(1);
+    await expect(page.locator('#messages .message'), 'only "ping" is left and it is not a "pong"').toHaveCount(0);
 });
 
-test('a watch selection dims the graph and marks the nodes it touches', async ({ page }) => {
+test('an active filter dims the graph and marks the nodes it touches', async ({ page }) => {
     await openPanel(page);
     await feed(page, graphEvents());
     await page.waitForTimeout(PULSE_FADED);
 
     expect(await page.evaluate(() => window.__webactorPanel.graph.dimUnwatched)).toBe(false);
 
-    await watchPayloadField(page, 'kind');
+    await pinPayloadField(page, 'kind');
     expect(await page.evaluate(() => window.__webactorPanel.graph.dimUnwatched)).toBe(true);
 
     await feed(page, [
@@ -497,17 +547,8 @@ test('a watch selection dims the graph and marks the nodes it touches', async ({
     expect(pulses.get(NODE_A)!.watched, 'an envelope under the filter must mark its sender').toBeGreaterThan(0);
     expect(pulses.get(NODE_B)!.watched).toBeGreaterThan(0);
 
-    await page.locator('#watch-chips .chip-remove').click();
+    await page.locator('#filter-chips .chip-remove').click();
     expect(await page.evaluate(() => window.__webactorPanel.graph.dimUnwatched)).toBe(false);
-});
-
-test('clicking an endpoint in the watch list opens that actor', async ({ page }) => {
-    await openPanel(page);
-    await feed(page, graphEvents());
-    await page.locator('#pane-watch').click();
-
-    await page.locator('#watch-list .watch-row').first().locator('.endpoint').nth(1).click();
-    await expect(page.locator('#node-header .title')).toHaveText('consumer');
 });
 
 test('the canvas actually paints the graph', async ({ page }) => {

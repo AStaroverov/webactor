@@ -1,4 +1,5 @@
 import type { DevtoolsMessage } from 'webactor';
+import type { MessageFilter } from '../filter';
 import type { Store } from '../store';
 
 const MAX_ROWS = 400;
@@ -12,6 +13,7 @@ export type MessageListInput = {
     selectedNode: string | undefined;
     selectedMessage: string | undefined;
     direction: Direction;
+    filter: MessageFilter;
     onPick: (message: DevtoolsMessage) => void;
     onOpenPeer: (peerId: string) => void;
 };
@@ -66,7 +68,7 @@ function buildRow(message: DevtoolsMessage, input: MessageListInput): HTMLElemen
 }
 
 export function renderMessageList(input: MessageListInput): void {
-    const { container, counter, store, selectedNode, direction } = input;
+    const { container, counter, store, selectedNode, direction, filter } = input;
     container.textContent = '';
 
     if (selectedNode === undefined) {
@@ -77,15 +79,15 @@ export function renderMessageList(input: MessageListInput): void {
 
     const all = store.messagesFor(selectedNode);
     const filtered = all.filter((message) => {
-        if (direction === 'in') return message.target === selectedNode;
-        if (direction === 'out') return message.source === selectedNode;
-        return true;
+        if (direction === 'in' && message.target !== selectedNode) return false;
+        if (direction === 'out' && message.source !== selectedNode) return false;
+        return filter.matches(message, (id) => peerName(store, id));
     });
 
     counter.textContent = `${filtered.length} of ${all.length}`;
 
     if (filtered.length === 0) {
-        placeholder(container, 'no messages captured for this actor');
+        placeholder(container, filter.empty ? 'no messages captured for this actor' : 'nothing matches this filter');
         return;
     }
 
