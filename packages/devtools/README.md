@@ -8,15 +8,17 @@ who is connected to whom, across every thread, and every envelope that travels b
 - **Graph** — one node per actor, retranslator, supervisor and thread port; edges are real
   `connectTransmitters` connections. Nodes of the same thread settle near each other, and cross-thread
   edges are dashed.
-- **Message flow** — envelopes animate along the edge they travel on, coloured by envelope type
-  (`message`, `close`, `error`). Undelivered envelopes (dropped by a route mismatch) are drawn in red.
+- **Traffic** — nodes flash when they work: magenta on sending, cyan on receiving, red when an
+  envelope was dropped by a route mismatch. Nothing is drawn travelling along an edge — real traffic is
+  orders of magnitude faster than any animation, so a single envelope would appear in every segment of
+  its chain at once. A busy node simply stays lit.
 - **Per-actor history** — select an actor to get its incoming/outgoing envelopes with timestamps,
   peers, payload size and a collapsible payload inspector.
 - **Watch** — the second tab of the right pane is a filtered view of *all* traffic, showing where each
   envelope came from and where it went. Bare words match the payload, the peer names or the envelope
   type; `from:` `to:` `peer:` `type:` `thread:` narrow to one field and `dropped` keeps only envelopes
-  a route mismatch threw away. Terms combine with AND, matching envelopes are drawn larger and ringed
-  as they travel the graph, and clicking either endpoint jumps to that actor.
+  a route mismatch threw away. Terms combine with AND, the endpoints of a matching envelope get an
+  extra bright ring in the graph, and clicking either endpoint jumps to that actor.
 - **Lifecycle** — created / launched / closed state per node, plus a restart counter for supervisors.
 - **Workers** — actors living in dedicated workers and shared workers appear in the same graph. No
   setup in the worker: the page-side recorder attaches a private `MessageChannel` over the

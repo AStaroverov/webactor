@@ -45,7 +45,7 @@ const transport = connect((message) => {
         syncThreadOptions();
         if (selectedNode !== undefined) showNodeDetails();
     }
-    for (const entry of delta.messages) graph.spawn(entry);
+    for (const entry of delta.messages) graph.pulse(entry);
     if (delta.messages.length > 0) listDirty = true;
     if (delta.graphChanged || delta.messages.length > 0) dom.countsLabel.textContent = summary();
 });
@@ -173,8 +173,8 @@ dom.fitButton.addEventListener('click', () => graph.resetView());
 dom.searchInput.addEventListener('input', () => graph.invalidate());
 dom.threadSelect.addEventListener('change', () => graph.invalidate());
 dom.portsInput.addEventListener('change', () => graph.invalidate());
-dom.animateInput.addEventListener('change', () => {
-    graph.animate = dom.animateInput.checked;
+dom.flashInput.addEventListener('change', () => {
+    graph.flash = dom.flashInput.checked;
 });
 dom.payloadInput.addEventListener('change', () => {
     transport.send({ kind: 'options', options: { capturePayload: dom.payloadInput.checked } });

@@ -180,6 +180,12 @@ canvas {
     border-radius: 50%;
 }
 
+.legend .rule {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border);
+}
+
 .splitter {
     flex: none;
     width: 4px;

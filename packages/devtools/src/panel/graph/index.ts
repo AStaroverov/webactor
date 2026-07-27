@@ -3,10 +3,10 @@ import type { Store } from '../store';
 import type { GraphTheme } from '../theme';
 import { Bodies, ThreadLayout } from './bodies';
 import { Camera } from './camera';
-import { buildEdges, type Edge, resolveHop } from './edges';
+import { buildEdges, type Edge } from './edges';
 import { step } from './forces';
 import { bindInteraction } from './interaction';
-import { type Particle, Particles } from './particles';
+import { type Pulse, Pulses } from './pulses';
 import { draw } from './scene';
 
 const RESTART_ALPHA = 0.7;
@@ -25,20 +25,20 @@ export class GraphView {
     private readonly camera = new Camera();
     private readonly bodies = new Bodies();
     private readonly threads = new ThreadLayout();
-    private readonly particles = new Particles();
+    private readonly pulses = new Pulses();
 
     private edges: Edge[] = [];
-    private anchors = new Map<string, string[]>();
     private edgesDirty = true;
     private edgesVersion = -1;
     private alpha = 1;
     private lastFrame = 0;
     private hovered: string | undefined;
 
-    animate = true;
+    /** Whether nodes light up on traffic at all. */
+    flash = true;
     selected: string | undefined;
     filter: (node: DevtoolsNode) => boolean = () => true;
-    /** Marks the envelopes a watch filter selected, so they stand out while they travel. */
+    /** Marks the envelopes a watch filter selected, so their endpoints stand out. */
     highlight: (message: DevtoolsMessage) => boolean = () => false;
     onSelect: (id: string | undefined) => void = () => {};
 
@@ -99,17 +99,23 @@ export class GraphView {
         if (body !== undefined) this.camera.centerOn(body.x, body.y);
     }
 
-    spawn(message: DevtoolsMessage): void {
-        if (!this.animate) return;
-        const hop = resolveHop(
-            message.source,
-            message.target,
-            (id) => this.isNodeVisible(id),
-            (id) => this.anchors.get(id) ?? [],
-        );
-        if (hop === undefined || hop.from === hop.to) return;
-        if (!this.bodies.has(hop.from) || !this.bodies.has(hop.to)) return;
-        this.particles.spawn(message, hop.from, hop.to, this.highlight(message));
+    /**
+     * Lights up the two ends of one hop. Hidden endpoints are skipped rather than mapped onto their
+     * stand-in: the thread on the far side records its own arrival, so the chain still reads end to end.
+     */
+    pulse(message: DevtoolsMessage): void {
+        if (!this.flash) return;
+        const watched = this.highlight(message);
+
+        if (this.isNodeVisible(message.source)) {
+            this.pulses.hit(message.source, 'sent');
+            if (watched) this.pulses.hit(message.source, 'watched');
+        }
+
+        if (message.target !== message.source && this.isNodeVisible(message.target)) {
+            this.pulses.hit(message.target, message.delivered ? 'received' : 'dropped');
+            if (watched) this.pulses.hit(message.target, 'watched');
+        }
     }
 
     screenOf(id: string): { x: number; y: number } | undefined {
@@ -121,8 +127,8 @@ export class GraphView {
         return this.edges;
     }
 
-    debugParticles(): readonly Particle[] {
-        return this.particles.all;
+    debugPulses(): [string, Pulse][] {
+        return this.pulses.entries();
     }
 
     private radiusOf(node: DevtoolsNode): number {
@@ -159,9 +165,7 @@ export class GraphView {
         if (this.bodies.sync(this.store, (thread) => this.threadX(thread))) this.invalidate();
 
         if (this.edgesDirty || this.edgesVersion !== this.store.version) {
-            const built = buildEdges(this.store, this.filter);
-            this.edges = built.edges;
-            this.anchors = built.anchors;
+            this.edges = buildEdges(this.store, this.filter);
             this.edgesDirty = false;
             this.edgesVersion = this.store.version;
         }
@@ -174,7 +178,7 @@ export class GraphView {
             anchorX: (id) => this.threadX(this.nodeAt(id)?.thread ?? ''),
         });
 
-        this.particles.advance(delta, (particle) => this.bodies.has(particle.from) && this.bodies.has(particle.to));
+        this.pulses.advance(delta);
 
         draw({
             context: this.context,
@@ -182,7 +186,7 @@ export class GraphView {
             theme: this.theme,
             bodies: this.bodies,
             edges: this.edges,
-            particles: this.particles,
+            pulses: this.pulses,
             nodeAt: (id) => this.nodeAt(id),
             isVisible: this.filter,
             radiusOf: (node) => this.radiusOf(node),

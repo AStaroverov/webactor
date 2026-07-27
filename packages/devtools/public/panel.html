@@ -19,7 +19,9 @@
             <label class="field">
                 <select id="thread"><option value="">all threads</option></select>
             </label>
-            <label class="check"><input id="animate" type="checkbox" checked /> flow</label>
+            <label class="check" title="Light nodes up when they send or receive">
+                <input id="flash" type="checkbox" checked /> flashes
+            </label>
             <label class="check"><input id="payload" type="checkbox" checked /> payloads</label>
             <label class="check"><input id="ports" type="checkbox" /> ports</label>
             <span class="grow"></span>
@@ -35,6 +37,10 @@
                     <span><i style="background: #f59e0b"></i>supervisor</span>
                     <span><i style="background: #34d399"></i>thread port</span>
                     <span><i style="background: #64748b"></i>port</span>
+                    <span class="rule"></span>
+                    <span><i style="background: #e879f9"></i>sent</span>
+                    <span><i style="background: #22d3ee"></i>received</span>
+                    <span><i style="background: #f87171"></i>dropped</span>
                 </div>
                 <div id="counts" class="counts"></div>
             </section>

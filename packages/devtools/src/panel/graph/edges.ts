@@ -9,52 +9,13 @@ export type Edge = {
     collapsed: boolean;
 };
 
-export type EdgeGraph = {
-    edges: Edge[];
-    /** Maps a hidden node to the visible ends of the hidden region it belongs to, its own thread first. */
-    anchors: Map<string, string[]>;
-};
-
-export type Hop = { from: string; to: string };
-
-/**
- * Places a recorded hop on the visible graph. A hidden node stands in for its whole region, so an
- * envelope entering one must be drawn arriving at the end on the far side: resolving each side alone
- * maps the hop onto the node it started from, and the leg into a worker disappears entirely.
- */
-export function resolveHop(
-    source: string,
-    target: string,
-    isVisible: (id: string) => boolean,
-    endsOf: (id: string) => string[],
-): Hop | undefined {
-    const sourceVisible = isVisible(source);
-    const targetVisible = isVisible(target);
-
-    if (sourceVisible && targetVisible) return { from: source, to: target };
-
-    if (sourceVisible) {
-        const to = endsOf(target).find((end) => end !== source);
-        return to === undefined ? undefined : { from: source, to };
-    }
-
-    if (targetVisible) {
-        const from = endsOf(source).find((end) => end !== target);
-        return from === undefined ? undefined : { from, to: target };
-    }
-
-    // Linked hidden nodes always share a region, so this hop happens inside one collapsed dot.
-    return undefined;
-}
-
 /**
  * Builds the edges to draw. Connections between hidden nodes are collapsed into a single edge between
  * their visible neighbours: without that, hiding ports would delete the edges that ran through them and
  * the graph would look like a field of disconnected dots.
  */
-export function buildEdges(store: Store, isVisible: (node: DevtoolsNode) => boolean): EdgeGraph {
+export function buildEdges(store: Store, isVisible: (node: DevtoolsNode) => boolean): Edge[] {
     const edges: Edge[] = [];
-    const anchors = new Map<string, string[]>();
 
     const visible = (id: string) => {
         const node = store.nodes.get(id);
@@ -108,16 +69,6 @@ export function buildEdges(store: Store, isVisible: (node: DevtoolsNode) => bool
         }
 
         const anchorCandidates = [...ends];
-        if (anchorCandidates.length > 0) {
-            for (const node of hidden) {
-                const thread = threadOf(node);
-                anchors.set(node, [
-                    ...anchorCandidates.filter((end) => threadOf(end) === thread),
-                    ...anchorCandidates.filter((end) => threadOf(end) !== thread),
-                ]);
-            }
-        }
-
         const spansThreads = new Set(hidden.map(threadOf)).size > 1;
         for (let i = 0; i < anchorCandidates.length; i++) {
             for (let j = i + 1; j < anchorCandidates.length; j++) {
@@ -132,5 +83,5 @@ export function buildEdges(store: Store, isVisible: (node: DevtoolsNode) => bool
         }
     }
 
-    return { edges, anchors };
+    return edges;
 }

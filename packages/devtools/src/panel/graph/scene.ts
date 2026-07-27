@@ -1,11 +1,18 @@
 import type { DevtoolsNode } from 'webactor';
-import { type GraphTheme, KIND_COLORS, TYPE_COLORS } from '../theme';
+import { type GraphTheme, KIND_COLORS, PULSE_COLORS, TYPE_COLORS } from '../theme';
 import type { Bodies } from './bodies';
 import type { Camera } from './camera';
 import type { Edge } from './edges';
-import type { Particles } from './particles';
+import type { Pulse, Pulses } from './pulses';
 
 const LABEL_SCALE_THRESHOLD = 0.5;
+const HALO_ALPHA = 0.5;
+const HALO_BANDS: { channel: 'dropped' | 'sent' | 'received'; gap: number }[] = [
+    { channel: 'dropped', gap: 9 },
+    { channel: 'sent', gap: 6 },
+    { channel: 'received', gap: 3 },
+];
+const WATCH_GAP = 9;
 
 export type SceneInput = {
     context: CanvasRenderingContext2D;
@@ -13,7 +20,7 @@ export type SceneInput = {
     theme: GraphTheme;
     bodies: Bodies;
     edges: Edge[];
-    particles: Particles;
+    pulses: Pulses;
     nodeAt: (id: string) => DevtoolsNode | undefined;
     isVisible: (node: DevtoolsNode) => boolean;
     radiusOf: (node: DevtoolsNode) => number;
@@ -44,40 +51,34 @@ function drawEdges(scene: SceneInput): void {
     }
 }
 
-function drawParticles(scene: SceneInput): void {
-    const { context, bodies, particles } = scene;
+/** Bands widest first: the node fill lands on top, leaving one ring per channel that fired. */
+function drawPulse(scene: SceneInput, x: number, y: number, radius: number, pulse: Pulse): void {
+    const { context, theme } = scene;
 
-    for (const particle of particles.all) {
-        const from = bodies.get(particle.from);
-        const to = bodies.get(particle.to);
-        if (from === undefined || to === undefined) continue;
-
-        const x = from.x + (to.x - from.x) * particle.progress;
-        const y = from.y + (to.y - from.y) * particle.progress;
-        const fade = Math.sin(particle.progress * Math.PI);
-
-        const radius = particle.highlighted ? 5 : particle.dropped ? 2.5 : 3.2;
-
-        context.globalAlpha = 0.25 + fade * 0.75;
-        context.fillStyle = particle.dropped ? TYPE_COLORS.error : particle.color;
+    for (const band of HALO_BANDS) {
+        const energy = pulse[band.channel];
+        if (energy === 0) continue;
+        context.globalAlpha = HALO_ALPHA * energy * energy;
+        context.fillStyle = PULSE_COLORS[band.channel];
         context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.arc(x, y, radius + band.gap, 0, Math.PI * 2);
         context.fill();
-
-        if (particle.highlighted) {
-            context.strokeStyle = scene.theme.label;
-            context.lineWidth = 1.5;
-            context.beginPath();
-            context.arc(x, y, radius + 2.5, 0, Math.PI * 2);
-            context.stroke();
-        }
-
-        context.globalAlpha = 1;
     }
+
+    if (pulse.watched > 0) {
+        context.globalAlpha = pulse.watched;
+        context.strokeStyle = theme.label;
+        context.lineWidth = 1.5;
+        context.beginPath();
+        context.arc(x, y, radius + WATCH_GAP, 0, Math.PI * 2);
+        context.stroke();
+    }
+
+    context.globalAlpha = 1;
 }
 
 function drawNodes(scene: SceneInput): void {
-    const { context, camera, theme, bodies, nodeAt, isVisible, radiusOf, selected, hovered } = scene;
+    const { context, camera, theme, bodies, pulses, nodeAt, isVisible, radiusOf, selected, hovered } = scene;
 
     context.font = '11px ui-sans-serif, system-ui, sans-serif';
     context.textAlign = 'center';
@@ -89,6 +90,9 @@ function drawNodes(scene: SceneInput): void {
 
         const radius = radiusOf(node);
         const closed = node.state === 'closed';
+
+        const pulse = pulses.at(body.id);
+        if (pulse !== undefined) drawPulse(scene, body.x, body.y, radius, pulse);
 
         context.globalAlpha = closed ? 0.35 : 1;
 
@@ -138,7 +142,6 @@ export function draw(scene: SceneInput): void {
     camera.apply(context);
 
     drawEdges(scene);
-    drawParticles(scene);
     drawNodes(scene);
 
     context.restore();

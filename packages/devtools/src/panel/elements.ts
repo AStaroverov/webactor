@@ -12,7 +12,7 @@ export const dom = {
     fitButton: byId<HTMLButtonElement>('fit'),
     searchInput: byId<HTMLInputElement>('search'),
     threadSelect: byId<HTMLSelectElement>('thread'),
-    animateInput: byId<HTMLInputElement>('animate'),
+    flashInput: byId<HTMLInputElement>('flash'),
     payloadInput: byId<HTMLInputElement>('payload'),
     portsInput: byId<HTMLInputElement>('ports'),
     statusLabel: byId('status'),

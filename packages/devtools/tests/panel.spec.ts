@@ -14,7 +14,7 @@ declare global {
             graph: {
                 selected: string | undefined;
                 debugEdges: () => { source: string; target: string; collapsed: boolean; closed: boolean }[];
-                debugParticles: () => readonly { from: string; to: string }[];
+                debugPulses: () => [string, Record<string, number>][];
             };
             select: (id: string | undefined) => void;
             showPane: (pane: 'actor' | 'watch') => void;
@@ -277,42 +277,67 @@ test('hiding ports keeps the graph connected by collapsing them into pass-throug
     expect(expanded.some((edge) => edge.source === PORT_ID || edge.target === PORT_ID)).toBe(true);
 });
 
-test('an envelope handed to a hidden port travels on to the node on the far side', async ({ page }) => {
-    await openPanel(page);
-    await feed(page, portBridgeEvents());
-    await page.waitForTimeout(200);
+/** Long enough for the flashes the fixture itself caused to have faded out. */
+const PULSE_FADED = 700;
 
-    const hop = (source: string, target: string, seq: string, thread: string): DevtoolsEvent => ({
+function hopEvent(source: string, target: string, seq: string, delivered = true): DevtoolsEvent {
+    return {
         type: 'message',
         message: {
             seq,
             ts: 1_700_000_000_300,
             source,
             target,
-            thread,
+            thread: 'window<t1>',
             type: 'message',
-            delivered: true,
-            route: undefined,
+            delivered,
+            route: delivered ? undefined : 'nowhere',
             checkpoints: 'consumer/echo',
             bytes: 8,
             preview: undefined,
         },
-    });
+    };
+}
 
-    await feed(page, [
-        hop(NODE_B, PORT_ID, 'window<t1>:3', 'window<t1>'),
-        hop(WORKER_PORT_ID, NODE_B, 'window<t1>:4', 'window<t1>'),
-    ]);
+test('a hop lights up the two nodes it touches, sender and receiver differently', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await page.waitForTimeout(PULSE_FADED);
 
-    const particles = await page.evaluate(() =>
-        window.__webactorPanel.graph.debugParticles().map((particle) => ({ from: particle.from, to: particle.to })),
+    await feed(page, [hopEvent(NODE_A, NODE_B, 'window<t1>:3'), hopEvent(NODE_B, NODE_A, 'window<t1>:4', false)]);
+
+    const pulses = new Map(await page.evaluate(() => window.__webactorPanel.graph.debugPulses()));
+
+    expect(pulses.get(NODE_A)!.sent, 'the sender must light up as sending').toBeGreaterThan(0);
+    expect(pulses.get(NODE_B)!.received, 'the receiver must light up as receiving').toBeGreaterThan(0);
+    expect(pulses.get(NODE_A)!.dropped, 'an undelivered envelope must light its target up as dropped').toBeGreaterThan(
+        0,
     );
+    expect(pulses.get(NODE_C), 'an untouched node must stay dark').toBeUndefined();
+});
 
-    expect(particles, 'the leg into the worker must not collapse onto its own sender').toContainEqual({
-        from: NODE_B,
-        to: NODE_C,
-    });
-    expect(particles).toContainEqual({ from: NODE_C, to: NODE_B });
+test('a hop into a hidden port lights up only the visible end', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, portBridgeEvents());
+    await page.waitForTimeout(PULSE_FADED);
+
+    await feed(page, [hopEvent(NODE_B, PORT_ID, 'window<t1>:5')]);
+
+    const pulses = new Map(await page.evaluate(() => window.__webactorPanel.graph.debugPulses()));
+
+    expect(pulses.get(NODE_B)!.sent).toBeGreaterThan(0);
+    expect(pulses.get(PORT_ID), 'a collapsed port has nothing to light up').toBeUndefined();
+});
+
+test('flashes stop being recorded once they are switched off', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await page.waitForTimeout(PULSE_FADED);
+    await page.locator('#flash').uncheck();
+
+    await feed(page, [hopEvent(NODE_A, NODE_B, 'window<t1>:6')]);
+
+    expect(await page.evaluate(() => window.__webactorPanel.graph.debugPulses())).toEqual([]);
 });
 
 test('closed links stay visible as history instead of vanishing', async ({ page }) => {
