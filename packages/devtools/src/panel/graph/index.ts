@@ -3,10 +3,10 @@ import type { Store } from '../store';
 import type { GraphTheme } from '../theme';
 import { Bodies, ThreadLayout } from './bodies';
 import { Camera } from './camera';
-import { buildEdges, type Edge } from './edges';
+import { buildEdges, type Edge, resolveHop } from './edges';
 import { step } from './forces';
 import { bindInteraction } from './interaction';
-import { Particles } from './particles';
+import { type Particle, Particles } from './particles';
 import { draw } from './scene';
 
 const RESTART_ALPHA = 0.7;
@@ -28,7 +28,7 @@ export class GraphView {
     private readonly particles = new Particles();
 
     private edges: Edge[] = [];
-    private anchors = new Map<string, string>();
+    private anchors = new Map<string, string[]>();
     private edgesDirty = true;
     private edgesVersion = -1;
     private alpha = 1;
@@ -101,11 +101,15 @@ export class GraphView {
 
     spawn(message: DevtoolsMessage): void {
         if (!this.animate) return;
-        const from = this.visibleEndpoint(message.source);
-        const to = this.visibleEndpoint(message.target);
-        if (from === undefined || to === undefined || from === to) return;
-        if (!this.bodies.has(from) || !this.bodies.has(to)) return;
-        this.particles.spawn(message, from, to, this.highlight(message));
+        const hop = resolveHop(
+            message.source,
+            message.target,
+            (id) => this.isNodeVisible(id),
+            (id) => this.anchors.get(id) ?? [],
+        );
+        if (hop === undefined || hop.from === hop.to) return;
+        if (!this.bodies.has(hop.from) || !this.bodies.has(hop.to)) return;
+        this.particles.spawn(message, hop.from, hop.to, this.highlight(message));
     }
 
     screenOf(id: string): { x: number; y: number } | undefined {
@@ -115,6 +119,10 @@ export class GraphView {
 
     debugEdges(): Edge[] {
         return this.edges;
+    }
+
+    debugParticles(): readonly Particle[] {
+        return this.particles.all;
     }
 
     private radiusOf(node: DevtoolsNode): number {
@@ -128,12 +136,6 @@ export class GraphView {
     private isNodeVisible(id: string): boolean {
         const node = this.nodeAt(id);
         return node !== undefined && this.filter(node);
-    }
-
-    private visibleEndpoint(id: string): string | undefined {
-        const node = this.nodeAt(id);
-        if (node === undefined) return undefined;
-        return this.filter(node) ? id : this.anchors.get(id);
     }
 
     private pick(x: number, y: number): ReturnType<Bodies['pick']> {

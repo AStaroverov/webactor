@@ -14,6 +14,7 @@ declare global {
             graph: {
                 selected: string | undefined;
                 debugEdges: () => { source: string; target: string; collapsed: boolean; closed: boolean }[];
+                debugParticles: () => readonly { from: string; to: string }[];
             };
             select: (id: string | undefined) => void;
             showPane: (pane: 'actor' | 'watch') => void;
@@ -123,6 +124,46 @@ function graphEvents(): DevtoolsEvent[] {
     ];
 }
 
+const PORT_ID = 'MessagePort<window<t1>-9>';
+const WORKER_PORT_ID = 'MessagePort<worker<t2>-10>';
+
+/** consumer ── port ══ port ── echo: the shape every worker connection has, with both ports hidden. */
+function portBridgeEvents(): DevtoolsEvent[] {
+    const port = (id: string, thread: string): DevtoolsEvent => ({
+        type: 'node',
+        node: {
+            id,
+            name: 'MessagePort',
+            kind: 'port',
+            state: 'created',
+            thread,
+            createdAt: 1_700_000_000_000,
+            restarts: 0,
+        },
+    });
+    const link = (source: string, target: string, thread: string, crossThread: boolean): DevtoolsEvent => ({
+        type: 'link',
+        link: {
+            id: `${source}|${target}`,
+            source,
+            target,
+            thread,
+            types: ['message'],
+            crossThread,
+            createdAt: 1_700_000_000_000,
+        },
+    });
+
+    return [
+        ...graphEvents().filter((event) => event.type !== 'link' || !event.link.crossThread),
+        port(PORT_ID, 'window<t1>'),
+        port(WORKER_PORT_ID, 'worker<t2>'),
+        link(NODE_B, PORT_ID, 'window<t1>', false),
+        link(PORT_ID, WORKER_PORT_ID, 'window<t1>', true),
+        link(WORKER_PORT_ID, NODE_C, 'worker<t2>', false),
+    ];
+}
+
 async function openPanel(page: Page): Promise<string[]> {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(String(error)));
@@ -216,74 +257,7 @@ test('clicking a node where it is drawn selects that node', async ({ page }) => 
 
 test('hiding ports keeps the graph connected by collapsing them into pass-through edges', async ({ page }) => {
     await openPanel(page);
-
-    const portId = 'MessagePort<window<t1>-9>';
-    const workerPortId = 'MessagePort<worker<t2>-10>';
-    const events = graphEvents().filter((event) => event.type !== 'link' || !event.link.crossThread);
-
-    await feed(page, [
-        ...events,
-        {
-            type: 'node',
-            node: {
-                id: portId,
-                name: 'MessagePort',
-                kind: 'port',
-                state: 'created',
-                thread: 'window<t1>',
-                createdAt: 1_700_000_000_000,
-                restarts: 0,
-            },
-        },
-        {
-            type: 'node',
-            node: {
-                id: workerPortId,
-                name: 'MessagePort',
-                kind: 'port',
-                state: 'created',
-                thread: 'worker<t2>',
-                createdAt: 1_700_000_000_000,
-                restarts: 0,
-            },
-        },
-        {
-            type: 'link',
-            link: {
-                id: `${NODE_B}|${portId}`,
-                source: NODE_B,
-                target: portId,
-                thread: 'window<t1>',
-                types: ['message'],
-                crossThread: false,
-                createdAt: 1_700_000_000_000,
-            },
-        },
-        {
-            type: 'link',
-            link: {
-                id: `${portId}|${workerPortId}`,
-                source: portId,
-                target: workerPortId,
-                thread: 'window<t1>',
-                types: ['message'],
-                crossThread: true,
-                createdAt: 1_700_000_000_000,
-            },
-        },
-        {
-            type: 'link',
-            link: {
-                id: `${workerPortId}|${NODE_C}`,
-                source: workerPortId,
-                target: NODE_C,
-                thread: 'worker<t2>',
-                types: ['message'],
-                crossThread: false,
-                createdAt: 1_700_000_000_000,
-            },
-        },
-    ]);
+    await feed(page, portBridgeEvents());
     await page.waitForTimeout(200);
 
     const collapsed = await page.evaluate(() => window.__webactorPanel.graph.debugEdges());
@@ -293,14 +267,52 @@ test('hiding ports keeps the graph connected by collapsing them into pass-throug
     );
     expect(between, 'consumer and echo must stay connected through the two hidden ports').toBeDefined();
     expect(between!.collapsed).toBe(true);
-    expect(collapsed.some((edge) => edge.source === portId || edge.target === portId)).toBe(false);
+    expect(collapsed.some((edge) => edge.source === PORT_ID || edge.target === PORT_ID)).toBe(false);
 
     await page.locator('#ports').check();
     await page.waitForTimeout(200);
 
     const expanded = await page.evaluate(() => window.__webactorPanel.graph.debugEdges());
     expect(expanded.every((edge) => !edge.collapsed)).toBe(true);
-    expect(expanded.some((edge) => edge.source === portId || edge.target === portId)).toBe(true);
+    expect(expanded.some((edge) => edge.source === PORT_ID || edge.target === PORT_ID)).toBe(true);
+});
+
+test('an envelope handed to a hidden port travels on to the node on the far side', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, portBridgeEvents());
+    await page.waitForTimeout(200);
+
+    const hop = (source: string, target: string, seq: string, thread: string): DevtoolsEvent => ({
+        type: 'message',
+        message: {
+            seq,
+            ts: 1_700_000_000_300,
+            source,
+            target,
+            thread,
+            type: 'message',
+            delivered: true,
+            route: undefined,
+            checkpoints: 'consumer/echo',
+            bytes: 8,
+            preview: undefined,
+        },
+    });
+
+    await feed(page, [
+        hop(NODE_B, PORT_ID, 'window<t1>:3', 'window<t1>'),
+        hop(WORKER_PORT_ID, NODE_B, 'window<t1>:4', 'window<t1>'),
+    ]);
+
+    const particles = await page.evaluate(() =>
+        window.__webactorPanel.graph.debugParticles().map((particle) => ({ from: particle.from, to: particle.to })),
+    );
+
+    expect(particles, 'the leg into the worker must not collapse onto its own sender').toContainEqual({
+        from: NODE_B,
+        to: NODE_C,
+    });
+    expect(particles).toContainEqual({ from: NODE_C, to: NODE_B });
 });
 
 test('closed links stay visible as history instead of vanishing', async ({ page }) => {
