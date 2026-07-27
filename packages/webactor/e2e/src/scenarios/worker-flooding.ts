@@ -1,3 +1,4 @@
+import type { AnyData } from 'webactor';
 import { connectActorToWorker, createActor } from 'webactor';
 import type { ScenarioResult } from '../harness';
 import { onActorMessage, round, Sampler, sleep, waitUntil } from '../harness';
@@ -32,9 +33,9 @@ async function floodSingleWorker(
     });
 
     let reported = -1;
-    let send: (payload: unknown) => void = () => {};
+    let send: (payload: AnyData) => void = () => {};
     const client = createActor(`flood-client-${id}`, (context) => {
-        send = (message) => context.postMessage(message as never);
+        send = (message) => context.postMessage(message);
         return onActorMessage(context, (data) => {
             const message = data as { type: string; received: number };
             if (message.type === 'stats') reported = message.received;

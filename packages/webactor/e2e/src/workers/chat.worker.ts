@@ -30,15 +30,12 @@ const chatHub = createActor('chat-hub', (context) => {
                             from: PEERS[Math.floor(Math.random() * PEERS.length)],
                             text: REPLIES[turn++ % REPLIES.length],
                             at: Date.now(),
-                        } as never),
+                        }),
                     latency(2200, 4800),
                 );
 
                 channel.addEventListener('message', () => {
-                    setTimeout(
-                        () => channel.postMessage({ receipt: 'read', at: Date.now() } as never),
-                        latency(300, 900),
-                    );
+                    setTimeout(() => channel.postMessage({ receipt: 'read', at: Date.now() }), latency(300, 900));
                 });
 
                 sessions.push({ stop: () => clearInterval(tick), close: () => channel.close() });

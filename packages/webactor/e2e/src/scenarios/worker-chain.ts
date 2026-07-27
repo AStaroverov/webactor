@@ -1,4 +1,4 @@
-import type { AnyEnvelope, Transmitter } from 'webactor';
+import type { AnyData, AnyEnvelope, Transmitter } from 'webactor';
 import { connectActorToWorker, connectTransmitters, createActor, createEnvelope } from 'webactor';
 import type { ScenarioResult } from '../harness';
 import { round, Sampler, sleep, waitUntil } from '../harness';
@@ -41,9 +41,9 @@ export async function runWorkerChain(overrides: Partial<WorkerChainConfig> = {})
 
     let completed = 0;
     let checkpointChars = 0;
-    let send: (payload: unknown) => void = () => {};
+    let send: (payload: AnyData) => void = () => {};
     const client = createActor('chain-client', (context) => {
-        send = (payload) => context.postMessage(payload as never);
+        send = (payload) => context.postMessage(payload);
         const listener = (envelope: AnyEnvelope) => {
             const data = envelope.data as { type?: string; hop?: number; sentAt?: number };
             if (data?.type === 'chain' && data.hop === chainLength) {

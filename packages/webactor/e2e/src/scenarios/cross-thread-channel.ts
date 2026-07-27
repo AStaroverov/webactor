@@ -41,7 +41,7 @@ export async function runCrossThreadChannel(
         channel.addEventListener('message', (_envelope: AnyEnvelope) => {
             received += 1;
         });
-        for (let index = 0; index < messages; index++) channel.postMessage({ index } as never);
+        for (let index = 0; index < messages; index++) channel.postMessage({ index });
     } catch (error) {
         errors.push(`open: ${error}`);
     }

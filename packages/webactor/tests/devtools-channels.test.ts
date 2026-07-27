@@ -32,7 +32,7 @@ function twoActors(): Party {
             supportChannel(context, envelope)
                 .then((channel) => {
                     supported = channel;
-                    channel.addEventListener('message', (reply) => channel.postMessage(reply.data as never));
+                    channel.addEventListener('message', (reply) => channel.postMessage(reply.data));
                 })
                 .catch(() => {});
         });
@@ -43,7 +43,7 @@ function twoActors(): Party {
     supporter.launch();
 
     return {
-        open: (message) => openChannel(requesterContext!, message as never),
+        open: (message) => openChannel(requesterContext!, message),
         supported: () => supported,
         dispose: () => {
             disconnect();
@@ -86,7 +86,7 @@ describe('devtools channels', () => {
         expect(owner?.name, 'the opener side belongs to the actor that opened it').toBe('requester');
         expect(nodes.some((node) => node.id === opener.endpointId)).toBe(true);
 
-        channel.postMessage({ text: 'hello' } as never);
+        channel.postMessage({ text: 'hello' });
         await tick();
 
         const attributed = getDevtoolsSnapshot().messages.filter((message) => message.channel === opener.channelId);
@@ -145,7 +145,7 @@ describe('devtools channels', () => {
         expect(getDevtoolsSnapshot().channels).toHaveLength(0);
 
         disable = enableDevtools();
-        channel.postMessage({ late: true } as never);
+        channel.postMessage({ late: true });
         await tick();
 
         const snapshot = getDevtoolsSnapshot();

@@ -7,7 +7,7 @@ const host = createActor('channel-host', (context) => {
         void supportChannel(context, envelope)
             .then((channel) => {
                 channel.addEventListener('message', (reply: AnyEnvelope) => {
-                    channel.postMessage({ echo: reply.data } as never);
+                    channel.postMessage({ echo: reply.data });
                 });
             })
             .catch(() => {});

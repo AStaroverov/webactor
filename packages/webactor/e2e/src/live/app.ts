@@ -203,7 +203,7 @@ export function createSimulationApp(): SimulationApp {
         syncContext = context;
         return onActorMessage(context, (data) => {
             if ((data as { type?: string })?.type === 'peer-activity') {
-                notifications.postMessage({ type: 'toast', reason: 'peer-activity' } as never);
+                notifications.postMessage({ type: 'toast', reason: 'peer-activity' });
             }
         });
     });
@@ -247,7 +247,7 @@ export function createSimulationApp(): SimulationApp {
 
     const track = (event: string) => {
         counters.analyticsEvents += 1;
-        analytics.postMessage({ type: 'track', event, at: Date.now() } as never);
+        analytics.postMessage({ type: 'track', event, at: Date.now() });
     };
 
     const call = async (payload: Record<string, unknown>) => {
@@ -272,14 +272,14 @@ export function createSimulationApp(): SimulationApp {
     const signIn = async () => {
         activity = 'signing in';
         const auth = (await call({ type: 'auth' })) as { token?: string } | undefined;
-        shellContext?.postMessage({ type: 'authenticated', token: auth?.token } as never);
+        shellContext?.postMessage({ type: 'authenticated', token: auth?.token });
         track('session-start');
 
         await sleep(between(200, 500));
         activity = 'loading conversations';
         const conversations = await call({ type: 'conversations' });
-        shellContext?.postMessage({ type: 'conversations-loaded', conversations } as never);
-        syncContext?.postMessage({ type: 'presence' } as never);
+        shellContext?.postMessage({ type: 'conversations-loaded', conversations });
+        syncContext?.postMessage({ type: 'presence' });
         track('conversations-loaded');
     };
 
@@ -315,9 +315,9 @@ export function createSimulationApp(): SimulationApp {
         for (const char of text) {
             if (!alive) return;
             counters.keystrokes += 1;
-            composer.postMessage({ type: 'keypress', char } as never);
+            composer.postMessage({ type: 'keypress', char });
             if (counters.keystrokes % 8 === 0) {
-                storageContext?.postMessage({ type: 'save-draft', chatId: 0, draft: text } as never);
+                storageContext?.postMessage({ type: 'save-draft', chatId: 0, draft: text });
             }
             await sleep(between(45, 160));
         }
@@ -325,10 +325,10 @@ export function createSimulationApp(): SimulationApp {
         await sleep(between(200, 700));
         activity = 'sending message';
         counters.messagesSent += 1;
-        conversation?.postMessage({ text, at: Date.now() } as never);
-        syncContext?.postMessage({ type: 'outgoing' } as never);
+        conversation?.postMessage({ text, at: Date.now() });
+        syncContext?.postMessage({ type: 'outgoing' });
         await call({ type: 'send-message', text });
-        composer.postMessage({ type: 'clear-draft' } as never);
+        composer.postMessage({ type: 'clear-draft' });
         track('message-sent');
     };
 
@@ -342,7 +342,7 @@ export function createSimulationApp(): SimulationApp {
             if (!alive) return;
             typed += char;
             counters.keystrokes += 1;
-            shellContext?.postMessage({ type: 'search-input', value: typed } as never);
+            shellContext?.postMessage({ type: 'search-input', value: typed });
             await sleep(between(60, 180));
         }
 
@@ -364,14 +364,14 @@ export function createSimulationApp(): SimulationApp {
     const upload = async () => {
         activity = 'uploading attachment';
         counters.uploads += 1;
-        uploader.postMessage({ type: 'upload', size: Math.round(between(20_000, 400_000)) } as never);
+        uploader.postMessage({ type: 'upload', size: Math.round(between(20_000, 400_000)) });
         track('upload');
         await sleep(between(600, 1600));
     };
 
     const idle = async () => {
         activity = 'idle';
-        syncContext?.postMessage({ type: 'presence' } as never);
+        syncContext?.postMessage({ type: 'presence' });
         await sleep(between(2500, 6000));
     };
 
