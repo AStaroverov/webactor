@@ -26,6 +26,7 @@ export const dom = {
     paneActorView: byId('pane-actor-view'),
     paneWatchView: byId('pane-watch-view'),
     watchFilter: byId<HTMLInputElement>('watch-filter'),
+    watchChips: byId('watch-chips'),
     watchCount: byId('watch-count'),
     watchList: byId('watch-list'),
     splitter: byId('splitter'),

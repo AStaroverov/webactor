@@ -265,6 +265,60 @@ canvas {
     border-radius: 4px;
 }
 
+.chips {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.chip {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    max-width: 100%;
+    padding: 1px 2px 1px 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+}
+
+.chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chip-count {
+    padding: 0 4px;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--border) 60%, transparent);
+    border-radius: 8px;
+}
+
+.chip-remove,
+.chip-clear {
+    padding: 0 4px;
+    font: inherit;
+    color: var(--text-muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+}
+
+.chip-remove:hover,
+.chip-clear:hover {
+    color: var(--text);
+}
+
+.chip-clear {
+    text-decoration: underline;
+}
+
 .watch-hint {
     flex: none;
     padding: 4px 8px 6px;
@@ -494,6 +548,29 @@ canvas {
 
 .tree-row {
     white-space: nowrap;
+}
+
+.tree-watch {
+    margin-left: 6px;
+    padding: 0 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    line-height: 1.4;
+    color: var(--text-muted);
+    cursor: pointer;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    opacity: 0;
+}
+
+.tree-row:hover .tree-watch {
+    opacity: 1;
+}
+
+.tree-watch:hover {
+    color: var(--text);
+    border-color: var(--accent);
 }
 
 .tree-toggle {

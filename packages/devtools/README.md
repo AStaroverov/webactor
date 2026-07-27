@@ -17,8 +17,17 @@ who is connected to whom, across every thread, and every envelope that travels b
 - **Watch** — the second tab of the right pane is a filtered view of *all* traffic, showing where each
   envelope came from and where it went. Bare words match the payload, the peer names or the envelope
   type; `from:` `to:` `peer:` `type:` `thread:` narrow to one field and `dropped` keeps only envelopes
-  a route mismatch threw away. Terms combine with AND, the endpoints of a matching envelope get an
-  extra bright ring in the graph, and clicking either endpoint jumps to that actor.
+  a route mismatch threw away. Terms combine with AND, and clicking either endpoint jumps to that actor.
+- **Watched fields** — `+` next to any field in the payload inspector pins that field *and its value*
+  as a chip: every envelope carrying it joins the watch list. Chips combine with OR, the typed query
+  narrows whatever they let through, and each chip counts its matches. Primitives compare exactly;
+  anything else compares by its normalised JSON. While a selection is on, the nodes it touches keep a
+  bright ring for a few seconds and everything else fades back, so the route of one family of envelopes
+  is readable at a glance.
+
+  This is deliberately manual. Causality lives in the application's own logic, not in the transport —
+  the recorder sees that an actor received `X` and later sent `Y`, never that `Y` happened *because of*
+  `X`. So the panel shows participation and order in time, and the chain is yours to read.
 - **Lifecycle** — created / launched / closed state per node, plus a restart counter for supervisors.
 - **Workers** — actors living in dedicated workers and shared workers appear in the same graph. No
   setup in the worker: the page-side recorder attaches a private `MessageChannel` over the

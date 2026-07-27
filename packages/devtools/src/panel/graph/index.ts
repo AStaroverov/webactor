@@ -36,6 +36,8 @@ export class GraphView {
 
     /** Whether nodes light up on traffic at all. */
     flash = true;
+    /** Fades everything the watch selection does not touch, so the family of envelopes stands out. */
+    dimUnwatched = false;
     selected: string | undefined;
     filter: (node: DevtoolsNode) => boolean = () => true;
     /** Marks the envelopes a watch filter selected, so their endpoints stand out. */
@@ -192,6 +194,7 @@ export class GraphView {
             radiusOf: (node) => this.radiusOf(node),
             selected: this.selected,
             hovered: this.hovered,
+            dimUnwatched: this.dimUnwatched,
         });
 
         requestAnimationFrame(this.frame);

@@ -12,7 +12,9 @@ const HALO_BANDS: { channel: 'dropped' | 'sent' | 'received'; gap: number }[] = 
     { channel: 'sent', gap: 6 },
     { channel: 'received', gap: 3 },
 ];
-const WATCH_GAP = 9;
+const WATCH_GAP = 11;
+const WATCH_WIDTH = 2.5;
+const DIMMED = 0.16;
 
 export type SceneInput = {
     context: CanvasRenderingContext2D;
@@ -26,10 +28,12 @@ export type SceneInput = {
     radiusOf: (node: DevtoolsNode) => number;
     selected: string | undefined;
     hovered: string | undefined;
+    /** True while a watch selection is on: whatever it does not touch fades into the background. */
+    dimUnwatched: boolean;
 };
 
 function drawEdges(scene: SceneInput): void {
-    const { context, theme, bodies, edges, selected } = scene;
+    const { context, theme, bodies, edges, pulses, selected, dimUnwatched } = scene;
 
     for (const edge of edges) {
         const source = bodies.get(edge.source);
@@ -37,8 +41,9 @@ function drawEdges(scene: SceneInput): void {
         if (source === undefined || target === undefined) continue;
 
         const highlighted = selected !== undefined && (edge.source === selected || edge.target === selected);
+        const dimmed = dimUnwatched && !(pulses.watches(edge.source) && pulses.watches(edge.target));
 
-        context.globalAlpha = edge.closed ? 0.25 : 1;
+        context.globalAlpha = (edge.closed ? 0.25 : 1) * (dimmed ? DIMMED : 1);
         context.strokeStyle = highlighted ? theme.selection : edge.crossThread ? theme.edgeCross : theme.edge;
         context.lineWidth = highlighted ? 1.8 : 1;
         context.setLineDash(edge.closed ? [2, 3] : edge.crossThread ? [5, 4] : []);
@@ -66,9 +71,9 @@ function drawPulse(scene: SceneInput, x: number, y: number, radius: number, puls
     }
 
     if (pulse.watched > 0) {
-        context.globalAlpha = pulse.watched;
+        context.globalAlpha = 0.4 + 0.6 * pulse.watched;
         context.strokeStyle = theme.label;
-        context.lineWidth = 1.5;
+        context.lineWidth = WATCH_WIDTH;
         context.beginPath();
         context.arc(x, y, radius + WATCH_GAP, 0, Math.PI * 2);
         context.stroke();
@@ -78,7 +83,8 @@ function drawPulse(scene: SceneInput, x: number, y: number, radius: number, puls
 }
 
 function drawNodes(scene: SceneInput): void {
-    const { context, camera, theme, bodies, pulses, nodeAt, isVisible, radiusOf, selected, hovered } = scene;
+    const { context, camera, theme, bodies, pulses, nodeAt, isVisible, radiusOf, selected, hovered, dimUnwatched } =
+        scene;
 
     context.font = '11px ui-sans-serif, system-ui, sans-serif';
     context.textAlign = 'center';
@@ -94,9 +100,11 @@ function drawNodes(scene: SceneInput): void {
         const pulse = pulses.at(body.id);
         if (pulse !== undefined) drawPulse(scene, body.x, body.y, radius, pulse);
 
-        context.globalAlpha = closed ? 0.35 : 1;
+        const attention = body.id === selected || body.id === hovered;
+        const dimmed = dimUnwatched && !attention && !pulses.watches(body.id);
+        context.globalAlpha = (closed ? 0.35 : 1) * (dimmed ? DIMMED : 1);
 
-        if (body.id === selected || body.id === hovered) {
+        if (attention) {
             context.beginPath();
             context.arc(body.x, body.y, radius + 5, 0, Math.PI * 2);
             context.strokeStyle = theme.selection;

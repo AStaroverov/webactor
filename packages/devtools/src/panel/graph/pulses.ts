@@ -1,4 +1,3 @@
-const PULSE_MS = 450;
 const SPENT = 0.02;
 
 export type PulseChannel = 'sent' | 'received' | 'dropped' | 'watched';
@@ -6,6 +5,9 @@ export type PulseChannel = 'sent' | 'received' | 'dropped' | 'watched';
 export type Pulse = Record<PulseChannel, number>;
 
 const CHANNELS: PulseChannel[] = ['sent', 'received', 'dropped', 'watched'];
+
+/** A watched node lingers far longer than a plain flash, so a whole route stays readable at a glance. */
+const FADE_MS: Record<PulseChannel, number> = { sent: 450, received: 450, dropped: 450, watched: 3000 };
 
 /**
  * Energy per node, set to full by a hop and faded out every frame. Traffic is orders of magnitude
@@ -32,13 +34,15 @@ export class Pulses {
         pulse[channel] = 1;
     }
 
-    advance(delta: number): void {
-        const decay = delta / PULSE_MS;
+    watches(id: string): boolean {
+        return (this.nodes.get(id)?.watched ?? 0) > 0;
+    }
 
+    advance(delta: number): void {
         for (const [id, pulse] of this.nodes) {
             let lit = false;
             for (const channel of CHANNELS) {
-                const next = pulse[channel] - decay;
+                const next = pulse[channel] - delta / FADE_MS[channel];
                 pulse[channel] = next > SPENT ? next : 0;
                 if (pulse[channel] > 0) lit = true;
             }

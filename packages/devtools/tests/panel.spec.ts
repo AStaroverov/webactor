@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { expect, type Page, test } from '@playwright/test';
-import type { DevtoolsEvent } from 'webactor';
+import type { DevtoolsEvent, DevtoolsMessage } from 'webactor';
 import { PAGE_SOURCE } from '../src/protocol';
 
 const PANEL_URL = `file://${fileURLToPath(new URL('../dist/panel.html', import.meta.url))}`;
@@ -13,12 +13,14 @@ declare global {
             store: { nodes: Map<string, unknown>; links: Map<string, unknown>; messages: unknown[] };
             graph: {
                 selected: string | undefined;
+                dimUnwatched: boolean;
                 debugEdges: () => { source: string; target: string; collapsed: boolean; closed: boolean }[];
                 debugPulses: () => [string, Record<string, number>][];
             };
             select: (id: string | undefined) => void;
             showPane: (pane: 'actor' | 'watch') => void;
             setWatchFilter: (query: string) => void;
+            watchedFields: () => string[];
         };
     }
 }
@@ -280,23 +282,24 @@ test('hiding ports keeps the graph connected by collapsing them into pass-throug
 /** Long enough for the flashes the fixture itself caused to have faded out. */
 const PULSE_FADED = 700;
 
-function hopEvent(source: string, target: string, seq: string, delivered = true): DevtoolsEvent {
+function hopMessage(source: string, target: string, seq: string, delivered = true): DevtoolsMessage {
     return {
+        seq,
+        ts: 1_700_000_000_300,
+        source,
+        target,
+        thread: 'window<t1>',
         type: 'message',
-        message: {
-            seq,
-            ts: 1_700_000_000_300,
-            source,
-            target,
-            thread: 'window<t1>',
-            type: 'message',
-            delivered,
-            route: delivered ? undefined : 'nowhere',
-            checkpoints: 'consumer/echo',
-            bytes: 8,
-            preview: undefined,
-        },
+        delivered,
+        route: delivered ? undefined : 'nowhere',
+        checkpoints: 'consumer/echo',
+        bytes: 8,
+        preview: undefined,
     };
+}
+
+function hopEvent(source: string, target: string, seq: string, delivered = true): DevtoolsEvent {
+    return { type: 'message', message: hopMessage(source, target, seq, delivered) };
 }
 
 test('a hop lights up the two nodes it touches, sender and receiver differently', async ({ page }) => {
@@ -402,6 +405,100 @@ test('watch filters narrow by payload, direction, type and delivery', async ({ p
 
     await page.evaluate(() => window.__webactorPanel.setWatchFilter('nested'));
     await expect(rows).toHaveCount(1);
+});
+
+function payloadRow(page: Page, key: string) {
+    return page
+        .locator('#payload-view .tree-row')
+        .filter({ hasText: `${key}:` })
+        .first();
+}
+
+async function watchPayloadField(page: Page, key: string, row = 0): Promise<void> {
+    await page.evaluate((id) => window.__webactorPanel.select(id), NODE_A);
+    await page.locator('#pane-actor').click();
+    await page.locator('#messages .message').nth(row).click();
+    await payloadRow(page, key).locator('.tree-watch').click();
+}
+
+test('watching a payload field pins it as a chip and keeps only envelopes carrying that value', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await feed(page, [
+        {
+            type: 'message',
+            message: {
+                seq: 'window<t1>:7',
+                ts: 1_700_000_000_400,
+                source: NODE_A,
+                target: NODE_B,
+                thread: 'window<t1>',
+                type: 'message',
+                delivered: true,
+                route: undefined,
+                checkpoints: 'producer/consumer',
+                bytes: 20,
+                preview: { kind: 'pong', payload: { nested: [9] } },
+            },
+        },
+    ]);
+
+    await watchPayloadField(page, 'kind');
+
+    await expect(page.locator('#pane-watch')).toHaveClass(/active/);
+    await expect(page.locator('#watch-chips .chip')).toHaveCount(1);
+    await expect(page.locator('#watch-chips .chip-label')).toHaveText('kind = "ping"');
+    await expect(page.locator('#watch-chips .chip-count')).toHaveText('1');
+    await expect(page.locator('#watch-list .watch-row')).toHaveCount(1);
+    expect(await page.evaluate(() => window.__webactorPanel.watchedFields())).toEqual(['kind="ping"']);
+});
+
+test('a chip on a non-primitive field compares the whole subtree', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+
+    await watchPayloadField(page, 'payload');
+
+    await expect(page.locator('#watch-chips .chip-label')).toHaveText('payload = {"nested":[1,2,3]}');
+    await expect(page.locator('#watch-list .watch-row')).toHaveCount(1);
+});
+
+test('chips combine with OR while the typed query narrows them', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+
+    await watchPayloadField(page, 'kind');
+    await watchPayloadField(page, 'reason', 1);
+    await expect(page.locator('#watch-chips .chip')).toHaveCount(2);
+    await expect(page.locator('#watch-list .watch-row')).toHaveCount(2);
+
+    await page.evaluate(() => window.__webactorPanel.setWatchFilter('dropped'));
+    await expect(page.locator('#watch-list .watch-row')).toHaveCount(1);
+
+    await page.locator('#watch-chips .chip').first().locator('.chip-remove').click();
+    await expect(page.locator('#watch-chips .chip')).toHaveCount(1);
+});
+
+test('a watch selection dims the graph and marks the nodes it touches', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await page.waitForTimeout(PULSE_FADED);
+
+    expect(await page.evaluate(() => window.__webactorPanel.graph.dimUnwatched)).toBe(false);
+
+    await watchPayloadField(page, 'kind');
+    expect(await page.evaluate(() => window.__webactorPanel.graph.dimUnwatched)).toBe(true);
+
+    await feed(page, [
+        { type: 'message', message: { ...hopMessage(NODE_A, NODE_B, 'window<t1>:8'), preview: { kind: 'ping' } } },
+    ]);
+
+    const pulses = new Map(await page.evaluate(() => window.__webactorPanel.graph.debugPulses()));
+    expect(pulses.get(NODE_A)!.watched, 'an envelope under the filter must mark its sender').toBeGreaterThan(0);
+    expect(pulses.get(NODE_B)!.watched).toBeGreaterThan(0);
+
+    await page.locator('#watch-chips .chip-remove').click();
+    expect(await page.evaluate(() => window.__webactorPanel.graph.dimUnwatched)).toBe(false);
 });
 
 test('clicking an endpoint in the watch list opens that actor', async ({ page }) => {

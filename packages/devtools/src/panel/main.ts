@@ -1,10 +1,12 @@
-import type { DevtoolsNode } from 'webactor';
+import type { DevtoolsMessage, DevtoolsNode } from 'webactor';
+import { ChipSet } from './chips';
 import { dom } from './elements';
 import { createMessageFilter, type MessageFilter } from './filter';
 import { GraphView } from './graph';
 import { Store } from './store';
 import { readTheme } from './theme';
 import { connect } from './transport';
+import { renderChipList } from './views/chip-list';
 import { type Direction, renderMessageList } from './views/message-list';
 import { renderNodeDetails } from './views/node-details';
 import { renderPayload } from './views/payload';
@@ -23,7 +25,8 @@ let selectedNode: string | undefined;
 let selectedMessage: string | undefined;
 let listDirty = false;
 let pane: 'actor' | 'watch' = 'actor';
-let watchFilter: MessageFilter = createMessageFilter('');
+let watchQuery: MessageFilter = createMessageFilter('');
+const watchChips = new ChipSet();
 
 const transport = connect((message) => {
     if (message.kind === 'status') {
@@ -34,6 +37,7 @@ const transport = connect((message) => {
 
     if (message.kind === 'reset') {
         store.reset();
+        forgetWatched();
         selectRoot(undefined);
         graph.invalidate();
         return;
@@ -79,6 +83,32 @@ function syncThreadOptions(): void {
     dom.threadSelect.value = threads.includes(current) ? current : '';
 }
 
+/** The chips OR each other, the typed query narrows whatever they let through. */
+function watchSelection(): MessageFilter {
+    return {
+        empty: watchQuery.empty && watchChips.empty,
+        matches: (message, resolve) => watchChips.matches(message) && watchQuery.matches(message, resolve),
+    };
+}
+
+function syncWatchSelection(): void {
+    const selection = watchSelection();
+    graph.highlight = (message) => !selection.empty && selection.matches(message, nameOf);
+    graph.dimUnwatched = !selection.empty;
+    showWatch();
+}
+
+function watchField(path: string[], value: unknown): void {
+    watchChips.add(path, value);
+    syncWatchSelection();
+    showPane('watch');
+}
+
+function pickMessage(message: DevtoolsMessage): void {
+    selectedMessage = message.seq;
+    renderPayload(dom.payloadView, message.preview, watchField);
+}
+
 function showNodeDetails(): void {
     graph.selected = selectedNode;
     renderNodeDetails(dom.nodeHeader, store, selectedNode);
@@ -93,10 +123,7 @@ function showMessages(): void {
         selectedNode,
         selectedMessage,
         direction,
-        onPick: (message) => {
-            selectedMessage = message.seq;
-            renderPayload(dom.payloadView, message.preview);
-        },
+        onPick: pickMessage,
         onOpenPeer: (peerId) => {
             selectedNode = peerId;
             graph.focus(peerId);
@@ -108,16 +135,28 @@ function showMessages(): void {
 
 function showWatch(): void {
     listDirty = false;
+
+    renderChipList({
+        container: dom.watchChips,
+        chips: watchChips.list(),
+        counts: watchChips.counts(store.messages),
+        onRemove: (id) => {
+            watchChips.remove(id);
+            syncWatchSelection();
+        },
+        onClear: () => {
+            watchChips.clear();
+            syncWatchSelection();
+        },
+    });
+
     renderWatchList({
         container: dom.watchList,
         counter: dom.watchCount,
         store,
-        filter: watchFilter,
+        filter: watchSelection(),
         selectedMessage,
-        onPick: (message) => {
-            selectedMessage = message.seq;
-            renderPayload(dom.payloadView, message.preview);
-        },
+        onPick: pickMessage,
         onOpenNode: (nodeId) => {
             selectedNode = nodeId;
             graph.focus(nodeId);
@@ -148,6 +187,13 @@ function selectRoot(id: string | undefined): void {
     renderPayload(dom.payloadView, undefined);
 }
 
+function forgetWatched(): void {
+    watchChips.clear();
+    watchQuery = createMessageFilter('');
+    dom.watchFilter.value = '';
+    syncWatchSelection();
+}
+
 graph.filter = nodeVisible;
 graph.onSelect = selectRoot;
 
@@ -155,9 +201,8 @@ dom.paneActorButton.addEventListener('click', () => showPane('actor'));
 dom.paneWatchButton.addEventListener('click', () => showPane('watch'));
 
 dom.watchFilter.addEventListener('input', () => {
-    watchFilter = createMessageFilter(dom.watchFilter.value);
-    graph.highlight = (message) => !watchFilter.empty && watchFilter.matches(message, nameOf);
-    showWatch();
+    watchQuery = createMessageFilter(dom.watchFilter.value);
+    syncWatchSelection();
 });
 
 dom.recordButton.addEventListener('click', () => {
@@ -218,6 +263,7 @@ setInterval(() => {
 
 chrome.devtools.network.onNavigated.addListener(() => {
     store.reset();
+    forgetWatched();
     selectRoot(undefined);
     setTimeout(() => transport.send({ kind: 'start' }), 200);
 });
@@ -231,6 +277,7 @@ chrome.devtools.network.onNavigated.addListener(() => {
         dom.watchFilter.value = query;
         dom.watchFilter.dispatchEvent(new Event('input'));
     },
+    watchedFields: () => watchChips.list().map((chip) => chip.id),
 };
 
 selectRoot(undefined);
