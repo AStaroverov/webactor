@@ -1,10 +1,13 @@
-import { cp, mkdir, rm } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import * as esbuild from 'esbuild';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const outdir = `${root}dist`;
 const watch = process.argv.includes('--watch');
+const pack = process.argv.includes('--pack');
 
 const scripts = [
     { entry: 'src/hook.ts', out: 'hook', format: 'iife' },
@@ -18,9 +21,20 @@ const scripts = [
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 
+const { version } = JSON.parse(await readFile(`${root}package.json`, 'utf8'));
+
+/** The store refuses a version it has already seen, so it is kept in one place: package.json. */
 async function copyStatic() {
-    await cp(`${root}manifest.json`, `${outdir}/manifest.json`);
+    const manifest = JSON.parse(await readFile(`${root}manifest.json`, 'utf8'));
+    await writeFile(`${outdir}/manifest.json`, `${JSON.stringify({ ...manifest, version }, undefined, 4)}\n`);
     await cp(`${root}public`, outdir, { recursive: true });
+}
+
+async function zip() {
+    const archive = `${root}webactor-devtools-${version}.zip`;
+    await rm(archive, { force: true });
+    await promisify(execFile)('zip', ['--recurse-paths', '--quiet', '-X', archive, '.'], { cwd: outdir });
+    console.log(`packed → ${archive}`);
 }
 
 const contexts = await Promise.all(
@@ -47,4 +61,5 @@ if (watch) {
     await Promise.all(contexts.map((context) => context.rebuild()));
     await Promise.all(contexts.map((context) => context.dispose()));
     console.log(`built → ${outdir}`);
+    if (pack) await zip();
 }

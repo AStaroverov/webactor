@@ -14,6 +14,7 @@
     ],
     "scripts": {
         "build": "tsc --noEmit && node build.mjs",
+        "zip": "tsc --noEmit && node build.mjs --pack",
         "dev": "node build.mjs --watch",
         "test": "pnpm --filter webactor build && node build.mjs && playwright test",
         "typecheck": "tsc --noEmit"

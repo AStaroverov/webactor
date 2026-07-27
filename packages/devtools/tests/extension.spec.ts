@@ -61,7 +61,9 @@ test.afterAll(async () => {
 
 test('the shipped manifest injects nothing until a site is allowed', async () => {
     const manifest = JSON.parse(await readFile(join(distPath, 'manifest.json'), 'utf8'));
+    const pkg = JSON.parse(await readFile(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'));
 
+    expect(manifest.version, 'the store refuses a version it has already seen').toBe(pkg.version);
     expect(manifest.content_scripts, 'static injection would mean access to every site').toBeUndefined();
     expect(manifest.host_permissions).toBeUndefined();
     expect(manifest.optional_host_permissions).toEqual(['http://*/*', 'https://*/*']);
