@@ -1,5 +1,6 @@
 import type { DevtoolsMessage, DevtoolsNode } from 'webactor';
 import { refreshAccess, watchAccess } from './access';
+import { ActorScope } from './actors';
 import { ChipSet } from './chips';
 import { dom } from './elements';
 import { createMessageFilter, type MessageFilter } from './filter';
@@ -7,6 +8,7 @@ import { GraphView } from './graph';
 import { Store } from './store';
 import { readTheme } from './theme';
 import { connect } from './transport';
+import { renderActorPicker } from './views/actor-picker';
 import { renderChannelList } from './views/channel-list';
 import { renderChipList } from './views/chip-list';
 import { renderGlobalList } from './views/global-list';
@@ -32,6 +34,7 @@ let listDirty = false;
 let pane: Pane = 'actor';
 let textFilter: MessageFilter = createMessageFilter('');
 const pinnedFields = new ChipSet();
+const actorScope = new ActorScope();
 
 const transport = connect((message) => {
     if (message.kind === 'status') {
@@ -52,6 +55,7 @@ const transport = connect((message) => {
     if (delta.graphChanged) {
         graph.invalidate();
         syncThreadOptions();
+        syncActors();
         if (selectedNode !== undefined) showNodeDetails();
     }
     for (const entry of delta.messages) graph.pulse(entry);
@@ -74,8 +78,7 @@ function nodeVisible(node: DevtoolsNode): boolean {
     if (node.kind === 'port') return false;
     const thread = dom.threadSelect.value;
     if (thread !== '' && node.thread !== thread) return false;
-    const query = dom.searchInput.value.trim().toLowerCase();
-    return query === '' || node.name.toLowerCase().includes(query);
+    return actorScope.holds(node.id, node.name);
 }
 
 function syncThreadOptions(): void {
@@ -90,17 +93,58 @@ function syncThreadOptions(): void {
 }
 
 /** One filter for both panes: the chips OR each other, the typed query narrows what they let through. */
-function activeFilter(): MessageFilter {
+function watchFilter(): MessageFilter {
     return {
         empty: textFilter.empty && pinnedFields.empty,
         matches: (message, resolve) => pinnedFields.matches(message) && textFilter.matches(message, resolve),
     };
 }
 
+/** The actor scope answers who is being debugged, the watch filter which of their envelopes to keep. */
+function activeFilter(): MessageFilter {
+    const watch = watchFilter();
+    return {
+        empty: watch.empty && actorScope.empty,
+        matches: (message, resolve) => actorScope.covers(message, resolve) && watch.matches(message, resolve),
+    };
+}
+
+/** Out-of-scope actors are hidden outright, so only the watch filter has anything left to dim. */
 function syncFilter(): void {
-    const filter = activeFilter();
-    graph.highlight = (message) => !filter.empty && filter.matches(message, nameOf);
-    graph.dimUnwatched = !filter.empty;
+    const watch = watchFilter();
+    graph.highlight = (message) => !watch.empty && watch.matches(message, nameOf);
+    graph.dimUnwatched = !watch.empty;
+    refreshActivePane();
+}
+
+function syncActors(): void {
+    const entries = actorScope.list(store.nodes.values());
+    const inScope = entries.filter((entry) => entry.inScope).length;
+
+    dom.actorsCount.textContent = actorScope.empty ? 'all' : String(inScope);
+    dom.actorsButton.classList.toggle('active', !actorScope.empty);
+    if (dom.actorsList.hidden) return;
+
+    renderActorPicker({
+        container: dom.actorsList,
+        entries,
+        scoped: !actorScope.empty,
+        onToggle: (id, name) => {
+            actorScope.toggle(id, name);
+            scopeChanged();
+        },
+        onClear: () => {
+            actorScope.clear();
+            dom.searchInput.value = '';
+            actorScope.setPattern('');
+            scopeChanged();
+        },
+    });
+}
+
+function scopeChanged(): void {
+    graph.invalidate();
+    syncActors();
     refreshActivePane();
 }
 
@@ -232,6 +276,7 @@ function clearFilter(): void {
     textFilter = createMessageFilter('');
     dom.filterInput.value = '';
     syncFilter();
+    syncActors();
 }
 
 graph.filter = nodeVisible;
@@ -256,7 +301,22 @@ dom.recordButton.addEventListener('click', () => {
 dom.clearButton.addEventListener('click', () => transport.send({ kind: 'clear' }));
 dom.fitButton.addEventListener('click', () => graph.resetView());
 
-dom.searchInput.addEventListener('input', () => graph.invalidate());
+dom.searchInput.addEventListener('input', () => {
+    actorScope.setPattern(dom.searchInput.value);
+    dom.searchInput.classList.toggle('invalid', !actorScope.valid);
+    scopeChanged();
+});
+
+dom.actorsButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    dom.actorsList.hidden = !dom.actorsList.hidden;
+    syncActors();
+});
+
+document.addEventListener('click', (event) => {
+    if (dom.actorsList.hidden) return;
+    if (!dom.actorsList.contains(event.target as Node)) dom.actorsList.hidden = true;
+});
 dom.threadSelect.addEventListener('change', () => graph.invalidate());
 dom.flashInput.addEventListener('change', () => {
     graph.flash = dom.flashInput.checked;
@@ -319,6 +379,15 @@ chrome.devtools.network.onNavigated.addListener(() => {
         dom.filterInput.dispatchEvent(new Event('input'));
     },
     pinnedFields: () => pinnedFields.list().map((chip) => chip.id),
+    actorsInScope: () =>
+        actorScope
+            .list(store.nodes.values())
+            .filter((entry) => entry.inScope)
+            .map((entry) => entry.node.name),
+    setActorPattern(pattern: string) {
+        dom.searchInput.value = pattern;
+        dom.searchInput.dispatchEvent(new Event('input'));
+    },
     selectChannel(channelId: string | undefined) {
         selectedChannel = channelId;
         showPane('channels');

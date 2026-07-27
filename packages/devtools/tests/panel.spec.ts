@@ -21,6 +21,8 @@ declare global {
             showPane: (pane: 'actor' | 'global' | 'channels') => void;
             setFilter: (query: string) => void;
             pinnedFields: () => string[];
+            actorsInScope: () => string[];
+            setActorPattern: (pattern: string) => void;
             selectChannel: (channelId: string | undefined) => void;
         };
         __accessDenied?: boolean;
@@ -233,6 +235,78 @@ test('the access bar asks in a window of its own and clears once the site is all
     await expect(page.locator('#access')).toBeHidden();
     await expect.poll(() => page.evaluate(() => window.__access.reloads), { timeout: 2000 }).toBe(1);
     expect(errors).toEqual([]);
+});
+
+function fanOut(): DevtoolsEvent[] {
+    return [
+        {
+            type: 'message',
+            message: {
+                seq: 'window<t1>:3',
+                ts: 1_700_000_000_300,
+                source: NODE_B,
+                target: NODE_C,
+                thread: 'window<t1>',
+                type: 'message',
+                delivered: true,
+                route: undefined,
+                checkpoints: 'consumer/echo',
+                bytes: 8,
+                preview: { kind: 'fan-out' },
+            },
+        },
+    ];
+}
+
+test('the actor scope hides everyone else, in the graph and in the lists', async ({ page }) => {
+    const errors = await openPanel(page);
+    await feed(page, graphEvents());
+    await feed(page, fanOut());
+
+    await page.locator('#pane-global').click();
+    await expect(page.locator('#global-list .global-row')).toHaveCount(3);
+
+    await page.evaluate(() => window.__webactorPanel.setActorPattern('^echo$'));
+
+    expect(await page.evaluate(() => window.__webactorPanel.actorsInScope())).toEqual(['echo']);
+    await expect(page.locator('#actors-count')).toHaveText('1');
+    await expect(
+        page.locator('#global-list .global-row'),
+        'only the envelope with an end in scope survives',
+    ).toHaveCount(1);
+
+    const edges = await page.evaluate(() => window.__webactorPanel.graph.debugEdges());
+    expect(edges.some((edge) => edge.source === NODE_A || edge.target === NODE_A)).toBe(false);
+    expect(errors).toEqual([]);
+});
+
+test('the picker adds an actor the pattern never matched', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+    await feed(page, fanOut());
+
+    await page.evaluate(() => window.__webactorPanel.setActorPattern('^echo$'));
+    await page.locator('#actors').click();
+
+    const rows = page.locator('#actors-list .actor-row');
+    await expect(rows).toHaveCount(3);
+    await expect(page.locator('#actors-list .actor-badge')).toHaveCount(1);
+
+    await rows.filter({ hasText: 'producer' }).locator('input').check();
+
+    expect(await page.evaluate(() => window.__webactorPanel.actorsInScope())).toEqual(['producer', 'echo']);
+    await expect(page.locator('#global-list .global-row')).toHaveCount(3);
+});
+
+test('a half-typed pattern narrows nothing and says so', async ({ page }) => {
+    await openPanel(page);
+    await feed(page, graphEvents());
+
+    await page.evaluate(() => window.__webactorPanel.setActorPattern('echo('));
+
+    await expect(page.locator('#search')).toHaveClass(/invalid/);
+    await expect(page.locator('#actors-count')).toHaveText('all');
+    expect(await page.evaluate(() => window.__webactorPanel.actorsInScope())).toEqual([]);
 });
 
 test('panel connects, announces itself and asks the page to start streaming', async ({ page }) => {

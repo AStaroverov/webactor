@@ -18,6 +18,12 @@ who is connected to whom, across every thread, and every envelope that travels b
 - **Global** — the second tab of the right pane is every envelope in one list, showing where each came
   from and where it went; clicking either endpoint opens that actor. The pane follows the selection:
   picking an actor in the graph opens **Actor**, clicking past every node opens **Global**.
+- **Actor scope** — who is being debugged at all, set in the toolbar: a regular expression over actor
+  names, plus a picker to tick individual actors. The two combine with OR, and an actor ticked off is
+  carved back out of the pattern. Out-of-scope actors leave the graph entirely and both lists keep only
+  envelopes with at least one end in scope — otherwise the traffic crossing the edge of the set would
+  disappear with it. The pattern stays live, so actors created later join the scope on their own; while
+  it does not compile the field turns amber and narrows nothing.
 - **Filter** — one field above both panes, narrowing whichever list is open. Bare words match the
   payload, the peer names or the envelope type; `from:` `to:` `peer:` `type:` `thread:` narrow to one
   field and `dropped` keeps only envelopes a route mismatch threw away. Terms combine with AND.
@@ -50,12 +56,30 @@ pnpm --filter webactor-devtools build     # → packages/devtools/dist
 ```
 
 Then in Chrome: `chrome://extensions` → enable **Developer mode** → **Load unpacked** →
-select `packages/devtools/dist`. Open DevTools on a page that uses webactor and pick the
-**webactor** tab. Reload the page once after installing — the hook has to be in place before the
-app creates its first actor.
+select `packages/devtools/dist`.
+
+Installing grants nothing: there is no content script and no host permission in the manifest, so
+until you allow a site the extension cannot see it. Allow one from the toolbar icon, or from the bar
+the panel shows on a page it is not attached to. The page reloads itself afterwards — the hook has to
+be in place before the app creates its first actor, which is also why allowing a site *registers* the
+scripts for its next load instead of injecting them right away. `file://` pages need "Allow access to
+file URLs" on the extension card; that switch has no API.
 
 For iterating on the panel itself use `pnpm --filter webactor-devtools dev` (esbuild watch) and hit
 the reload button on the extension card.
+
+## Package for the Chrome Web Store
+
+```bash
+pnpm --filter webactor-devtools zip       # → packages/devtools/webactor-devtools-<version>.zip
+```
+
+The archive holds the contents of `dist`, with `manifest.json` at its root. The version comes from
+`package.json` and is written into the manifest at build time — the store refuses an upload whose
+version it has already seen, and two hand-kept numbers drift.
+
+[`STORE.md`](./STORE.md) holds the listing copy, the permission justifications and the submission
+checklist; [`PRIVACY.md`](./PRIVACY.md) is the policy the listing links to.
 
 ## How it is wired
 
@@ -69,6 +93,9 @@ page (MAIN world)                     extension
                               ▼
                         background.js ──► panel.js  (per inspected tab)
 ```
+
+Both content scripts are registered by the service worker from the set of origins the user has
+allowed, so the diagram above only exists on a page that was allowed.
 
 `hook.js` only installs the sink; all recording lives in webactor itself
 (`packages/webactor/src/devtools`). Without the extension the global hook is absent and the recorder
@@ -133,7 +160,9 @@ pnpm --filter webactor-devtools test
   message list, direction filters, payload inspector, toolbar commands, canvas paint.
 - `tests/extension.spec.ts` loads `dist` as a real unpacked extension and asserts the service
   worker registers, the MAIN-world hook lands before page scripts, the recorder auto-activates,
-  and events reach the background worker.
+  and events reach the background worker. A native permission prompt cannot be clicked from a test,
+  so the fixture origin is pre-granted in the manifest of a throwaway copy; a separate assertion
+  keeps the shipped manifest free of any static injection.
 
 Cross-thread capture is covered on the library side by
 `packages/webactor/e2e/tests/devtools.spec.ts`.

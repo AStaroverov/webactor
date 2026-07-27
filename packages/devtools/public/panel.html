@@ -13,9 +13,15 @@
             <button id="clear" title="Clear captured graph and history">Clear</button>
             <button id="fit" title="Reset layout and zoom">Reset view</button>
             <span class="separator"></span>
-            <label class="field">
-                <input id="search" type="search" placeholder="filter actors…" />
+            <label class="field" title="Actors whose name matches are kept, as a regular expression">
+                <input id="search" type="search" placeholder="actors matching…" />
             </label>
+            <div class="picker">
+                <button id="actors" class="toggle" title="Pick exactly which actors to debug">
+                    actors: <span id="actors-count">all</span>
+                </button>
+                <div id="actors-list" class="picker-list" hidden></div>
+            </div>
             <label class="field">
                 <select id="thread"><option value="">all threads</option></select>
             </label>
