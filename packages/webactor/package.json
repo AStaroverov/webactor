@@ -8,6 +8,7 @@
         "directory": "packages/webactor"
     },
     "author": "AStaroverov",
+    "license": "MIT",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -22,8 +23,8 @@
         "test:e2e": "playwright test --config e2e/playwright.config.ts",
         "test:e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
         "dev:e2e": "vite --config e2e/vite.config.ts",
-        "prepack": "node -e \"require('node:fs').copyFileSync('../../README.md', 'README.md')\"",
-        "postpack": "node -e \"require('node:fs').rmSync('README.md', { force: true })\""
+        "prepack": "node -e \"for (const f of ['README.md', 'LICENSE']) require('node:fs').copyFileSync('../../' + f, f)\"",
+        "postpack": "node -e \"for (const f of ['README.md', 'LICENSE']) require('node:fs').rmSync(f, { force: true })\""
     },
     "devDependencies": {
         "@apacheli/web-workers": "^2.0.1",

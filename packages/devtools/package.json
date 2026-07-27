@@ -9,6 +9,7 @@
         "directory": "packages/devtools"
     },
     "author": "AStaroverov",
+    "license": "MIT",
     "type": "module",
     "files": [
         "dist"

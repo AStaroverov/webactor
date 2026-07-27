@@ -222,6 +222,6 @@ webactor is a _model_, not just an RPC shim: you adopt actors, envelopes, and su
 
 ## Status
 
-Single-maintainer project · MIT-style usage. The API described here is exercised by the test suite (`pnpm test`). Feedback and issues welcome on the [repository](https://github.com/AStaroverov/webactor).
+Single-maintainer project · [MIT](./LICENSE). The API described here is exercised by the test suite (`pnpm test`). Feedback and issues welcome on the [repository](https://github.com/AStaroverov/webactor).
 
 Releases are automated with [changesets](https://github.com/changesets/changesets) — see [CONTRIBUTING.md](./CONTRIBUTING.md) for how to land a change and cut a version.
