@@ -122,7 +122,7 @@ creditworthiness or for lending.
 | Asset          | Requirement                | File                                         |
 | -------------- | -------------------------- | -------------------------------------------- |
 | Store icon     | 128×128 PNG                | `public/img/icon-128.png`                    |
-| Screenshot     | 1280×800, 24-bit, no alpha | `assets/store/screenshot-panel.png`          |
+| Screenshot     | 1280×800, 24-bit, no alpha | `assets/screenshot.png`                      |
 | Icon source    | —                          | `assets/icon.png`                            |
 
 A small promo tile (440×280) is optional and not made yet.

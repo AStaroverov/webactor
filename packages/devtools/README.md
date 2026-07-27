@@ -3,6 +3,8 @@
 A Chrome DevTools panel that shows the live actor graph of a [webactor](../webactor) application:
 who is connected to whom, across every thread, and every envelope that travels between them.
 
+![The panel on a running app: the actor graph across four threads on the left, every envelope on the right](./assets/screenshot.png)
+
 ## What you get
 
 - **Graph** — one node per actor, retranslator, supervisor and thread port; edges are real
