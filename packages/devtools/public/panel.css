@@ -547,12 +547,18 @@ canvas {
 }
 
 .tree-row {
+    position: relative;
+    padding-right: 22px;
     white-space: nowrap;
 }
 
+/** Pinned to the row's right edge: hanging after the value would move it with every value's length. */
 .tree-watch {
-    margin-left: 6px;
+    position: absolute;
+    top: 50%;
+    right: 2px;
     padding: 0 4px;
+    transform: translateY(-50%);
     font-family: var(--mono);
     font-size: 10px;
     line-height: 1.4;
