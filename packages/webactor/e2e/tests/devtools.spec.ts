@@ -76,6 +76,7 @@ test('devtools records supervisor restarts', async ({ page }) => {
 });
 
 test('live user simulation produces a connected multi-thread graph that survives being stopped', async ({ page }) => {
+    await page.goto('/live.html');
     await page.evaluate(() => window.__simulation.start());
     await page.waitForTimeout(6000);
 

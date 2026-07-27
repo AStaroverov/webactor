@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 
 import type { ScenarioResult } from './harness';
-import type { SimulationStats } from './scenarios/simulation';
+import type { SimulationActionName } from './live/app';
+import type { SimulationStats } from './live/session';
 
 declare global {
     interface Window {
@@ -9,9 +10,13 @@ declare global {
             scenarios: string[];
             run: (name: string, overrides?: Record<string, number>) => Promise<ScenarioResult>;
         };
+        /** Only present on /live.html. */
         __simulation: {
+            actions: SimulationActionName[];
             start: () => SimulationStats;
+            pause: () => SimulationStats;
             stop: () => SimulationStats;
+            run: (name: SimulationActionName) => Promise<SimulationStats>;
             stats: () => SimulationStats;
         };
         __sharedTab: {

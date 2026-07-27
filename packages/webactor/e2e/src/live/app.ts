@@ -10,10 +10,7 @@ import {
 } from 'webactor';
 import { createPRNG, onActorMessage, sleep } from '../harness';
 
-export type SimulationStats = {
-    running: boolean;
-    uptimeMs: number;
-    activity: string;
+export type SimulationCounters = {
     chatsOpened: number;
     keystrokes: number;
     messagesSent: number;
@@ -23,6 +20,44 @@ export type SimulationStats = {
     uploads: number;
     uploadCrashes: number;
     analyticsEvents: number;
+};
+
+export type SimulationActionName =
+    | 'sign-in'
+    | 'open-chat'
+    | 'close-chat'
+    | 'type-and-send'
+    | 'search'
+    | 'scroll-history'
+    | 'upload'
+    | 'idle';
+
+/** The weight is how often the autonomous loop picks the action; 0 means only a hand can trigger it. */
+export const SIMULATION_ACTIONS: {
+    name: SimulationActionName;
+    label: string;
+    hint: string;
+    weight: number;
+}[] = [
+    { name: 'sign-in', label: 'sign in', hint: 'auth, then load the conversation list', weight: 0 },
+    { name: 'open-chat', label: 'open chat', hint: 'opens a channel into the chat worker', weight: 14 },
+    { name: 'close-chat', label: 'close chat', hint: 'closes that channel', weight: 0 },
+    { name: 'type-and-send', label: 'type & send', hint: 'keystrokes, draft saves, one message out', weight: 30 },
+    { name: 'search', label: 'search', hint: 'typed query, then one api call', weight: 12 },
+    { name: 'scroll-history', label: 'scroll history', hint: '1-3 paged api calls', weight: 12 },
+    { name: 'upload', label: 'upload', hint: 'attachment that fails ~1 in 3 and gets restarted', weight: 8 },
+    { name: 'idle', label: 'idle ping', hint: 'presence to the shared worker', weight: 16 },
+];
+
+export type SimulationApp = {
+    readonly alive: boolean;
+    readonly counters: SimulationCounters;
+    readonly activity: string;
+    readonly actions: Record<SimulationActionName, () => Promise<void>>;
+    setActivity: (activity: string) => void;
+    /** Seeded, so a hand-driven run and a loop-driven run jitter the same way. */
+    between: (from: number, to: number) => number;
+    dispose: VoidFunction;
 };
 
 const OPEN_CONVERSATION = 'open-conversation';
@@ -37,30 +72,26 @@ const DRAFTS = [
 ];
 const QUERIES = ['leak', 'rebase', 'logs', 'ship', 'route'];
 
-const counters = {
-    chatsOpened: 0,
-    keystrokes: 0,
-    messagesSent: 0,
-    messagesReceived: 0,
-    searches: 0,
-    historyPages: 0,
-    uploads: 0,
-    uploadCrashes: 0,
-    analyticsEvents: 0,
-};
+/**
+ * A chat app as a real site would wire it: a shell fanning out to feature actors, three dedicated
+ * workers behind their own clients and a shared worker for tab sync. Nothing here drives itself — the
+ * returned actions are the things a user does, one per gesture.
+ */
+export function createSimulationApp(): SimulationApp {
+    const counters: SimulationCounters = {
+        chatsOpened: 0,
+        keystrokes: 0,
+        messagesSent: 0,
+        messagesReceived: 0,
+        searches: 0,
+        historyPages: 0,
+        uploads: 0,
+        uploadCrashes: 0,
+        analyticsEvents: 0,
+    };
 
-let disposers: (() => void)[] = [];
-let startedAt = 0;
-let running = false;
-let activity = 'idle';
-
-export function startSimulation(): SimulationStats {
-    if (running) return simulationStats();
-
-    running = true;
-    startedAt = performance.now();
-    activity = 'booting';
-    for (const key of Object.keys(counters) as (keyof typeof counters)[]) counters[key] = 0;
+    let alive = true;
+    let activity = 'idle';
 
     const random = createPRNG(0xc0ffee);
     const abort = new AbortController();
@@ -135,7 +166,7 @@ export function startSimulation(): SimulationStats {
                     }
                 });
             }),
-        { shouldRetry: (reason) => running && reason === 'upload-failed' },
+        { shouldRetry: (reason) => alive && reason === 'upload-failed' },
     );
 
     const apiWorker = new Worker(new URL('../workers/api.worker.ts', import.meta.url), {
@@ -214,22 +245,6 @@ export function startSimulation(): SimulationStats {
     let conversation: ChannelTransmitter | undefined;
     let conversationPeer = '';
 
-    const closeConversation = () => {
-        conversation?.close();
-        conversation = undefined;
-    };
-
-    disposers.push(() => {
-        abort.abort();
-        closeConversation();
-        for (const disconnect of connections) disconnect();
-        for (const actor of actors) actor.close();
-        apiWorker.terminate();
-        chatWorker.terminate();
-        storageWorker.terminate();
-        syncWorker.port.close();
-    });
-
     const track = (event: string) => {
         counters.analyticsEvents += 1;
         analytics.postMessage({ type: 'track', event, at: Date.now() } as never);
@@ -245,7 +260,16 @@ export function startSimulation(): SimulationStats {
         }
     };
 
-    const boot = async () => {
+    const closeChat = async () => {
+        if (conversation === undefined) return;
+        activity = `closing chat with ${conversationPeer}`;
+        conversation.close();
+        conversation = undefined;
+        track('close-conversation');
+        await sleep(between(100, 300));
+    };
+
+    const signIn = async () => {
         activity = 'signing in';
         const auth = (await call({ type: 'auth' })) as { token?: string } | undefined;
         shellContext?.postMessage({ type: 'authenticated', token: auth?.token } as never);
@@ -259,9 +283,9 @@ export function startSimulation(): SimulationStats {
         track('conversations-loaded');
     };
 
-    const openConversation = async () => {
+    const openChat = async () => {
         if (chatViewContext === undefined) return;
-        closeConversation();
+        await closeChat();
 
         conversationPeer = pick(['ada', 'grace', 'linus', 'margaret']);
         activity = `opening chat with ${conversationPeer}`;
@@ -289,7 +313,7 @@ export function startSimulation(): SimulationStats {
         activity = `typing to ${conversationPeer || 'nobody'}`;
 
         for (const char of text) {
-            if (!running) return;
+            if (!alive) return;
             counters.keystrokes += 1;
             composer.postMessage({ type: 'keypress', char } as never);
             if (counters.keystrokes % 8 === 0) {
@@ -315,7 +339,7 @@ export function startSimulation(): SimulationStats {
 
         let typed = '';
         for (const char of query) {
-            if (!running) return;
+            if (!alive) return;
             typed += char;
             counters.keystrokes += 1;
             shellContext?.postMessage({ type: 'search-input', value: typed } as never);
@@ -327,17 +351,17 @@ export function startSimulation(): SimulationStats {
         track('search');
     };
 
-    const scrollBack = async () => {
+    const scrollHistory = async () => {
         activity = 'scrolling history';
         for (let page = 1; page <= Math.round(between(1, 3)); page++) {
-            if (!running) return;
+            if (!alive) return;
             counters.historyPages += 1;
             await call({ type: 'history', page });
             await sleep(between(400, 1100));
         }
     };
 
-    const attach = async () => {
+    const upload = async () => {
         activity = 'uploading attachment';
         counters.uploads += 1;
         uploader.postMessage({ type: 'upload', size: Math.round(between(20_000, 400_000)) } as never);
@@ -351,65 +375,41 @@ export function startSimulation(): SimulationStats {
         await sleep(between(2500, 6000));
     };
 
-    const behaviour: [number, () => Promise<void>][] = [
-        [30, typeAndSend],
-        [16, idle],
-        [14, openConversation],
-        [12, search],
-        [12, scrollBack],
-        [8, attach],
-    ];
-    const totalWeight = behaviour.reduce((sum, [weight]) => sum + weight, 0);
-
-    const nextAction = () => {
-        let roll = random() * totalWeight;
-        for (const [weight, action] of behaviour) {
-            roll -= weight;
-            if (roll <= 0) return action;
-        }
-        return idle;
-    };
-
-    void (async () => {
-        try {
-            await boot();
-            await openConversation();
-            while (running) {
-                await nextAction()();
-                if (!running) break;
-                activity = 'thinking';
-                await sleep(between(700, 2600));
-            }
-        } catch {
-            /* the user simply left the page */
-        }
-    })();
-
-    return simulationStats();
-}
-
-export function stopSimulation(): SimulationStats {
-    const stats = simulationStats();
-    running = false;
-    activity = 'stopped';
-
-    for (const dispose of disposers.reverse()) {
-        try {
-            dispose();
-        } catch {
-            /* teardown is best effort */
-        }
-    }
-    disposers = [];
-
-    return { ...stats, running: false, activity: 'stopped' };
-}
-
-export function simulationStats(): SimulationStats {
     return {
-        running,
-        uptimeMs: running ? Math.round(performance.now() - startedAt) : 0,
-        activity,
-        ...counters,
+        get alive() {
+            return alive;
+        },
+        get activity() {
+            return activity;
+        },
+        counters,
+        between,
+        setActivity: (next: string) => {
+            activity = next;
+        },
+        actions: {
+            'sign-in': signIn,
+            'open-chat': openChat,
+            'close-chat': closeChat,
+            'type-and-send': typeAndSend,
+            search,
+            'scroll-history': scrollHistory,
+            upload,
+            idle,
+        },
+        dispose: () => {
+            if (!alive) return;
+            alive = false;
+            activity = 'gone';
+            abort.abort();
+            conversation?.close();
+            conversation = undefined;
+            for (const disconnect of connections) disconnect();
+            for (const actor of actors) actor.close();
+            apiWorker.terminate();
+            chatWorker.terminate();
+            storageWorker.terminate();
+            syncWorker.port.close();
+        },
     };
 }

@@ -335,6 +335,7 @@ test('cross-thread channel: one message stays one message and the channel is vis
 });
 
 test('live user simulation satisfies the same invariants', async ({ page }) => {
+    await page.goto('/live.html');
     await page.evaluate(() => window.__simulation.start());
     await page.waitForTimeout(6000);
     await page.evaluate(() => window.__simulation.stop());
@@ -346,4 +347,33 @@ test('live user simulation satisfies the same invariants', async ({ page }) => {
     expect(result.messages.length).toBeGreaterThan(20);
     expect(result.messages.length, 'human-paced activity must not amplify into a message storm').toBeLessThan(20_000);
     expect(result.nodes.length, 'a human-paced session must not spawn thousands of nodes').toBeLessThan(200);
+});
+
+test('every live-user action holds up when driven on its own', async ({ page }) => {
+    await page.goto('/live.html');
+    await page.waitForFunction(() => Boolean(window.__simulation));
+
+    const actions = await page.evaluate(() => window.__simulation.actions);
+    expect(actions).toContain('sign-in');
+
+    for (const action of actions) {
+        await page.evaluate((name) => window.__simulation.run(name), action);
+    }
+
+    const stats = await page.evaluate(() => window.__simulation.stats());
+    expect(stats.live, 'a hand-driven action must boot the app and leave it up').toBe(true);
+    expect(stats.running, 'no button may start the autonomous loop').toBe(false);
+    expect(stats.chatsOpened).toBeGreaterThan(0);
+    expect(stats.messagesSent).toBeGreaterThan(0);
+    expect(stats.searches).toBeGreaterThan(0);
+    expect(stats.uploads).toBeGreaterThan(0);
+    expect(stats.historyPages).toBeGreaterThan(0);
+
+    const result = await readCapture(page);
+    assertInvariants(result, 'live-actions');
+    expect(result.nodes.some((node) => node.thread.includes('sharedWorker'))).toBe(true);
+    expect(result.links.some((link) => link.crossThread)).toBe(true);
+
+    const stopped = await page.evaluate(() => window.__simulation.stop());
+    expect(stopped.live).toBe(false);
 });
