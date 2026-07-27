@@ -22,8 +22,8 @@
         "test:e2e": "playwright test --config e2e/playwright.config.ts",
         "test:e2e:headed": "playwright test --config e2e/playwright.config.ts --headed",
         "dev:e2e": "vite --config e2e/vite.config.ts",
-        "release": "pnpm build && npm publish",
-        "release:beta": "pnpm build && npm publish --tag beta"
+        "prepack": "node -e \"require('node:fs').copyFileSync('../../README.md', 'README.md')\"",
+        "postpack": "node -e \"require('node:fs').rmSync('README.md', { force: true })\""
     },
     "devDependencies": {
         "@apacheli/web-workers": "^2.0.1",
