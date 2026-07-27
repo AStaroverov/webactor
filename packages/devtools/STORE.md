@@ -13,9 +13,9 @@ step with the manifest: if a permission changes, its justification here changes 
 | Visibility        | Public                                                                       |
 | Distribution      | All regions                                                                  |
 | Package           | `pnpm --filter webactor-devtools zip` → `webactor-devtools-<version>.zip`    |
-| Privacy policy    | https://github.com/AStaroverov/actorr/blob/main/packages/devtools/PRIVACY.md |
-| Homepage          | https://github.com/AStaroverov/actorr/tree/main/packages/devtools            |
-| Support           | https://github.com/AStaroverov/actorr/issues                                 |
+| Privacy policy    | https://github.com/AStaroverov/webactor/blob/main/packages/devtools/PRIVACY.md |
+| Homepage          | https://github.com/AStaroverov/webactor/tree/main/packages/devtools            |
+| Support           | https://github.com/AStaroverov/webactor/issues                                 |
 
 ## Short description
 
@@ -55,7 +55,7 @@ step with the manifest: if a permission changes, its justification here changes 
 > is sent anywhere: the data lives in your DevTools and dies with it.
 >
 > The extension is open source, and so is the library it inspects:
-> https://github.com/AStaroverov/actorr
+> https://github.com/AStaroverov/webactor
 
 ## Single purpose
 
