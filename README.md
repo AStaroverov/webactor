@@ -21,22 +21,12 @@ console.log(res.data); // 5
 
 ## Why actors, why now
 
-For a decade the frontend default was one big shared-memory blob: a global store, synchronous function calls, everything reaching into everything. It works until the app gets big — then coupling, race conditions, and "who mutated this?" take over.
+Your app is already concurrent — workers, tabs, streams, agents — but the browser's primitives for it (`Worker`, `SharedWorker`, `MessagePort`, `postMessage`) are low-level and inconsistent. webactor is one uniform actor model over all of them.
 
-The backend solved this long ago by going **distributed**: small services that own their state and talk only through messages. That model is getting a second life in the **AI era**, for two reasons.
-
-At runtime, an app is increasingly a swarm of semi-independent units (agents, workers, streams, tabs) that run concurrently, fail independently, and must be supervised. Shared-memory thinking doesn't survive that. Message passing does.
-
-But the deeper shift is in _who writes the code_. When agents author it, an architecture of independent modules is far more robust — and lets you move faster and more safely. Each actor can be understood, built, and changed in isolation; the blast radius of a mistake stops at its mailbox; and the contract between units is an explicit message, not an implicit reach into shared state. Strong boundaries are exactly what let humans and agents work in parallel without breaking everything.
-
-The browser already ships the primitives for it — Web Workers, `SharedWorker`, `MessagePort`, `postMessage` — but they're low-level, inconsistent, and painful to wire up. **webactor is the missing layer on top:** it gives you one uniform actor model whether two units live in the same thread, two tabs, or two threads.
-
-- **Isolated state.** Each actor owns its data. The only way in or out is a message. No shared mutable globals.
-- **Location transparency.** The same `connect` / `request` / `channel` API works in-thread and across a Worker boundary. Move an actor into a worker without touching its logic.
-- **Fault tolerance.** Supervisors restart crashed actors and dead workers — Erlang/OTP's "let it crash" on the client.
-- **No shared-memory races.** Everything is a message, delivered asynchronously, one at a time.
-
-If you believe the future of software is small units talking over messages, the web shouldn't be the exception.
+- **Isolated state.** An actor owns its data; the only way in or out is a message.
+- **Location transparency.** Same API in-thread, across tabs, across workers. Move an actor into a worker without touching its logic.
+- **Fault tolerance.** Supervisors restart crashed actors and dead workers — "let it crash" on the client.
+- **Small blast radius.** A mistake stops at one mailbox, which is what lets people and agents work on the same app in parallel.
 
 ---
 
