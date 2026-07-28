@@ -21,8 +21,10 @@ export function applyWorkerSupervisor(
     WorkerConstructor: () => Worker,
     {
         shouldRetry,
+        getAbortSignal,
     }: {
         shouldRetry: (reason?: unknown | Reason | Error | ErrorEvent) => boolean | Promise<boolean>;
+        getAbortSignal?: () => undefined | AbortSignal;
     },
 ): Actor {
     const proxy = createEnvelopeChannel();
@@ -52,13 +54,22 @@ export function applyWorkerSupervisor(
                 .catch(catchAbortToSymbol);
         };
 
-        request(messagePort, THREAD_ID_REQUEST, { abortSignal: abortController.signal })
+        const callerSignal = getAbortSignal?.();
+        const handshakeSignal =
+            callerSignal === undefined
+                ? abortController.signal
+                : AbortSignal.any([abortController.signal, callerSignal]);
+
+        request(messagePort, THREAD_ID_REQUEST, { abortSignal: handshakeSignal })
             .then((envelope) => {
                 if (isObject(envelope.data) && isStringField(envelope.data, 'threadId')) {
                     onUnlockThreadId(envelope.data.threadId);
                 }
             })
-            .catch(catchAbortToSymbol);
+            .catch((error) => {
+                if (abortController.signal.aborted) return;
+                decide(error);
+            });
 
         const errorOff = on(worker, 'error', (error) => decide(error));
 
