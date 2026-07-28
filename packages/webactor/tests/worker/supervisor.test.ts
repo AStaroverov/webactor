@@ -1,9 +1,9 @@
 import '../locks';
 
 import { Worker } from '@apacheli/web-workers';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Actor } from '../../src/types';
+import { Actor, AnyData } from '../../src/types';
 import { applyWorkerSupervisor } from '../../src/worker/applyWorkerSupervisor';
 
 function createWorker() {
@@ -16,6 +16,10 @@ function createErrorWorker() {
     return new Worker(new URL('./error-worker.mjs', import.meta.url), {
         type: 'module',
     });
+}
+
+function isTaggedData(data: AnyData, type: string) {
+    return typeof data === 'object' && data !== null && 'type' in data && data.type === type;
 }
 
 describe('Worker Supervisor Tests with Real Workers', () => {
@@ -123,7 +127,8 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             });
 
             supervisedActor.launch();
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            await vi.waitFor(() => expect(retryCount).toBeGreaterThanOrEqual(1), { timeout: 5000, interval: 10 });
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             expect(retryCount).toBe(1);
             expect(createCount).toBe(1);
@@ -223,15 +228,16 @@ describe('Worker Supervisor Tests with Real Workers', () => {
 
             supervisedActor.launch();
 
-            // Wait for error worker to fail and restart cycles
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            await vi.waitFor(
+                () => {
+                    expect(createCount).toBeGreaterThan(1);
+                    expect(restartReasons.length).toBeGreaterThan(0);
+                    expect(workers.length).toBeGreaterThan(1);
+                },
+                { timeout: 5000, interval: 10 },
+            );
 
             console.log(`Final state: createCount=${createCount}, restartReasons:`, restartReasons);
-
-            // Should have created multiple workers due to errors
-            expect(createCount).toBeGreaterThan(1);
-            expect(restartReasons.length).toBeGreaterThan(0);
-            expect(workers.length).toBeGreaterThan(1);
         });
 
         it('should restart worker when terminated manually', async () => {
@@ -243,15 +249,6 @@ describe('Worker Supervisor Tests with Real Workers', () => {
                 console.log(`Creating terminate-test worker #${createCount}`);
                 const worker = createWorker();
                 workers.push(worker);
-
-                // Terminate the first worker after short delay
-                if (createCount === 1) {
-                    setTimeout(() => {
-                        console.log('Manually terminating first worker...');
-                        worker.terminate();
-                    }, 300);
-                }
-
                 return worker;
             };
 
@@ -267,16 +264,34 @@ describe('Worker Supervisor Tests with Real Workers', () => {
                 },
             });
 
+            let pongs = 0;
+            supervisedActor.addEventListener('message', (envelope) => {
+                if (isTaggedData(envelope.data, 'pong')) pongs++;
+            });
+
             supervisedActor.launch();
 
-            // Wait for termination and restart
-            await new Promise((resolve) => setTimeout(resolve, 300));
+            // terminating before the worker has connected leaves nothing for the supervisor to notice
+            await vi.waitFor(
+                () => {
+                    supervisedActor.postMessage({ type: 'ping' });
+                    expect(pongs).toBeGreaterThan(0);
+                },
+                { timeout: 5000, interval: 20 },
+            );
+
+            console.log('Manually terminating first worker...');
+            workers[0].terminate();
+
+            await vi.waitFor(
+                () => {
+                    expect(createCount).toBeGreaterThanOrEqual(2);
+                    expect(workers.length).toBeGreaterThanOrEqual(2);
+                },
+                { timeout: 5000, interval: 10 },
+            );
 
             console.log(`Termination test result: createCount=${createCount}, restartReasons:`, restartReasons);
-
-            // Should have restarted after termination
-            expect(createCount).toBeGreaterThanOrEqual(2);
-            expect(workers.length).toBeGreaterThanOrEqual(2);
         });
 
         it('should handle worker that throws error on message', async () => {
