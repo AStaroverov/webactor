@@ -294,6 +294,147 @@ describe('Worker Supervisor Tests with Real Workers', () => {
             console.log(`Termination test result: createCount=${createCount}, restartReasons:`, restartReasons);
         });
 
+        it('should detect a worker that dies before the handshake when given an abort signal', async () => {
+            let createCount = 0;
+            const reasons: unknown[] = [];
+
+            const workerConstructor = () => {
+                createCount++;
+                const worker = createWorker();
+                workers.push(worker);
+                if (createCount === 1) worker.terminate();
+                return worker;
+            };
+
+            supervisedActor = applyWorkerSupervisor(workerConstructor, {
+                getAbortSignal: () => AbortSignal.timeout(150),
+                shouldRetry: async (reason) => {
+                    reasons.push(reason);
+                    return false;
+                },
+            });
+
+            supervisedActor.launch();
+
+            await vi.waitFor(() => expect(reasons.length).toBeGreaterThan(0), { timeout: 5000, interval: 10 });
+
+            expect(reasons[0]).toBeInstanceOf(Error);
+            expect(String(reasons[0])).toContain('TimeoutError');
+            expect(createCount).toBe(1);
+        });
+
+        it('should leave a worker that dies before the handshake unnoticed without an abort signal', async () => {
+            let createCount = 0;
+            let decisions = 0;
+
+            const workerConstructor = () => {
+                createCount++;
+                const worker = createWorker();
+                workers.push(worker);
+                if (createCount === 1) worker.terminate();
+                return worker;
+            };
+
+            supervisedActor = applyWorkerSupervisor(workerConstructor, {
+                shouldRetry: async () => {
+                    decisions++;
+                    return false;
+                },
+            });
+
+            supervisedActor.launch();
+            await new Promise((resolve) => setTimeout(resolve, 600));
+
+            expect(decisions).toBe(0);
+            expect(createCount).toBe(1);
+        });
+
+        it('should build a fresh abort signal for every relaunch', async () => {
+            let createCount = 0;
+            let signalCount = 0;
+            const reasons: unknown[] = [];
+
+            const workerConstructor = () => {
+                createCount++;
+                const worker = createWorker();
+                workers.push(worker);
+                if (createCount <= 2) worker.terminate();
+                return worker;
+            };
+
+            supervisedActor = applyWorkerSupervisor(workerConstructor, {
+                getAbortSignal: () => {
+                    signalCount++;
+                    return AbortSignal.timeout(150);
+                },
+                shouldRetry: async (reason) => {
+                    reasons.push(reason);
+                    return reasons.length < 2;
+                },
+            });
+
+            supervisedActor.launch();
+
+            // a single signal would already be spent here, so the second worker would go unwatched
+            await vi.waitFor(() => expect(reasons.length).toBe(2), { timeout: 5000, interval: 10 });
+
+            expect(signalCount).toBe(createCount);
+            expect(createCount).toBe(2);
+        });
+
+        it('should treat a plain abort from the caller as a failed handshake', async () => {
+            let createCount = 0;
+            const reasons: unknown[] = [];
+            const abortController = new AbortController();
+
+            const workerConstructor = () => {
+                createCount++;
+                const worker = createWorker();
+                workers.push(worker);
+                if (createCount === 1) worker.terminate();
+                return worker;
+            };
+
+            supervisedActor = applyWorkerSupervisor(workerConstructor, {
+                getAbortSignal: () => abortController.signal,
+                shouldRetry: async (reason) => {
+                    reasons.push(reason);
+                    return false;
+                },
+            });
+
+            supervisedActor.launch();
+            abortController.abort();
+
+            await vi.waitFor(() => expect(reasons.length).toBeGreaterThan(0), { timeout: 5000, interval: 10 });
+
+            expect(createCount).toBe(1);
+        });
+
+        it('should not ask for a restart decision when the supervisor itself is closed', async () => {
+            let decisions = 0;
+
+            const workerConstructor = () => {
+                const worker = createWorker();
+                workers.push(worker);
+                return worker;
+            };
+
+            supervisedActor = applyWorkerSupervisor(workerConstructor, {
+                getAbortSignal: () => AbortSignal.timeout(5000),
+                shouldRetry: async () => {
+                    decisions++;
+                    return false;
+                },
+            });
+
+            supervisedActor.launch();
+            supervisedActor.close();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            expect(decisions).toBe(0);
+        });
+
         it('should handle worker that throws error on message', async () => {
             let createCount = 0;
             let messageErrorCount = 0;
