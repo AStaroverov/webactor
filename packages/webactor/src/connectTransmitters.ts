@@ -1,6 +1,9 @@
 import { devtools, handleBridgeEnvelope, isBridgeEnvelope, observeRemoteTransmitter } from './devtools/internal';
-import { AnyEnvelope, EnvelopeType, isEnvelope, shallowCopyEnvelope } from './envelope';
+import { AnyEnvelope, createEnvelope, EnvelopeType, EnvelopeTypes, isEnvelope, shallowCopyEnvelope } from './envelope';
+import { loggerProvider } from './providers';
+import { Reasons } from './reason';
 import { AnyData, EventType, Transmitter } from './types';
+import { reasonToError } from './utils/common';
 import { createRoute, extendRoute, isRoutedEnvelope, reduceRoute, routeEndsWith } from './utils/route';
 import { getTransmitterName, on, post } from './utils/transmitter';
 
@@ -33,7 +36,23 @@ function resubscribe(source: Transmitter, target: Transmitter, connectedTypes: T
     const disposes = connectedTypes.map((subscribedType) =>
         on(source, subscribedType, createReposter(subscribedType, connectedTypes, source, target)),
     );
+    disposes.push(on(source, EnvelopeType.MessageError, createMessageErrorReposter(source, target)));
     return () => disposes.forEach((off) => off());
+}
+
+function createMessageErrorReposter(source: Transmitter, target: Transmitter) {
+    const sourceName = getTransmitterName(source);
+    const targetName = getTransmitterName(target);
+    return function repostMessageError(data: AnyData) {
+        if (!isEnvelope(data)) {
+            const report = createEnvelope(EnvelopeType.MessageError, reasonToError(data, Reasons.Undeserializable));
+            safePost(source, target, EnvelopeType.MessageError, report);
+            return;
+        }
+        if (!isRoutedEnvelope(data)) return; // addressed to this endpoint and already there, nothing to relay
+        const envelope = processEnvelope(data, sourceName, targetName);
+        if (envelope) safePost(source, target, envelope.type, envelope);
+    };
 }
 
 function createReposter(subscribedType: Type, connectedTypes: Type[], source: Transmitter, target: Transmitter) {
@@ -46,12 +65,50 @@ function createReposter(subscribedType: Type, connectedTypes: Type[], source: Tr
                 return;
             }
             const envelope = processEnvelope(data, sourceName, targetName);
-            if (devtools.active) devtools.message(source, target, envelope ?? data, envelope !== undefined);
-            if (envelope) post(target, envelope.type, envelope);
+            if (envelope) safePost(source, target, envelope.type, envelope);
         } else {
-            post(target, subscribedType, data);
+            safePost(source, target, subscribedType, createEnvelope(subscribedType, data));
         }
     };
+}
+
+/** An envelope the router did not address to this link never happened here, so only real hops are recorded. */
+function safePost(source: Transmitter, target: Transmitter, type: EnvelopeTypes, envelope: AnyEnvelope): void {
+    try {
+        post(target, type, envelope);
+        devtools.message(source, target, envelope, true);
+    } catch (error) {
+        devtools.message(source, target, envelope, false);
+        reportUndelivered(source, target, type, envelope, error);
+    }
+}
+
+function reportUndelivered(
+    source: Transmitter,
+    target: Transmitter,
+    type: EnvelopeTypes,
+    failed: AnyEnvelope,
+    error: unknown,
+): void {
+    if (type === EnvelopeType.MessageError) {
+        loggerProvider.error(error);
+        return;
+    }
+
+    const route = isRoutedEnvelope(failed) ? failed.__route : undefined;
+    const report = createEnvelope(EnvelopeType.MessageError, reasonToError(error, Reasons.Undeliverable), undefined, {
+        route,
+    });
+
+    if (route === undefined) {
+        try {
+            post(source, EnvelopeType.MessageError, report);
+        } catch (reportError) {
+            loggerProvider.error(reportError);
+        }
+    } else {
+        safePost(source, target, EnvelopeType.MessageError, report);
+    }
 }
 
 function processEnvelope(envelope: AnyEnvelope, sourceName: string, targetName: string) {

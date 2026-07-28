@@ -1,6 +1,13 @@
 import { AnyEnvelope, createEnvelope, Envelope, EnvelopeTypes, isEnvelope } from './envelope';
 import { AnyData, EnvelopeEmitter, EventType, TransferableOptions } from './types';
 
+/** Dispatch is asynchronous, so a listener failure cannot reach the sender: rethrow it as an uncaught error. */
+function rethrow(error: unknown): void {
+    queueMicrotask(() => {
+        throw error;
+    });
+}
+
 export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<Envelope<T>> {
     const callbacksRecord: Map<EnvelopeTypes, Set<(event: any) => unknown>> = new Map();
 
@@ -21,7 +28,13 @@ export function createEnvelopeEmitter<T extends AnyData>(): EnvelopeEmitter<Enve
         void Promise.resolve().then(() => {
             if (!callbacksRecord.has(envelope.type)) return;
             for (let callback of callbacksRecord.get(envelope.type)!) {
-                callback(envelope);
+                // A throwing listener must neither reject this dispatch promise nor skip the remaining listeners
+                try {
+                    const result = callback(envelope);
+                    if (result instanceof Promise) result.catch(rethrow);
+                } catch (error) {
+                    rethrow(error);
+                }
             }
         });
     }

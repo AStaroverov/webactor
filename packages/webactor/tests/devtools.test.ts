@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { connectActors } from '../src/connectActors';
+import { connectTransmitters } from '../src/connectTransmitters';
 import { createActor } from '../src/createActor';
+import { createEnvelopeChannel } from '../src/createEnvelopePort';
 import { applyActorSupervisor } from '../src/applyActorSupervisor';
 import { createRetranslator } from '../src/createRetranslator';
 import {
@@ -12,7 +14,7 @@ import {
     type DevtoolsEvent,
 } from '../src/devtools';
 import { addSink, devtools } from '../src/devtools/recorder';
-import type { ActorContext } from '../src/types';
+import type { ActorContext, Transmitter } from '../src/types';
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -122,7 +124,7 @@ describe('devtools recorder', () => {
         b.close();
     });
 
-    it('marks undelivered envelopes when a route does not match', async () => {
+    it('records nothing for an envelope the router did not address to the link', async () => {
         const session = record();
         disable = session.disable;
 
@@ -136,11 +138,36 @@ describe('devtools recorder', () => {
         await tick();
         flushDevtools();
 
-        const dropped = getDevtoolsSnapshot().messages.filter((message) => !message.delivered);
-        expect(dropped.length).toBeGreaterThan(0);
+        expect(getDevtoolsSnapshot().messages).toHaveLength(0);
 
         a.close();
         b.close();
+    });
+
+    it('marks a message the transport refused as undelivered', async () => {
+        const session = record();
+        disable = session.disable;
+
+        const local = createEnvelopeChannel();
+        const broken = {
+            name: 'broken',
+            postMessage: () => {
+                throw new Error('An object could not be cloned.');
+            },
+            addEventListener: () => {},
+            removeEventListener: () => {},
+        };
+        const disconnect = connectTransmitters(local.port1 as unknown as Transmitter, broken as Transmitter);
+
+        local.port2.postMessage({ payload: 'never arrives' });
+        await tick();
+        flushDevtools();
+
+        const dropped = getDevtoolsSnapshot().messages.filter((message) => !message.delivered);
+        expect(dropped).toHaveLength(1);
+        expect(dropped[0].preview).toEqual({ payload: 'never arrives' });
+
+        disconnect();
     });
 
     it('records retranslator and supervisor kinds with restarts', async () => {

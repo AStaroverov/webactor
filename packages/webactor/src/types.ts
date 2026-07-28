@@ -1,4 +1,4 @@
-import { AnyEnvelope, CloseEnvelope, Envelope, EnvelopeType, ErrorEnvelope } from './envelope';
+import { AnyEnvelope, CloseEnvelope, Envelope, EnvelopeType, ErrorEnvelope, MessageErrorEnvelope } from './envelope';
 import { Reason } from './reason';
 
 export type ValueOf<T> = T[keyof T];
@@ -57,6 +57,7 @@ export interface EnvelopeListener<T extends AnyEnvelope> {
     (type: typeof EnvelopeType.Close, callback: (envelope: CloseEnvelope) => unknown): void;
     (type: typeof EnvelopeType.Error, callback: (envelope: ErrorEnvelope) => unknown): void;
     (type: typeof EnvelopeType.Message, callback: (envelope: T) => unknown): void;
+    (type: typeof EnvelopeType.MessageError, callback: (envelope: MessageErrorEnvelope) => unknown): void;
 }
 export interface EnvelopeListenerLike<T extends AnyEnvelope> {
     start?: () => void;

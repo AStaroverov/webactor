@@ -6,5 +6,7 @@ export const Reasons = {
     Close: 'Close',
     Restart: 'Restart',
     LostConnection: 'Lost connection',
+    Undeliverable: 'Undeliverable',
+    Undeserializable: 'Undeserializable',
 };
 export const $Aborted = Symbol('Aborted');

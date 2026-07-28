@@ -1,4 +1,4 @@
-import { AnyEnvelope, createEnvelope, isEnvelope } from '../envelope';
+import { AnyEnvelope, createEnvelope, EnvelopeType, isEnvelope } from '../envelope';
 import { intervalProvider } from '../providers';
 import { Reasons } from '../reason';
 import { EventType, Transmitter, type AnyData, type TransferableOptions } from '../types';
@@ -38,17 +38,23 @@ export async function request(
             () => post(target, envelope.type, envelope),
             options?.retryDelay ?? 500,
         );
-        const off = on(target, 'message', (envelope) => {
+        const settle = (envelope: AnyData) => {
             if (!isEnvelope(envelope)) return;
             if (envelope.__route !== chnanelId) return;
             if (envelope.data instanceof Error) reject(envelope.data);
-            else resolve(envelope);
+            else if (envelope.type === EnvelopeType.MessageError) {
+                reject(reasonToError(envelope.data, Reasons.Undeliverable));
+            } else resolve(envelope);
             onFinally();
-        });
+        };
+        // A native port delivers every envelope as a message event, an emitter dispatches by envelope type
+        const offMessage = on(target, EventType.Message, settle);
+        const offMesageError = on(target, EnvelopeType.MessageError, settle);
         const onFinally = () => {
             options?.abortSignal?.removeEventListener('abort', onAbort);
             intervalProvider.clearInterval(retryIntervalId);
-            off();
+            offMessage();
+            offMesageError();
         };
 
         post(target, envelope.type, envelope);
