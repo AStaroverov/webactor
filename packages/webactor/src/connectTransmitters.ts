@@ -4,7 +4,14 @@ import { loggerProvider } from './providers';
 import { Reasons } from './reason';
 import { AnyData, EventType, Transmitter } from './types';
 import { reasonToError } from './utils/common';
-import { createRoute, extendRoute, isRoutedEnvelope, reduceRoute, routeEndsWith } from './utils/route';
+import {
+    createRoute,
+    extendRoute,
+    isCheckpointedEnvelope,
+    isRoutedEnvelope,
+    reduceRoute,
+    routeEndsWith,
+} from './utils/route';
 import { getTransmitterName, on, post } from './utils/transmitter';
 
 type Type =
@@ -95,19 +102,25 @@ function reportUndelivered(
         return;
     }
 
-    const route = isRoutedEnvelope(failed) ? failed.__route : undefined;
-    const report = createEnvelope(EnvelopeType.MessageError, reasonToError(error, Reasons.Undeliverable), undefined, {
-        route,
-    });
+    const failure = reasonToError(error, Reasons.Undeliverable);
 
-    if (route === undefined) {
-        try {
-            post(source, EnvelopeType.MessageError, report);
-        } catch (reportError) {
-            loggerProvider.error(reportError);
-        }
-    } else {
+    // A routed envelope has someone waiting beyond the target, so the report keeps going that way
+    if (isRoutedEnvelope(failed)) {
+        const report = createEnvelope(EnvelopeType.MessageError, failure, undefined, { route: failed.__route });
         safePost(source, target, EnvelopeType.MessageError, report);
+        return;
+    }
+
+    // Anyone waiting sits behind the source, and the checkpoints minus this hop are the way back to them
+    const route = isCheckpointedEnvelope(failed)
+        ? reduceRoute(failed.__checkpoints, getTransmitterName(source), getTransmitterName(target))
+        : undefined;
+    const report = createEnvelope(EnvelopeType.MessageError, failure, undefined, { route });
+
+    try {
+        post(source, EnvelopeType.MessageError, report);
+    } catch (reportError) {
+        loggerProvider.error(reportError);
     }
 }
 

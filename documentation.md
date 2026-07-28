@@ -244,14 +244,19 @@ Two causes produce it:
   silently lost.
 
 **Where the report goes.** A refused payload does not mean a broken link: an `Error` travels where a
-transferable could not. So when the failed envelope was **routed** — a response, a channel handshake, in
-short something with a party waiting on the far side — the report inherits that route and continues in the
-same direction until it reaches them. A pending [`request`](#7-request--response) matching that route rejects
-immediately with the original error instead of retrying into a wall.
+transferable could not, so the report is routed to whoever was waiting for the message that failed.
 
-Everything else is only meaningful locally, so it is delivered to the nearest endpoint and relayed no
-further: a report with no route, and every `Undeserializable`. If even the report cannot be handed over, it
-goes to `loggerProvider.error` — at that point there is nobody left to tell.
+- The failed envelope was **routed** — a response, a channel handshake — so someone is waiting beyond the
+  target. The report inherits that route and continues in the same direction.
+- The failed envelope was **on its way out** and carries checkpoints, so anyone waiting sits behind the
+  source. The report travels back along those checkpoints minus the hop that just failed.
+
+Either way a pending [`request`](#7-request--response) whose route matches rejects immediately with the
+original error instead of retrying into a wall.
+
+What is left is only meaningful locally and is relayed no further: a report for an envelope with no
+checkpoints at all, and every `Undeserializable`. If even the report cannot be handed over, it goes to
+`loggerProvider.error` — at that point there is nobody left to tell.
 
 A throwing listener is a separate matter: it never reaches the peer at all. It is rethrown as an uncaught
 error, exactly like a throwing DOM event listener, and the remaining listeners still receive the envelope.

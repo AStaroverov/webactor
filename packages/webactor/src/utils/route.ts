@@ -33,3 +33,7 @@ export function routeEndsWith(route: Route, ...checkpoints: [Checkpoint, Checkpo
 export function isRoutedEnvelope(envelope: AnyEnvelope): envelope is AnyEnvelope & { __route: Route } {
     return envelope.__route !== undefined;
 }
+
+export function isCheckpointedEnvelope(envelope: AnyEnvelope): envelope is AnyEnvelope & { __checkpoints: Route } {
+    return envelope.__checkpoints !== undefined;
+}
