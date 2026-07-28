@@ -171,8 +171,6 @@ export function handleBridgeEnvelope(transmitter: object, envelope: AnyEnvelope)
 
     const state = states.get(transmitter);
     if (state !== undefined) {
-        // Both ends attached out over the same port, which happens whenever a second page connects to
-        // an already-active SharedWorker. The root wins: it is the only end that can deliver anywhere.
         if (state.direction === 'in') return;
         if (!data.root || devtools.hasLocalSink()) return;
         state.detach();

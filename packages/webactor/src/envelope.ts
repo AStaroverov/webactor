@@ -6,6 +6,7 @@ export const EnvelopeType = {
     Error: 'error',
     Close: 'close',
     Message: 'message',
+    MessageError: 'messageerror',
 } as const;
 
 export type EnvelopeTypes = ValueOf<typeof EnvelopeType>;
@@ -21,6 +22,7 @@ export type Envelope<T> = {
 
 export type AnyEnvelope = Envelope<AnyData>;
 export type ErrorEnvelope = Envelope<AnyData>;
+export type MessageErrorEnvelope = Envelope<Error>;
 export type CloseEnvelope = Envelope<{ reason?: Reason; source?: AnyData }>;
 
 export function isEnvelope(v: unknown): v is AnyEnvelope {

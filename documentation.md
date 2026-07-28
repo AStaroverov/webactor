@@ -84,7 +84,7 @@ To run outside the browser (Node, Vitest) inject polyfills via [providers](#13-e
 Every message is wrapped in an **Envelope**:
 
 ```ts
-type EnvelopeTypes = 'error' | 'close' | 'message';
+type EnvelopeTypes = 'error' | 'close' | 'message' | 'messageerror';
 
 type Envelope<T> = {
     readonly type: EnvelopeTypes;
@@ -97,7 +97,7 @@ type Envelope<T> = {
 };
 ```
 
-- `type` — one of `EnvelopeType.Message` (`'message'`), `EnvelopeType.Close` (`'close'`), `EnvelopeType.Error` (`'error'`).
+- `type` — one of `EnvelopeType.Message` (`'message'`), `EnvelopeType.Close` (`'close'`), `EnvelopeType.Error` (`'error'`), `EnvelopeType.MessageError` (`'messageerror'`).
 - `data` — your payload. Must be structured-cloneable when crossing a worker boundary (see [Delivery semantics](#5-delivery-semantics)).
 - `transferable` — objects to transfer rather than clone (see [Transferables](#12-transferables)).
 - `__route` / `__checkpoints` — the routing breadcrumbs. You normally never touch these; the library reads and rewrites them as an envelope hops across connections. They're what make request/response and channels work across an arbitrary mesh. See [the routing model](#6-connecting-actors--the-routing-model).
@@ -221,6 +221,41 @@ Understand these three rules — they prevent 90% of "why didn't my message arri
 
 3. **Order is preserved per connection.** Messages sent over one connection arrive in the order they were sent.
 
+### When a message does not make it
+
+A failure of a single message is reported as a `messageerror` envelope carrying an `Error`. Keep it distinct
+from `error`: an `error` envelope means the endpoint itself died and is what supervisors act on to decide a
+restart, while a `messageerror` says one message was lost and the endpoint is fine.
+
+```ts
+ctx.addEventListener('messageerror', (envelope) => {
+    console.warn('a message was lost:', envelope.data.message);
+});
+```
+
+Two causes produce it:
+
+- **Undeliverable** — a transport refused the payload on the way out, for example an unserializable
+  transferable or a dead port. The `Error` is the one the transport threw; when the transport threw a
+  non-error, its message is `Reasons.Undeliverable`.
+- **Undeserializable** — a transport implementing the platform `messageerror` event reported that an
+  incoming message could not be deserialized, with `Reasons.Undeserializable` as the message. Transports
+  without the event — Electron's `MessagePortMain`, for one — simply never fire it, and such a message stays
+  silently lost.
+
+**Where the report goes.** A refused payload does not mean a broken link: an `Error` travels where a
+transferable could not. So when the failed envelope was **routed** — a response, a channel handshake, in
+short something with a party waiting on the far side — the report inherits that route and continues in the
+same direction until it reaches them. A pending [`request`](#7-request--response) matching that route rejects
+immediately with the original error instead of retrying into a wall.
+
+Everything else is only meaningful locally, so it is delivered to the nearest endpoint and relayed no
+further: a report with no route, and every `Undeserializable`. If even the report cannot be handed over, it
+goes to `loggerProvider.error` — at that point there is nobody left to tell.
+
+A throwing listener is a separate matter: it never reaches the peer at all. It is rethrown as an uncaught
+error, exactly like a throwing DOM event listener, and the remaining listeners still receive the envelope.
+
 ---
 
 ## 6. Connecting actors & the routing model
@@ -303,7 +338,7 @@ function request(
 
 - Sends the message tagged with a `channelId`, then **re-sends it every `retryDelay` ms until a matching response arrives.** This makes requests robust to a responder that isn't wired up yet — but see the note below.
 - Resolves with the **response envelope** (read `res.data`).
-- **Rejects** if the response payload is an `Error`, or when `abortSignal` aborts — including a signal that is **already aborted** at call time (the request is then never sent).
+- **Rejects** if the response payload is an `Error`, if a hop reports the response as undeliverable (see [When a message does not make it](#when-a-message-does-not-make-it)), or when `abortSignal` aborts — including a signal that is **already aborted** at call time (the request is then never sent).
 
 ```ts
 const res = await request(server, { type: 'getUser', id: 42 });
@@ -663,11 +698,13 @@ const Reasons = {
     Close: 'Close',
     Restart: 'Restart',
     LostConnection: 'Lost connection',
+    Undeliverable: 'Undeliverable',
+    Undeserializable: 'Undeserializable',
 };
 const $Aborted: unique symbol;
 ```
 
-Standard close/abort reasons. `LostConnection` is emitted by channels and the worker supervisor when a peer disappears. `$Aborted` is an internal sentinel used to swallow abort-caused rejections.
+Standard close/abort reasons. `LostConnection` is emitted by channels and the worker supervisor when a peer disappears. `Undeliverable` and `Undeserializable` are the fallback messages of a `messageerror` envelope (see [Delivery semantics](#5-delivery-semantics)). `$Aborted` is an internal sentinel used to swallow abort-caused rejections.
 
 ---
 
@@ -721,7 +758,7 @@ Standard close/abort reasons. `LostConnection` is emitted by channels and the wo
 | `shallowCopyEnvelope`   | `(v) => Envelope`                                   |
 | `createEnvelopeChannel` | `() => { port1, port2 }`                            |
 | `createEnvelopeEmitter` | `() => EnvelopeEmitter`                             |
-| `EnvelopeType`          | `{ Error, Close, Message }`                         |
+| `EnvelopeType`          | `{ Error, Close, Message, MessageError }`                         |
 
 ### Providers & constants
 
@@ -772,7 +809,7 @@ Open a channel, then push many messages over it; close it (or let `LostConnectio
 
 **`connectActors` doesn't forward my `close`/`error`.** By design — only `message` is forwarded by default. Use `connectTransmitters(a, b, [EnvelopeType.Message, EnvelopeType.Close, EnvelopeType.Error])`.
 
-**`request` hangs forever.** No responder is wired up, or its route doesn't reach back. `request` retries indefinitely — always pass an `abortSignal`. Also confirm both actors are `launch()`ed and connected.
+**`request` hangs forever.** No responder is wired up, or its route doesn't reach back. `request` retries indefinitely — always pass an `abortSignal`. Also confirm both actors are `launch()`ed and connected. A responder that answers with something a transport cannot clone does **not** hang: the request rejects with the transport's own error (see [When a message does not make it](#when-a-message-does-not-make-it)).
 
 **Channels / worker supervisor throw in Node.** They need `navigator.locks`. Set `locksProvider.delegate` to a polyfill.
 
