@@ -166,6 +166,33 @@ describe('undelivered messages and failing listeners', () => {
         disconnect();
     });
 
+    it('should walk the report back to a caller sitting behind an intermediate hop', async () => {
+        const caller = createEnvelopeChannel();
+        const middle = createEnvelopeChannel();
+        const broken = {
+            name: 'broken',
+            postMessage: () => {
+                throw new Error('An object could not be cloned.');
+            },
+            addEventListener: () => {},
+            removeEventListener: () => {},
+        };
+        const first = connectTransmitters(
+            caller.port1 as unknown as Transmitter,
+            middle.port1 as unknown as Transmitter,
+        );
+        const second = connectTransmitters(middle.port2 as unknown as Transmitter, broken as Transmitter);
+
+        await expect(request(caller.port2 as unknown as Transmitter, { hello: 'world' })).rejects.toThrow(
+            'An object could not be cloned.',
+        );
+        expect(uncaught).toHaveLength(0);
+        expect(logged).toHaveLength(0);
+
+        first();
+        second();
+    });
+
     it('should log when even the report cannot be handed over', async () => {
         const native = new MockMessageChannel();
         const broken = {

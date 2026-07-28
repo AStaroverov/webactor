@@ -4,7 +4,7 @@
 
 Report a lost message instead of dropping it silently.
 
-A message that a transport refuses now produces a `messageerror` envelope carrying the transport's own error, so it stops being invisible. When the failed envelope was routed — a response, a channel handshake — the report inherits that route and travels to whoever was waiting, and a pending `request` rejects with the real cause instead of retrying until its `abortSignal` fires. Transports implementing the platform `messageerror` event now feed it into the same channel, so a failed deserialization reaches the endpoint as well.
+A message that a transport refuses now produces a `messageerror` envelope carrying the transport's own error, so it stops being invisible. The report is routed to whoever was waiting for the message that failed: forward along its route when the envelope was already routed, such as a response or a channel handshake, and back along its checkpoints when it was still on its way out. Either way a pending `request` rejects with the real cause instead of retrying until its `abortSignal` fires. Transports implementing the platform `messageerror` event now feed it into the same channel, so a failed deserialization reaches the endpoint as well.
 
 Keep it distinct from `error`: an `error` envelope still means the endpoint itself died and is what supervisors act on, while `messageerror` says one message was lost and the endpoint is fine.
 
